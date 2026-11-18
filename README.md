@@ -1,0 +1,68 @@
+# Galaxy S9+ SM-G965N Ubuntu
+
+한국향 S9+에 네이티브 Ubuntu 24.04를 설치하기 위한 소스·빌드 환경·설치 도구입니다.
+[SheroAbi의 G965F 포팅](https://github.com/SheroAbi/galaxy-s9plus-mainline-linux)을 기반으로
+원본 커널 드라이버, uniLoader, 빌드·설치 코드를 포함합니다.
+
+**현재 G965N은 TWRP·백업·펌웨어 추출만 실기 검증 완료했습니다. Ubuntu 부팅은 미검증입니다.**
+LTE·오디오·Bluetooth·카메라·절전은 이 mainline 기준에서 완성되지 않았습니다.
+완성된 설치판으로 오해하지 않도록 [검증표](docs/g965n/VALIDATION.md)를 먼저 확인하세요.
+
+## 빌드
+
+Mac/Linux 또는 Windows WSL2의 Bash에서 실행합니다. Docker, Git, Python 3와
+공식 Android platform-tools가 필요합니다. 여유 디스크 40GB, Docker 메모리 6GB 이상을
+권장합니다. ARM Mac에서도 amd64 도구 환경을 사용하므로 빌드가 더 느릴 수 있습니다.
+
+```bash
+git clone https://github.com/TurboCE/galaxy-s9plus-ubuntu.git
+cd galaxy-s9plus-ubuntu
+bash scripts/g965n/build.sh prepare
+
+# G965N을 TWRP로 부팅한 뒤 adb devices에서 확인한 시리얼을 지정합니다.
+export SERIAL=YOUR_DEVICE_SERIAL
+python3 scripts/g965n/device.py --serial "$SERIAL" --backup .local/backup
+python3 scripts/g965n/extract-firmware.py --serial "$SERIAL"
+
+cp scripts/g965n/image.env.example .local/image.env
+# .local/image.env의 IMAGE_PASSWORD를 직접 변경합니다.
+bash scripts/g965n/build.sh all
+```
+
+빌드는 폰에 쓰지 않습니다. Ubuntu Base와 TWRP 템플릿의 SHA256, Linux v7.1의 정확한
+커밋을 검사합니다. Ubuntu 패키지는 공식 업데이트 저장소에서 받으므로 날짜가 다른
+이미지는 바이트 단위로 같지 않을 수 있습니다. 패키지·입력 해시와 커밋 기록을 남깁니다.
+
+- 커널: `dist/uniloader/boot-g965n-experimental-*.img`
+- Ubuntu: `dist/image-g965n/s9plus-rootfs.img`
+- 빌드 기록: `dist/g965n/`, `.local/logs/`
+
+## 실험용 설치
+
+**Android 사용자 데이터가 삭제됩니다. G965N Ubuntu 첫 부팅은 아직 검증 중입니다.**
+[설치·복구 문서](docs/g965n/INSTALL.ko.md)를 읽고 생성된 파일명을 지정하세요.
+
+```bash
+python3 scripts/g965n/install.py --serial "$SERIAL" \
+  --backup .local/backup \
+  --rootfs dist/image-g965n/s9plus-rootfs.img \
+  --boot dist/uniloader/boot-g965n-experimental-TIMESTAMP.img \
+  --erase-userdata-experimental-g965n
+```
+
+모델·복구 환경·파티션 위치·백업 무결성과 EFS/CPEFS 일치를 확인한 뒤 원본의 검증
+설치 코드를 호출합니다. USERDATA → BOOT 순서로 쓰고 읽기 검증 후 재부팅합니다.
+RECOVERY 및 통신·보정 파티션은 설치 대상이 아닙니다. `dist/m71-*/boot.img`는
+uniLoader가 없으므로 설치하지 않습니다.
+
+## 기록·라이선스
+
+- [문제·해결·검증 기록](docs/g965n/CHANGELOG.md)
+- [라이선스·재배포 범위](docs/g965n/LICENSING.md), [원본 소스/해시 목록](docs/g965n/source-provenance.json)
+- [원본 README](README.upstream.md): 원본 G965F 결과이며 G965N 지원과 구분해야 합니다.
+
+GPL-2.0-only 및 각 파일에 보존된 기존 라이선스를 따릅니다. 삼성/Broadcom 펌웨어,
+NVRAM, 개인 백업, 비밀번호, 설치 이미지를 Git에 포함하지 않습니다. 자신의 기기에서
+펌웨어를 추출하며 외부 도구는 공식 출처에서 받습니다.
+
+테스트: `python3 -m unittest discover -s tests -v`

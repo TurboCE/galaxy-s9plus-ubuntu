@@ -1,0 +1,23 @@
+name: G965N source checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recovery guards and binary backup integrity
+        run: python3 -m unittest discover -s tests -v
+      - name: Shell syntax
+        run: for file in scripts/g965n/*.sh; do bash -n "$file"; done
+      - name: No extracted firmware or private state in Git
+        run: |
+          python3 - <<'PY'
+          import subprocess
+          files = subprocess.check_output(['git', 'ls-files', '-z']).decode().split('\0')
+          for f in filter(None, files):
+              assert not f.startswith(('.local/', 'inventory/', 'logs/', 'artifacts/', 'device/base/lib/firmware/')), f
+              assert not f.startswith('firmware/') or f.endswith('.md'), f
+              assert not f.endswith('.img'), f
+          PY

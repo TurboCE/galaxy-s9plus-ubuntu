@@ -1,0 +1,15 @@
+/dist/
+/build-logs/
+/.local/
+/inventory/
+/logs/
+/tools/
+/artifacts/
+*.img
+*.o
+*.ko
+*.pyc
+__pycache__/
+/firmware/*
+!/firmware/*.md
+/device/base/lib/firmware/
