@@ -948,3 +948,7 @@ cleanup order and old-buffer lifetime. Existing atomic_commit initializes
 internal events even when userspace supplies none. This hypothesis/candidate
 requires review, compile, boot, idle-transition and full rendering validation;
 it is not yet a hardware fix and no warning is suppressed.
+
+The first candidate compile failed before image packaging because dereferencing
+drm_atomic_state needs its defining drm_atomic.h header. Added the explicit
+include and retried; no device write took place for that failed build.
