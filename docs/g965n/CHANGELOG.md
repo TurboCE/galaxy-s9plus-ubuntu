@@ -1426,3 +1426,23 @@ duplicate/partial/malformed or zero-FPS rows and silent/partial-output/descendan
 process timeout cleanup. Timing is received-line completion, not proof of GPU
 job start/end or causation. No workload flag is installed globally.
 New profile's first#21 hardware run remains pending at this entry.
+
+
+Kernel#21 public targeted/timeline profile completed all3 scenes at reported
+1440x2960 but FAILED with5 actual scheduler timeouts (4 glmark JS0,1 GNOME
+JS1) and5 soft-stop failures. Diagnostic line count55 is not55 timeout events.
+All five snapshots show shader present==ready0x05771777 (18 sparse cores),
+tiler/L2 present==ready1 and all power-transition masks0; affinity matches
+present. At fragment timeouts JS1 was idle with no pending producer. Thus these
+observations do not support missing-ready-core or active-producer explanations.
+The live-slot recovery correction exposes real10ms non-idle observations; it
+did not repair the initiating timeout. No voltage/clock/PM/debug-global changes.
+Original locked/display-off state was restored in finally.
+
+An existing GPU devcoredump was preserved read-only in owner-private host
+storage before expiry for descriptor/BO metadata analysis. No pixel content or
+raw dump is included in Git. Missing heap SGT in one dump object does not mean
+every other object/register was absent. Initial field-size/source arithmetic
+audit finds no proven tiler/header overflow at native resolution; the16MiB
+render-buffer size correlation is a hypothesis only. Further diagnosis remains
+open, and no new CP security trial has been performed.
