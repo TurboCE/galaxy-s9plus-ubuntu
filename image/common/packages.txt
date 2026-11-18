@@ -58,6 +58,7 @@ gnome-shell-extension-ubuntu-dock
 gnome-shell-extension-appindicator
 gir1.2-dbusmenu-gtk3-0.4
 xdg-desktop-portal-gnome
+at-spi2-core
 xwayland
 yaru-theme-gnome-shell
 yaru-theme-gtk
@@ -71,6 +72,7 @@ mesa-utils
 libgl1-mesa-dri
 pipewire
 pipewire-pulse
+libspa-0.2-bluetooth
 wireplumber
 upower
 

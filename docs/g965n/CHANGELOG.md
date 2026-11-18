@@ -793,3 +793,88 @@ hardware-poll fallback; no event is completed based on IRQ alone. Candidate not
 yet built/boot-qualified. Also included the ACPM driver's own prototype header,
 and corrected the touch diagnostic to check its actual MT axes rather than
 unused legacy ABS_X/Y. Real unset-MT-axis warnings remain active.
+
+## 2026-11-19 — Kernel#15 measured wakeup reduction and independent validation
+
+Kernel#15 (sourceccd8994), BOOT
+410c776ed2cdaaf37bb798bf2138a7af35e58c5a1c029f952adbfcaf74db7c12,
+27,088,912bytes, passed fresh nine-partition backup, guarded BOOT-only readback
+and native boot. Exact audio/BT startup retained; touch MT-axis diagnostic now
+checks real axes and no false legacy-axis warning appears in this boot.
+
+Same-kernel IRQ-wait N/Y/N comparisons, three4s FIFO scenes each: N reads43559,
+Y reads1463, N reads43473. Scene rates59..61fps throughout; Y has732 waits,
+0 IRQ timeouts and0 deferred events in the interval. Whole-system context-switch
+deltas129774/46039/129835 are contextual evidence under those workloads, not a
+battery-saving percentage. Final Y policy restored. Peer code review identified
+a possible stale-count timestamp race around request programming; a generation-
+associated completion candidate is being prepared separately, not assumed fixed.
+
+A private root-run comparison created the shared validation lock root-owned.
+The next desktop-user validation correctly refused it; checked its regular-file,
+no-symlink/unlocked state and restored desktop ownership/mode0600. No GPU test
+ran in that failed invocation. Future privileged comparisons must create the
+lock as the desktop user, rather than weaken the shared lock checks.
+
+Two full attempts passed readback/all33 immediate scenes with0 matching kernel
+faults but FIFO timed out. The first found display power mode3; the next kept
+power on but the screen shield remained active. Such hidden surfaces receive no
+FIFO callbacks. Added temporary GNOME idle inhibition plus power/overview/lock
+preflight and end-state checks; no persistent idle preference change. Actual
+inhibitor readback false→true→false passed. Standard administrative session unlock
+was requested and asynchronous completion confirmed false/LockedHint=no before
+the next test; no unsafe Shell evaluation or access-control workaround used.
+
+Independent read-only audio/BT validation confirms exact BOOT/module hashes, active services,
+actual SPA1024/1024/non-mmap settings, correct unmuted mic and powered hci0 with
+profiles registered. Read Transmit Power warning is the existing board quirk's
+intentional diagnostic, not a new command failure; it was not removed. New peer
+pairing/A2DP/SCO and post-reboot acoustic quality remain untested.
+
+Network agent confirms USB SSH, DNS and Wi-Fi-bound HTTPS200. A prior optional
+accessibility package fetch failed transient DNS; no DNS setting was changed
+because it no longer reproduced. Retried at-spi2-core install and actual a11y bus
+address retrieval succeeded. Added it and already-installed libspa-0.2-bluetooth
+to the public dependency list; no personal app installation/configuration added.
+Current LTE transport is not loaded after reboot; historical KT registration
+must not be represented as current LTE data service.
+
+Power audit found real charger source defects: ICL inverse encoding,6bit CC
+ceiling, CHG enable field versus CNFG09 setup bit, STATUS enum mix-up, ignored
+reads and AICL minimum underflow. Prepared candidates and7 production-C/faultable-
+regmap tests; hardware control tests still pending. No current limit was raised.
+A60s low-load trace had positive battery current150..208mA (mean185mA), unlike
+prior heavy-GPU negative current; display state was not captured alongside it,
+so this is not labelled screen-off standby or an Android battery comparison.
+
+## 2026-11-19 — Light hub protocol verified, optical response still pending
+
+Exact#15 BOOT/module and own firmware validated before one sensor-transport load.
+Only SYSTEM/VENDOR ro,noload runtime and bounded isolated lhd were used; original
+identity/radio partitions were not exposed, gpsd not started. Stock argv is
+/vendor/bin/hw/lhd /vendor/etc/sensor/lhd.conf. Hub ready1,chip0x55,firmware21031900,
+LIGHT_SENSOR9 advertised. One5s sample and later60s stream each contain1 actual
+light sample, lux/RGBW0,CCT1452,integration17,gain64,0 parsing errors. Repeated
+stream lines are cached last values, not60 fresh samples. Physical cover/illumination was not confirmed, so optical response is UNVERIFIED,
+not failed or normal. Bounded daemon stops/ready0 are intentional teardown.
+
+Probe now has board/chip/layout guards, atomic bounded record parsing, unsupported/
+zero-sample nonzero exit and all-sensor/SIGTERM cleanup.13 targeted regressions
+pass. Prepared default-off --ap-awake asynchronous D1/D3 experiment matching
+pinned SSP protocol; NOT yet sent on hardware. No coefficient/calibration/EFS
+write is included. IIO/automatic brightness are separate unimplemented layers.
+Further physical optical/peer tests remain unverified; code/device checks continue separately.
+
+With the visible/unlocked desktop preconditions met, kernel#15 full acceptance
+passes33 scenes,100 exact frames and FIFO61/61/61fps,0 matching kernel faults,
+0 IRQ-wait timeouts and15 runtime power cycles. Display/unlocked checks remain
+true at completion. The temporary inhibitor is released; actual IsInhibited
+readback false→true→false was verified independently. This resolves the test-
+harness false-negative cause, not every desktop performance issue.
+
+Peer review prepared generation-associated DECON completion rather than raw
+vblank-count comparison. A short bounded100us IRQ-only check accommodates latch
+clear lag; ACK ordering/pending recheck and an MMIO readback avoid stale status
+recount. Driver-private locks never overlap core DRM event locks. Separate IRQ-
+side read counters expose that bounded work; process polling counts do not hide
+it. Candidate still requires compile/boot/FIFO validation before publication.

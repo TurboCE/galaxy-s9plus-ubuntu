@@ -140,3 +140,22 @@ interval faults. Completion is sent only after shadow latch AND counted FRAME_ST
 otherwise the old armed-event fallback retains the vblank reference. The runtime
 switch/counters support reproducible diagnosis. Owner reports improvement with
 residual stutter, so full desktop animation smoothness remains unqualified.
+
+## Visible desktop is required for FIFO tests
+
+The runner now takes a temporary GNOME session idle inhibitor during validation
+and checks that the display is on, the screen shield inactive and overview closed
+before starting. It never unlocks the session or changes persistent idle policy.
+A hidden/locked surface can stop FIFO frame callbacks without any GPU fault;
+this must be reported as an invalid/incomplete test, not shader corruption.
+End-state display/lock values and the inhibitor policy are recorded in results.
+Run tests as the desktop user. If a privileged A/B helper shares the runtime lock,
+keep that lock owned by the desktop UID; do not disable the lock or chmod it world-
+writable to work around an ownership mistake. DECON parameters/counters are now
+included with other settings so the exact presentation policy is visible.
+
+Kernel#15 unlocked/awake full qualification passes with61fps in all FIFO scenes,
+exact readback/full33 and0 matching faults. Same-kernel N/Y/N process polling
+reads43559/1463/43473 while maintaining59..61fps. A source-review generation race
+remains a separately prepared candidate until its own compile/boot test; bounded
+passes must not be described as a proof that every possible timestamp race is gone.
