@@ -1105,3 +1105,60 @@ diagnostic symlink is excluded when constructing an ordinary working clone;
 its target hash and source provenance remain in private receipts. Unreviewed
 links/specials still stop staging before clone creation. Fresh-stage live retry
 is authorized separately; no success is assumed from host tests.
+
+
+Native-resolution flush comparison: disabling only job-slot flush reduction
+(nocrc/lowmemY retained) still completed100/full33/FIFO61x3 but FAILED with4 GPU
+timeouts/8 matching lines, including one GNOME compositor JS1 job. OriginalY
+was restored in finally. Same-scene UTC/monotonic output and thermal samples
+are retained privately; line-completion timing does not uniquely identify the
+causal scene. Initial big59/GPU49C, sampled peaks78/71C, kernel big81C between
+samples. This rejects flush reduction alone as the repair; no permanent disable
+or clock/voltage/scheduler-timeout increase was introduced. A bounded runtime-PM
+comparison is separate and still pending.
+
+Private migration retry now succeeded on#18: source EFS/CPEFS/RADIO hashes
+match the fresh verified backup; legacy opaque archive and complete extraction
+quarantine inventories match; exactly cpdebug/node is absent from working NV
+and retained as a symlink in both preservation copies. Salted NV checksum,
+private bind identities and read-only SYSTEM/VENDOR/RADIO checks passed.
+STATE0700/DATA0755 retained. No CP/CBD/RIL/PDP started. Reboot resume and actual
+modem service lifetime remain separate unverified steps.
+
+
+Targeted native-resolution reproduction uses interleaved buffer-map, function
+low and first loop scenes8s each, followed by5s observation. Runtime PM auto
+and on each produced5 JS0 scheduler timeouts/10 matching lines. In on mode
+parent power counters remained78/78 throughout, demonstrating that the runtime
+reference actually prevented power cycling; always_on stayedN. Thus domain
+off/on alone is insufficient to explain the issue. Original auto restored.
+
+One further bounded comparison retained PM-on and fixed only the devfreq floor
+to the existing stock maximum572MHz, without voltage/timeout increases. All59
+samples read572000kHz/950000uV, parent counters80/80, GPU thermal peak71C with
+no observed cap, yet6 JS0 timeouts/12 lines occurred. This rules out DVFS
+transitions as a necessary condition in that run. Original min260/max572MHz,
+simple_ondemand and PMauto restored in finally. No new DECON errors in either
+comparison. Further arbitrary configuration stress was stopped in favor of
+BO synchronization/IRQ/scheduler source diagnosis. These are negative controls,
+not repairs, and do not qualify GPU stability or Android battery parity.
+
+
+## 2026-11-19 — Timeout register diagnostics candidate and sensor failure
+
+Prepared timeout-only Panfrost snapshot after the existing synchronize_irq/
+fence recheck. It takes a reference only if already active/in-use, snapshots
+queue/fence state and job/MMU/GPU interrupt registers under the existing short
+job lock, then prints outside that lock. No interrupt acknowledgement, recovery
+policy, frequency/voltage or scheduler deadline changes. Sequential MMIO reads
+are explicitly not an atomic hardware snapshot. Exact-anchor application and
+idempotence checks pass against pinned Linux7.1; compile/boot still pending.
+
+One bounded#18 sensor window verified exact BOOT/module/own firmware, loaded
+the hub transport once and refreshed only reviewed character nodes into the
+existing runtime under its exclusive lease. Shared-lease isolated lhd started,
+hub ready briefly read1, but the first chip query received no valid response
+within2s. Baseline exited1 with0 samples; AP-awake was never transmitted. lhd
+was stopped immediately, no process remained and ready returned0. This does
+not qualify sensor operation or optical response; no calibration/identity
+writes or automatic restarts were performed.

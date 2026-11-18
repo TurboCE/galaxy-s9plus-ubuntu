@@ -325,6 +325,86 @@ if "S9P_TIMEOUT_OWNER" not in pj:
         + anchor, 1)
     (src / pj_path).write_text(pj)
 
+# Timeout-only observation: retain the normal scheduler/recovery behavior.
+# The PM reference never wakes the GPU; job_lock protects queue/fence snapshots.
+# MMIO reads do not ACK interrupts, and printk runs after releasing job_lock.
+pj = (src / pj_path).read_text()
+if "S9P_TIMEOUT_SNAPSHOT" not in pj:
+    anchor = "static enum drm_gpu_sched_stat panfrost_job_timedout(struct drm_sched_job\n"
+    assert pj.count(anchor) == 1
+    diagnostic = r"""/* S9P_TIMEOUT_SNAPSHOT: diagnostics only, no acknowledgement or recovery writes. */
+static void panfrost_job_timeout_snapshot(struct panfrost_job *job)
+{
+	struct panfrost_device *pfdev = job->pfdev;
+	struct panfrost_job *queued;
+	unsigned long flags, suspended;
+	int js = panfrost_job_get_slot(job), pm_ref;
+	unsigned int i;
+	u32 irq[9] = {}, state = 0, cmd_next = 0, next_lo = 0, next_hi = 0;
+	u32 gpu_status = 0;
+	u64 seqno[2] = {};
+	bool present[2] = {}, matches[2] = {}, signaled[2] = {};
+	bool mmio = false;
+	const u32 irq_regs[] = {
+		JOB_INT_RAWSTAT, JOB_INT_MASK, JOB_INT_STAT,
+		MMU_INT_RAWSTAT, MMU_INT_MASK, MMU_INT_STAT,
+		GPU_INT_RAWSTAT, GPU_INT_MASK, GPU_INT_STAT,
+	};
+
+	/* Pin only an already active, referenced device. Never wake it merely
+	 * to diagnose a timeout, or schedule a new idle transition on release.
+	 */
+	pm_ref = pm_runtime_get_if_in_use(pfdev->base.dev);
+	spin_lock_irqsave(&pfdev->js->job_lock, flags);
+	suspended = READ_ONCE(pfdev->is_suspended[0]);
+	for (i = 0; i < ARRAY_SIZE(seqno); i++) {
+		queued = pfdev->jobs[js][i];
+		present[i] = queued != NULL;
+		matches[i] = queued == job;
+		if (queued && queued->done_fence) {
+			seqno[i] = queued->done_fence->seqno;
+			/* Do not call a fence helper that might acquire job_lock. */
+			signaled[i] = test_bit(DMA_FENCE_FLAG_SIGNALED_BIT,
+					      &queued->done_fence->flags);
+		}
+	}
+	if (pm_ref > 0 && !suspended) {
+		for (i = 0; i < ARRAY_SIZE(irq_regs); i++)
+			irq[i] = job_read(pfdev, irq_regs[i]);
+		state = job_read(pfdev, JOB_INT_JS_STATE);
+		cmd_next = job_read(pfdev, JS_COMMAND_NEXT(js));
+		next_lo = job_read(pfdev, JS_HEAD_NEXT_LO(js));
+		next_hi = job_read(pfdev, JS_HEAD_NEXT_HI(js));
+		gpu_status = job_read(pfdev, GPU_STATUS);
+		mmio = true;
+	}
+	spin_unlock_irqrestore(&pfdev->js->job_lock, flags);
+	if (pm_ref > 0)
+		pm_runtime_put_noidle(pfdev->base.dev);
+
+	/* MMIO values span a few reads, not an atomic hardware snapshot.
+	 * Print only after releasing job_lock; never expose BO contents.
+	 */
+	dev_err(pfdev->base.dev,
+		"timeout snapshot js=%d pm_ref=%d suspended=%#lx reset=%d mmio=%d q0=%d/%d/%llu/%d q1=%d/%d/%llu/%d\n",
+		js, pm_ref, suspended, atomic_read(&pfdev->reset.pending), mmio,
+		present[0], matches[0], (unsigned long long)seqno[0], signaled[0],
+		present[1], matches[1], (unsigned long long)seqno[1], signaled[1]);
+	if (mmio)
+		dev_err(pfdev->base.dev,
+			"timeout registers job_irq=%#x/%#x/%#x mmu_irq=%#x/%#x/%#x gpu_irq=%#x/%#x/%#x js_state=%#x next_cmd=%#x next_head=%#x:%08x gpu_status=%#x\n",
+			irq[0], irq[1], irq[2], irq[3], irq[4], irq[5],
+			irq[6], irq[7], irq[8], state, cmd_next, next_hi,
+			next_lo, gpu_status);
+}
+
+"""
+    pj = pj.replace(anchor, diagnostic + anchor, 1)
+    anchor = '\t/* S9P_TIMEOUT_OWNER: distinguish compositor and benchmark jobs. */\n'
+    assert pj.count(anchor) == 1
+    pj = pj.replace(anchor, '\tpanfrost_job_timeout_snapshot(job);\n\n' + anchor, 1)
+    (src / pj_path).write_text(pj)
+
 # Report why BO backing failed rather than only a WARN backtrace.
 mmu_path = src / "drivers/gpu/drm/panfrost/panfrost_mmu.c"
 mmu = mmu_path.read_text()
