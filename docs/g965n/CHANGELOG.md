@@ -878,3 +878,21 @@ clear lag; ACK ordering/pending recheck and an MMIO readback avoid stale status
 recount. Driver-private locks never overlap core DRM event locks. Separate IRQ-
 side read counters expose that bounded work; process polling counts do not hide
 it. Candidate still requires compile/boot/FIFO validation before publication.
+
+## 2026-11-19 — Charger and generation-completion candidates for kernel#16
+
+Charger candidate keeps original notices/reference intact and accepts cache
+migration only from the exact known previous port-source hash. CHGIN encodes
+current/25mA-1 (500000 requested previously read525000); CC uses its distinct
+6bit3150mA ceiling rather than input7bit3200mA ceiling. Charge enable uses
+CNFG00bit0 as in pinned Lineage charger state control; legacy CNFG09bit7 setup
+is preserved independently, not toggled as charging inhibition. Correct STATUS
+enum and read-error propagation, low-voltage health initialization and AICL
+minimum underflow handling are included.7 tests execute actual production C
+functions with injected regmap failures and boundary values. No live current
+increase or charge-control write has been used to qualify these candidates.
+
+The same build will include generation-associated DECON IRQ completion and
+separate IRQ-read accounting. Both changes await the exact next kernel compile,
+fresh backup/guarded BOOT deployment and bounded hardware tests. Existing tested
+#15 remains a rollback image. No original identity/radio/recovery writes planned.

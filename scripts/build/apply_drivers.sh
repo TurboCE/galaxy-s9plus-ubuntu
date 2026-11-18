@@ -35,6 +35,9 @@ ref="$PROJ/src/reference/max77705_charger.c"     # torvalds/linux v7.1, unmodifi
 if ! cmp -s "$ref" "$SRC/drivers/power/supply/max77705_charger.c"; then
 	if cmp -s "$PROJ/src/soc/max77705_charger.c" "$SRC/drivers/power/supply/max77705_charger.c"; then
 		: # already installed by us
+	elif [ "$(sha256sum "$SRC/drivers/power/supply/max77705_charger.c" | cut -d ' ' -f1)" = \
+	       "671bf7101d885880146eeccc7f10b9c432c1260642ee547fb7d98764a2fe95d9" ]; then
+		: # exact prior charge_behaviour port revision; safe one-time migration
 	else
 		echo "MAX77705 upstream driver drifted from the pinned reference —"
 		echo "update src/soc/max77705_charger.c before building."

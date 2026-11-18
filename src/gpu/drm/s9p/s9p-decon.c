@@ -42,6 +42,7 @@
 #include <linux/module.h>
 #include <linux/wait.h>
 #include <linux/ktime.h>
+#include <linux/spinlock.h>
 #include <linux/platform_device.h>
 
 #include <drm/clients/drm_client_setup.h>
@@ -172,15 +173,20 @@ static bool s9p_panel_sleep = true;
 module_param_named(panel_sleep, s9p_panel_sleep, bool, 0644);
 MODULE_PARM_DESC(panel_sleep, "also put the panel into sleep mode when blanking");
 
-/* The synchronous shadow wait already covers the presenting TE edge. Do not
- * queue completion for another vblank when that edge has been counted. */
+/* The synchronous shadow wait already covers the hardware latch. Do not queue
+ * another vblank once a generation-associated FRAME_START has been processed. */
 static bool s9p_latched_flip_events = true;
 module_param_named(latched_flip_events, s9p_latched_flip_events, bool, 0644);
-MODULE_PARM_DESC(latched_flip_events, "complete flips on the counted latch edge instead of the following frame");
+MODULE_PARM_DESC(latched_flip_events, "complete flips after generation-associated FRAME_START processing");
 static bool s9p_irq_latch_wait = true;
 module_param_named(irq_latch_wait, s9p_irq_latch_wait, bool, 0644);
 MODULE_PARM_DESC(irq_latch_wait, "wait for FRAME_START before checking the shadow latch");
 static unsigned long s9p_irq_waits, s9p_irq_wait_timeouts, s9p_shadow_reads;
+static unsigned long s9p_irq_latch_check_timeouts, s9p_irq_generation_marks;
+static unsigned long s9p_irq_shadow_reads;
+module_param_named(irq_shadow_reads, s9p_irq_shadow_reads, ulong, 0444);
+module_param_named(irq_latch_check_timeouts, s9p_irq_latch_check_timeouts, ulong, 0444);
+module_param_named(irq_generation_marks, s9p_irq_generation_marks, ulong, 0444);
 module_param_named(irq_waits, s9p_irq_waits, ulong, 0444);
 module_param_named(irq_wait_timeouts, s9p_irq_wait_timeouts, ulong, 0444);
 module_param_named(shadow_reads, s9p_shadow_reads, ulong, 0444);
@@ -210,6 +216,11 @@ struct s9p_decon {
 	u32 inherited_path1;
 	int irq_frame_start;
 	wait_queue_head_t frame_wait;
+	/* Never nest flip_lock with the DRM event/vblank locks. */
+	spinlock_t flip_lock;
+	u64 flip_generation;
+	u64 irq_generation;
+	bool flip_pending;
 	/* one all-black frame, for display-off (see s9p_decon_blank) */
 	void __iomem *dsim;		/* DSIM0, for DCS display off/on */
 	void *black_cpu;
@@ -251,11 +262,38 @@ static u32 s9p_shadow_mask(const struct s9p_decon *priv)
  */
 #define SHADOW_POLL_US		250
 #define SHADOW_TIMEOUT_US	50000
+/* A FRAME_START may precede the visible request-bit clear by a few cycles.
+ * Keep the atomic allowance short; an IRQ crossing a fresh TE is acknowledged
+ * only after this check so the sticky status cannot be counted again. */
+#define IRQ_SHADOW_LAG_US	100
 
 static u32 s9p_shadow_read(struct s9p_decon *priv)
 {
 	s9p_shadow_reads++;
 	return readl(priv->decon + DECON_SHADOW_REG_UPDATE_REQ);
+}
+
+/* Separate IRQ-side accounting: the process-context polling counter must not
+ * hide the bounded atomic checks or race with its interrupt-side writer. */
+static u32 s9p_irq_shadow_read(void __iomem *reg)
+{
+	s9p_irq_shadow_reads++;
+	return readl(reg);
+}
+
+/* A counter advance alone is not tied to the request. Require an IRQ that
+ * saw this generation's shadow clear before its vblank update. This does not
+ * provide a hardware timestamp or reconstruct coalesced/missed TE edges. */
+static bool s9p_generation_counted(struct s9p_decon *priv, u64 generation)
+{
+	unsigned long flags;
+	bool counted;
+
+	spin_lock_irqsave(&priv->flip_lock, flags);
+	counted = generation && priv->flip_generation == generation &&
+		priv->irq_generation == generation;
+	spin_unlock_irqrestore(&priv->flip_lock, flags);
+	return counted;
 }
 
 static int s9p_wait_shadow_idle(struct s9p_decon *priv)
@@ -271,8 +309,8 @@ static int s9p_wait_shadow_idle(struct s9p_decon *priv)
  * IRQ is a wakeup hint, never proof that the framebuffer has latched. If the
  * interrupt is missing, the remaining-time poll still checks real hardware.
  */
-static int s9p_wait_flip_latch(struct s9p_decon *priv, struct drm_crtc *crtc,
-			       u64 before, bool vblank_held)
+static int s9p_wait_flip_latch(struct s9p_decon *priv, u64 generation,
+			       bool vblank_held)
 {
 	ktime_t deadline;
 	s64 remaining;
@@ -284,7 +322,7 @@ static int s9p_wait_flip_latch(struct s9p_decon *priv, struct drm_crtc *crtc,
 	deadline = ktime_add_us(ktime_get(), SHADOW_TIMEOUT_US);
 	s9p_irq_waits++;
 	if (!wait_event_timeout(priv->frame_wait,
-			drm_crtc_vblank_count(crtc) != before,
+			s9p_generation_counted(priv, generation),
 			msecs_to_jiffies(40)))
 		s9p_irq_wait_timeouts++;
 
@@ -312,9 +350,19 @@ static void s9p_hw_trigger_unmask(struct s9p_decon *priv)
 	writel_relaxed(v, priv->decon + DECON_HW_SW_TRIG_CONTROL);
 }
 
-static void s9p_decon_program_address(struct s9p_decon *priv, dma_addr_t addr)
+static u64 s9p_decon_program_address(struct s9p_decon *priv, dma_addr_t addr)
 {
 	void __iomem *ch = s9p_chan_regs(priv, priv->chan);
+	unsigned long flags;
+	u64 generation;
+
+	/* The IRQ's request snapshot cannot straddle address/request programming.
+	 * Do not call any DRM helper while holding this driver-private lock. */
+	spin_lock_irqsave(&priv->flip_lock, flags);
+	generation = ++priv->flip_generation;
+	if (!generation)
+		generation = ++priv->flip_generation;
+	priv->flip_pending = true;
 
 	/* packed XRGB8888: the vendor writes the primary Y/C pair only;
 	 * Y2/C2 are extra bitplanes of 10-bit formats, not ping-pong. */
@@ -324,6 +372,8 @@ static void s9p_decon_program_address(struct s9p_decon *priv, dma_addr_t addr)
 	writel_relaxed(s9p_shadow_mask(priv),
 		       priv->decon + DECON_SHADOW_REG_UPDATE_REQ);
 	s9p_hw_trigger_unmask(priv);
+	spin_unlock_irqrestore(&priv->flip_lock, flags);
+	return generation;
 }
 
 /*
@@ -351,10 +401,57 @@ static irqreturn_t s9p_decon_irq(int irq, void *data)
 	}
 
 	if (pend & DECON_FRAME_START_INT_PEND) {
-		writel_relaxed(DECON_FRAME_START_INT_PEND,
-			       priv->decon + DECON_INTERRUPT_PENDING);
-		drm_crtc_handle_vblank(&priv->pipe.crtc);
-		wake_up_all(&priv->frame_wait);
+		unsigned long flags;
+		u64 generation = 0;
+		u32 request;
+		bool have_start = false;
+		bool counted;
+
+		spin_lock_irqsave(&priv->flip_lock, flags);
+		/* Different DECON IRQ lines can enter with the same stale status
+		 * snapshot. Recheck under the lock before counting or acknowledging. */
+		if (readl_relaxed(priv->decon + DECON_INTERRUPT_PENDING) &
+		    DECON_FRAME_START_INT_PEND) {
+			have_start = true;
+			if (priv->flip_pending) {
+				/* Confirm before counting. A delayed older IRQ normally
+				 * sees the request pending and cannot certify the flip.
+				 * Permit only a tiny clear lag at the actual FRAME_START. */
+				if (!read_poll_timeout_atomic(s9p_irq_shadow_read, request,
+						!(request & s9p_shadow_mask(priv)),
+						1, IRQ_SHADOW_LAG_US, false,
+						priv->decon + DECON_SHADOW_REG_UPDATE_REQ))
+					generation = priv->flip_generation;
+				else
+					s9p_irq_latch_check_timeouts++;
+			}
+			/* ACK after the bounded check. If it crosses a fresh TE, the
+			 * sticky pending bit coalesces the edges: do not leave that
+			 * new bit behind to count the same observed latch twice. */
+			writel_relaxed(DECON_FRAME_START_INT_PEND,
+				       priv->decon + DECON_INTERRUPT_PENDING);
+			/* Flush the ACK before another IRQ line can recheck under
+			 * flip_lock; lock ordering alone does not drain posted MMIO. */
+			readl(priv->decon + DECON_INTERRUPT_PENDING);
+		}
+		spin_unlock_irqrestore(&priv->flip_lock, flags);
+
+		/* drm_crtc_handle_vblank takes event_lock internally. It must
+		 * never run under flip_lock (nor may event_lock acquire it). */
+		counted = have_start && drm_crtc_handle_vblank(&priv->pipe.crtc);
+		if (counted && generation) {
+			spin_lock_irqsave(&priv->flip_lock, flags);
+			/* Another request may have been programmed while the core
+			 * counted this IRQ. Never acknowledge that newer request. */
+			if (priv->flip_pending && priv->flip_generation == generation) {
+				priv->irq_generation = generation;
+				priv->flip_pending = false;
+				s9p_irq_generation_marks++;
+			}
+			spin_unlock_irqrestore(&priv->flip_lock, flags);
+		}
+		if (have_start)
+			wake_up_all(&priv->frame_wait);
 	}
 	if (pend & DECON_FRAME_DONE_INT_PEND)
 		writel_relaxed(DECON_FRAME_DONE_INT_PEND,
@@ -532,7 +629,7 @@ static void s9p_decon_pipe_update(struct drm_simple_display_pipe *pipe,
 	bool latched = false;
 	bool vblank_held = crtc->state->event && crtc->state->active &&
 		drm_crtc_vblank_get(crtc) == 0;
-	u64 before_latch = 0;
+	u64 generation = 0;
 
 	if (fb && priv->enabled) {
 		if (s9p_wait_shadow_idle(priv)) {
@@ -540,8 +637,7 @@ static void s9p_decon_pipe_update(struct drm_simple_display_pipe *pipe,
 				"previous shadow update stuck, skipping flip\n");
 		} else {
 			obj = to_drm_gem_dma_obj(fb->obj[0]);
-			before_latch = drm_crtc_vblank_count(crtc);
-			s9p_decon_program_address(priv, obj->dma_addr);
+			generation = s9p_decon_program_address(priv, obj->dma_addr);
 			/*
 			 * The vendor's wait_update_done_and_mask half of the
 			 * handshake. The new base address only becomes the one
@@ -556,7 +652,7 @@ static void s9p_decon_pipe_update(struct drm_simple_display_pipe *pipe,
 			 * screen that is a torn, half-drawn frame right after
 			 * every click, followed by the correct one.
 			 */
-			if (s9p_wait_flip_latch(priv, crtc, before_latch, vblank_held))
+			if (s9p_wait_flip_latch(priv, generation, vblank_held))
 				drm_err_ratelimited(&priv->drm,
 					"flip did not latch within 50 ms\n");
 			else
@@ -566,13 +662,14 @@ static void s9p_decon_pipe_update(struct drm_simple_display_pipe *pipe,
 
 	if (crtc->state->event) {
 		unsigned long flags;
+		bool counted_latch = s9p_generation_counted(priv, generation);
 
 		spin_lock_irqsave(&crtc->dev->event_lock, flags);
 		if (vblank_held && READ_ONCE(s9p_latched_flip_events) && latched &&
-		    drm_crtc_vblank_count(crtc) != before_latch) {
-			/* Shadow has latched AND FRAME_START has been counted. Send
-			 * the actual presenting edge's sequence/timestamp now. Sending
-			 * before the latch would tear; arming here delays by one frame.
+		    counted_latch) {
+			/* The core processed an IRQ associated with this request's
+			 * cleared shadow. Keep its public event/fence helper and
+			 * reference rules; do not build an estimated event ABI here.
 			 */
 			drm_crtc_send_vblank_event(crtc, crtc->state->event);
 			drm_crtc_vblank_put(crtc);
@@ -676,6 +773,7 @@ static int s9p_decon_probe(struct platform_device *pdev)
 		return PTR_ERR(priv);
 	drm = &priv->drm;
 	init_waitqueue_head(&priv->frame_wait);
+	spin_lock_init(&priv->flip_lock);
 
 	priv->decon = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(priv->decon))
