@@ -13,7 +13,7 @@ A build or a driver node is not sufficient evidence of a working function.
 | Native builds / Git | Git clone+pull; real fixdep C source compiled on each CPU, 8 identical object hashes | Short test passed |
 | Storage | USERDATA mounted as root and grew to 230GiB | Verified |
 | Display / touch | Owner confirmed desktop/touch; 2x desktop scaling persisted at 720x1480 logical pixels | Basic interaction verified; apps wider than 720 minimum still need adaptations |
-| GPU | Mali-G72/Panfrost GLES3.1; offscreen 100 texture/shader frames, 6,553,600 exact bytes, no new kernel faults in that interval | Basic readback passed; earlier GNOME/nautilus/Xwayland job faults remain unresolved |
+| GPU | Mali-G72/Panfrost GLES3.1; offscreen 100 texture/shader frames, 6,553,600 exact bytes, no new kernel faults in that interval | Basic readback passed; full33-scene sequence reproduces scheduler timeouts, including at fixed260MHz and with per-client AFBC off; unresolved |
 | Wi-Fi | Connected; HTTPS200 explicitly bound to Wi-Fi; NTP synchronized | Data path verified; long reconnect tests pending |
 | USB networking / SSH | Mac received address automatically; key-only SSH works | Verified |
 | Manual wired disconnect recovery | Console identified Wi-Fi path; privileged reconnection + gadget rebind restored USB SSH | Verified |

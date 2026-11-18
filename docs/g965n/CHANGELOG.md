@@ -375,3 +375,25 @@ Installed glmark2-es2-wayland. Mali-G72/Panfrost GLES3.1 Mesa25.2.8 rendered thr
 512x512 offscreen benchmarks with readback and no new kernel fault in that
 interval. This does not clear earlier GNOME job faults or scheduler timeouts.
 No fixed-clock or no-AFBC setting has been installed at this checkpoint.
+
+## 2026-11-19 — Reproduced GPU hangs under a complete scene sequence
+
+On kernel#6, ran all33 glmark2 GLES/Wayland512x512 scenes (one-second
+scene duration). The program printed a score but the bounded kernel delta
+contained repeated job-slot0 scheduler timeouts. A score is not acceptance.
+The earlier three short offscreen/readback scenes did not expose this failure.
+
+Parked the lab modem with its documented CP power-off ioctl because bounded
+RFS/IPC services had ended; this avoids leaving an unsupported CP session running.
+Temporarily capped GPU devfreq at260MHz with its minimum already260MHz. The same
+sequence still timed out. Restored max572MHz. Disabling flush reduction also
+produced timeouts before a later overlapping test; that overlapping tail cannot
+be used as a controlled comparison. Restored flush reduction=Y. A separate
+non-overlapping PAN_MESA_DEBUG=noafbc run still timed out, so disabling AFBC
+for an individual client is not a complete repair. A sync-mode run did not
+complete within55seconds and still had a timeout in its kernel delta; no global
+Mesa debug setting installed. Runtime-PM override remainsN and step-voltage
+reduction remainsN. No new kernel was flashed.
+
+Paused disruptive GPU workloads/reboot tests while the owner uses the handset.
+GPU correctness, compositor smoothness and long-term stability remain open.
