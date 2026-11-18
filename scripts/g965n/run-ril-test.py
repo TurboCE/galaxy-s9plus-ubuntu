@@ -13,13 +13,32 @@ from pathlib import Path
 import subprocess
 import sys
 import re
-from gi.repository import Gio, GLib
+import importlib.util
+
+
+def load_runtime(helper):
+    if helper.is_symlink() or not helper.is_file():
+        raise RuntimeError('Missing reviewed vendor-runtime helper')
+    spec = importlib.util.spec_from_file_location('g965n_runtime_preflight', helper)
+    runtime = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runtime)
+    return runtime
+
+
+def verify_private_runtime(helper, runtime=None):
+    """Caller holds shared runtime lease; no MODEM_OFF before all checks pass."""
+    runtime = runtime if runtime is not None else load_runtime(helper)
+    runtime.assert_board()
+    runtime.validate_modem_state(runtime.read_provenance())
+    runtime.verify_private_bindings()
+    return runtime
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--lab-directory', type=Path, required=True)
     parser.add_argument('--apn', required=True)
+    parser.add_argument('--runtime-helper', type=Path, default=Path(__file__).with_name('vendor-runtime.py'))
     parser.add_argument('--confirm-private-nv-copy', action='store_true', required=True)
     parser.add_argument('--seconds', type=int, choices=range(30, 121), default=90)
     args = parser.parse_args()
@@ -34,30 +53,34 @@ def main():
         raise SystemExit('Stop the previous bounded cbd test first')
     if subprocess.run(['systemctl', 'is-active', '--quiet', 'g965n-ril-lab-test']).returncode == 0:
         raise SystemExit('Stop the previous bounded RIL test first')
-    # No active modem-control daemon. This affects only the test handset CP.
-    with open('/dev/umts_boot0', 'rb', buffering=0) as boot:
-        fcntl.ioctl(boot.fileno(), 0x6f20, 0)  # _IO('o',0x20), IOCTL_MODEM_OFF
-    command = ['/usr/bin/python3', str((args.lab_directory / 'ril-lab.py').resolve()),
-               '--seconds', str(args.seconds), '--configure-radio', '--apn', args.apn]
-    properties = [
-        ('Description', GLib.Variant('s', 'Bounded G965N private-copy IPC/RFS lab')),
-        ('DevicePolicy', GLib.Variant('s', 'closed')),
-        ('DeviceAllow', GLib.Variant('a(ss)', [('/dev/' + p, 'rw') for p in ('umts_ipc0', 'umts_rfs0', 'umts_router')])),
-        ('UMask', GLib.Variant('u', 0o077)),
-        ('NoNewPrivileges', GLib.Variant('b', True)),
-        ('RuntimeMaxUSec', GLib.Variant('t', (args.seconds + 5) * 1000000)),
-        ('Restart', GLib.Variant('s', 'no')),
-        ('ExecStart', GLib.Variant('a(sasb)', [(command[0], command, False)])),
-    ]
-    bus = Gio.DBusProxy.new_for_bus_sync(Gio.BusType.SYSTEM, 0, None,
-        'org.freedesktop.systemd1', '/org/freedesktop/systemd1', 'org.freedesktop.systemd1.Manager', None)
-    bus.call_sync('StartTransientUnit', GLib.Variant('(ssa(sv)a(sa(sv)))', (
-        'g965n-ril-lab-test.service', 'fail', properties, [])), 0, 5000, None)
-    if subprocess.run(['systemctl', 'is-failed', '--quiet', 'g965n-cbd-test']).returncode == 0:
-        subprocess.run(['systemctl', 'reset-failed', 'g965n-cbd-test'], check=True)
-    subprocess.run([sys.executable, str(Path(__file__).with_name('run-cbd-test.py')),
-                    '--confirm-private-nv-copy', '--seconds', '120'], check=True)
-    print('Bounded RIL/RFS and cbd tests started; read private journal, not a success claim.')
+    runtime = load_runtime(args.runtime_helper)
+    with runtime.shared_runtime_lock():
+        verify_private_runtime(args.runtime_helper, runtime)
+        from gi.repository import Gio, GLib
+        # No active modem-control daemon. This affects only the test handset CP.
+        with open('/dev/umts_boot0', 'rb', buffering=0) as boot:
+            fcntl.ioctl(boot.fileno(), 0x6f20, 0)  # _IO('o',0x20), IOCTL_MODEM_OFF
+        command = ['/usr/bin/python3', str((args.lab_directory / 'ril-lab.py').resolve()),
+                   '--seconds', str(args.seconds), '--configure-radio', '--apn', args.apn]
+        properties = [
+            ('Description', GLib.Variant('s', 'Bounded G965N private-copy IPC/RFS lab')),
+            ('DevicePolicy', GLib.Variant('s', 'closed')),
+            ('DeviceAllow', GLib.Variant('a(ss)', [('/dev/' + p, 'rw') for p in ('umts_ipc0', 'umts_rfs0', 'umts_router')])),
+            ('UMask', GLib.Variant('u', 0o077)),
+            ('NoNewPrivileges', GLib.Variant('b', True)),
+            ('RuntimeMaxUSec', GLib.Variant('t', (args.seconds + 5) * 1000000)),
+            ('Restart', GLib.Variant('s', 'no')),
+            ('ExecStart', GLib.Variant('a(sasb)', [(command[0], command, False)])),
+        ]
+        bus = Gio.DBusProxy.new_for_bus_sync(Gio.BusType.SYSTEM, 0, None,
+            'org.freedesktop.systemd1', '/org/freedesktop/systemd1', 'org.freedesktop.systemd1.Manager', None)
+        bus.call_sync('StartTransientUnit', GLib.Variant('(ssa(sv)a(sa(sv)))', (
+            'g965n-ril-lab-test.service', 'fail', properties, [])), 0, 5000, None)
+        if subprocess.run(['systemctl', 'is-failed', '--quiet', 'g965n-cbd-test']).returncode == 0:
+            subprocess.run(['systemctl', 'reset-failed', 'g965n-cbd-test'], check=True)
+        subprocess.run([sys.executable, str(Path(__file__).with_name('run-cbd-test.py')),
+                        '--confirm-private-nv-copy', '--runtime-helper', str(args.runtime_helper), '--seconds', '120'], check=True)
+        print('Bounded RIL/RFS and cbd tests started; read private journal, not a success claim.')
 
 
 if __name__ == '__main__':

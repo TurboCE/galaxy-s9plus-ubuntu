@@ -982,3 +982,24 @@ request. This verifies the software screen-only/background path, not actual
 physical short/long button behavior or Android-equivalent standby drain. The
 interaction between a physical key wake and release-driven toggle is pending
 owner testing. Service health alone is not physical-button acceptance.
+
+
+## 2026-11-19 — Private modem migration and pre-CP guards (source checks)
+
+Added same-handset backup provenance, content-preserving legacy clone archive,
+explicit fresh staging and reboot resume. Extraction uses verified root-private
+snapshots rather than mutable user paths. Opaque receipts and clone content/
+metadata are checked after archive; original EFS/CPEFS/RADIO are never mounted
+or written. Independent review found and corrected snapshot TOCTOU and receipt
+preservation issues before device use. Symlink/hardlink/special-file and bounded
+NV/checksum guards fail closed. Shared client-lifetime leases prevent exclusive
+runtime migration while new RIL/CBD clients hold the runtime; old clients must
+be stopped. Pre-CP launchers check provenance and actual private bindings,
+including read-only ordinary RADIO, before modem-off or vendor execution.
+
+Host checks passed22 runtime,2 preflight and4 reference PDP tests. Original
+reference protocol encoders/parsers describe127/103/27/4-byte legacy layouts;
+these do not qualify S9's proposed105/257-byte messages. Live activation stays
+blocked instead of guessing offsets. Registration or candidate IP is not data
+connectivity. Migration/resume remains hardware-unqualified at this checkpoint.
+Full instructions and partial-failure limits are in PRIVATE-MODEM-RUNTIME.md.

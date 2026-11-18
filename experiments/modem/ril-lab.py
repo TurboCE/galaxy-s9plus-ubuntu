@@ -11,16 +11,125 @@ from contextlib import ExitStack
 import fcntl
 import importlib.util
 import json
+import ipaddress
 import os
 from pathlib import Path
 import re
 import select
 import struct
+import stat
 import time
 from collections import deque
 
 spec = importlib.util.spec_from_file_location('rfs_copy', Path(__file__).with_name('rfs-copy.py'))
 rfs_copy = importlib.util.module_from_spec(spec); spec.loader.exec_module(rfs_copy)
+
+
+# Protocol facts only: LineageOS/android_hardware_samsung_samsung-ipc,
+# 6d244414f7c66b0d0f93ef4b34f5276023408016, include/gprs.h and gen.h.
+# GPL-2.0-or-later reference; this is an independent GPL-2.0-only implementation.
+# IMPORTANT: that reference describes 103-byte activation / 27-byte IPv4,
+# not an established SM-G965N 105-byte / 257-byte layout. Never transmit this
+# reference profile on the S9 without a separately reviewed target mapping.
+REFERENCE_PROTOCOL = 'lineage-ipc-6d244414-reference-only'
+
+
+def reference_define_pdp(apn, cid=1):
+    if not re.fullmatch(r'[A-Za-z0-9.-]{1,100}', apn) or type(cid) is not int or not 1 <= cid <= 3:
+        raise ValueError('Invalid bounded reference APN/CID')
+    return bytes((1, cid, 2)) + apn.encode('ascii').ljust(124, b'\0')
+
+
+def reference_activate_pdp(cid=1, enable=True):
+    if type(cid) is not int or not 1 <= cid <= 3 or type(enable) is not bool:
+        raise ValueError('Invalid reference CID/enable')
+    # No authentication credentials: all reserved/auth fields are zero.
+    return bytes((int(enable), cid)) + bytes(101)
+
+
+def reference_ip_config(body, cid=1):
+    if len(body) != 27 or body[0] != cid or body[2] != 0:
+        raise ValueError('Unqualified/failed reference IP configuration')
+    values = [str(ipaddress.IPv4Address(body[offset:offset+4])) for offset in (3, 7, 11, 15, 19)]
+    address = ipaddress.IPv4Address(values[0])
+    if address.is_unspecified or address.is_multicast or address.is_loopback or address.is_link_local or int(address) == 0xffffffff:
+        raise ValueError('Unusable PDP IPv4 address')
+    dns = []
+    for value in values[1:3]:
+        address = ipaddress.IPv4Address(value)
+        if not (address.is_unspecified or address.is_multicast or address.is_loopback or address.is_link_local or int(address) == 0xffffffff):
+            dns.append(value)
+    return {'ipv4': values[0], 'dns': dns, 'gateway': values[3], 'netmask': values[4],
+            'field_flag': body[1]}
+
+
+class ReferencePDPPlan:
+    """Pure bounded protocol plan: no I/O, routes, or claim of internet access.
+
+    Emitted tuples are test vectors only. The live loop deliberately does not
+    instantiate this class until the S9 activation/IP layout has primary proof.
+    """
+    def __init__(self, apn, now, timeout=30):
+        self.definition = reference_define_pdp(apn)
+        if not 1 <= timeout <= 60:
+            raise ValueError('Bounded PDP deadline required')
+        self.deadline = now + timeout
+        self.state = 'await-registration'
+        self.pending = None
+        self.enabled = False
+        self.configuration = None
+
+    def tick(self, now):
+        if now >= self.deadline and self.state not in ('failed', 'candidate-ip'):
+            self.state = 'failed'; self.pending = None
+        return self.state
+
+    def registered(self, now):
+        if self.tick(now) != 'await-registration':
+            return None
+        self.state = 'define-pending'; self.pending = 0x0D01
+        return (0x0D01, self.definition)
+
+    def ack(self, body, now):
+        if self.tick(now) == 'failed':
+            return None
+        if len(body) != 5:
+            raise ValueError('Reference generic response must be five bytes')
+        group, index, kind, result = struct.unpack('<BBBH', body)
+        if group << 8 | index != self.pending or kind != 3:
+            return None
+        if result != 0x8000:
+            self.state = 'failed'; self.pending = None
+            return None
+        if self.pending == 0x0D01:
+            self.state = 'activate-pending'; self.pending = 0x0D04
+            return (0x0D04, reference_activate_pdp())
+        self.pending = None; self.state = 'await-ip-and-status'
+        self._candidate()
+        return None
+
+    def event(self, command, body, now):
+        if self.tick(now) not in ('activate-pending', 'await-ip-and-status', 'candidate-ip'):
+            return
+        if command == 0x0D10:
+            if len(body) != 4 or body[0] != 1:
+                raise ValueError('Unqualified reference PDP status')
+            if body[1] != 1 or body[2] != 0:
+                self.state = 'failed'; self.pending = None
+                return
+            self.enabled = True
+        elif command == 0x0D09:
+            self.configuration = reference_ip_config(body)
+        self._candidate()
+
+    def _candidate(self):
+        if self.state == 'await-ip-and-status' and self.enabled and self.configuration:
+            # Candidate address only; never equivalent to DNS/HTTPS validation.
+            self.state = 'candidate-ip'
+
+
+def require_qualified_s9_pdp():
+    raise RuntimeError('S9 PDP activation blocked: 105/257-byte target layout lacks primary-source qualification')
 
 
 def main():
@@ -35,7 +144,14 @@ def main():
         raise SystemExit('Expected star2lte')
     os.umask(0o077)
     with ExitStack() as stack:
-        lock = stack.enter_context(open('/run/lock/g965n-modem-probe.lock', 'w'))
+        runtime_fd = os.open('/run/g965n-vendor-runtime.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+        runtime_lock = stack.enter_context(open(runtime_fd, 'rb', closefd=True))
+        info = os.fstat(runtime_fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != 0 or stat.S_IMODE(info.st_mode) & 0o077:
+            raise RuntimeError('Unexpected runtime lock file')
+        fcntl.flock(runtime_fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        lock_fd = os.open('/run/lock/g965n-modem-probe.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+        lock = stack.enter_context(open(lock_fd, 'rb', closefd=True))
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         nv = rfs_copy.WorkingNV('/var/lib/g965n-vendor-runtime/efs')
         stack.callback(nv.close)
@@ -147,6 +263,16 @@ def main():
                         event = {'command': hex(code), 'kind': kind, 'bytes': length - 7}
                         if code == 0x0101:
                             saw_boot = True
+                            configured = False
+                            acknowledged.clear()
+                            radio_asked = False
+                            radio_retried = False
+                            registered = False
+                            at_ready = False
+                            at_failed = False
+                            at_active = None
+                            at_queue.clear()
+                            at_buffer.clear()
                             sim_ready = False
                             boot_at = time.monotonic()
                         if code == 0x8001 and length >= 12:
