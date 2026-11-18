@@ -12,10 +12,12 @@ import os
 from pathlib import Path
 import stat
 import subprocess
+import shutil
 
 BASE = Path('/run/g965n-vendor-runtime')
 ROOT = BASE / 'root'
 DATA = Path('/var/lib/g965n-vendor-runtime/data')
+STATE = DATA.parent
 
 
 def run(*args):
@@ -25,6 +27,28 @@ def run(*args):
 def mount(source, target, *options):
     target.mkdir(parents=True, exist_ok=True)
     run('mount', *options, source, target)
+
+
+def device_nodes():
+    if not os.path.ismount(ROOT):
+        raise RuntimeError('Runtime not mounted')
+    selected = ['null', 'zero', 'random', 'urandom', 'ttyBCM', 'bbd_control', 'bbd_sensor', 'bbd_patch']
+    selected += [p.name for p in Path('/dev').glob('umts_*')]
+    for name in selected:
+        source = Path('/dev') / name
+        if source.exists():
+            st = source.stat()
+            if not stat.S_ISCHR(st.st_mode):
+                raise RuntimeError('Expected character device: ' + name)
+            target = ROOT / 'dev' / name
+            if target.exists():
+                old = target.stat()
+                if not stat.S_ISCHR(old.st_mode) or old.st_rdev != st.st_rdev:
+                    raise RuntimeError('Unexpected existing runtime device: ' + name)
+            else:
+                os.mknod(target, stat.S_IFCHR | 0o600, st.st_rdev)
+            if name.startswith('umts_'):
+                os.chown(target, 1001, 1001)  # stock cbd drops to Android radio
 
 
 def prepare():
@@ -39,7 +63,8 @@ def prepare():
     vendor = BASE / 'VENDOR'
     if not (system / 'bin').is_dir():
         raise RuntimeError('Unexpected stock SYSTEM layout')
-    mount('tmpfs', ROOT, '-t', 'tmpfs', '-o', 'mode=700,size=4m')
+    BASE.chmod(0o700)  # host users cannot traverse the private runtime
+    mount('tmpfs', ROOT, '-t', 'tmpfs', '-o', 'mode=755,size=4m')
     for name in ('tmp', 'dev', 'proc', 'sys', 'data', 'apex/com.android.runtime'):
         (ROOT / name).mkdir(parents=True, exist_ok=True)
     mount(system, ROOT / 'system', '--bind')
@@ -57,18 +82,75 @@ def prepare():
         (DATA / name).mkdir(parents=True, exist_ok=True, mode=0o700)
     mount(DATA, ROOT / 'data', '--bind')
     # Individual character devices only: never bind the host's entire /dev.
-    selected = ['null', 'zero', 'random', 'urandom', 'ttyBCM', 'bbd_control', 'bbd_sensor', 'bbd_patch']
-    selected += [p.name for p in Path('/dev').glob('umts_*')]
-    for name in selected:
-        source = Path('/dev') / name
-        if source.exists():
-            st = source.stat()
-            if not stat.S_ISCHR(st.st_mode):
-                raise RuntimeError('Expected character device: ' + name)
-            os.mknod(ROOT / 'dev' / name, stat.S_IFCHR | 0o600, st.st_rdev)
+    device_nodes()
     (ROOT / 'bin').symlink_to('system/bin')
     (ROOT / 'etc').symlink_to('system/etc')
     print('Owner vendor runtime prepared; no daemon started; no identity block devices exposed.')
+
+
+def stage_modem(efs, cpefs):
+    if not os.path.ismount(ROOT):
+        raise RuntimeError('Runtime not mounted')
+    if not efs or not cpefs or efs.stat().st_size != 20971520 or cpefs.stat().st_size != 6291456:
+        raise RuntimeError('Expected complete private EFS/CPEFS backup images')
+    # Never mount the real identity partitions. Extraction uses backup files.
+    for name, image in [('efs', efs), ('cpefs', cpefs)]:
+        target = STATE / name
+        if target.exists():
+            raise RuntimeError('Preserve existing working NV copy; do not overwrite it: ' + name)
+        target.mkdir(mode=0o700)
+        run('debugfs', '-R', 'rdump / ' + str(target), image)
+        if not any(p.is_file() for p in target.rglob('*')):
+            raise RuntimeError('No files extracted from private backup: ' + name)
+    label = subprocess.check_output(['lsblk', '-n', '-o', 'PARTLABEL', '/dev/sda12'], text=True).strip()
+    if label != 'RADIO':
+        raise RuntimeError('Unexpected RADIO mapping')
+    radio = STATE / 'RADIO'
+    with open('/dev/sda12', 'rb') as source, radio.open('xb') as output:
+        shutil.copyfileobj(source, output, 1024 * 1024)
+    if radio.stat().st_size != 52428800:
+        raise RuntimeError('Unexpected RADIO copy size')
+    for name in ('efs', 'cpefs'):
+        mount(STATE / name, ROOT / 'mnt/vendor' / name, '--bind')
+        (ROOT / name).symlink_to('/mnt/vendor/' + name)
+    # cbd's stock path sees a read-only regular copy, never the raw partition.
+    target = ROOT / 'dev/block/platform/11120000.ufs/by-name/RADIO'
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.touch()
+    run('mount', '--bind', radio, target)
+    run('mount', '-o', 'remount,bind,ro', target)
+    aliases = ROOT / 'dev/block/by-name'
+    aliases.mkdir(parents=True, exist_ok=True)
+    (aliases / 'RADIO').symlink_to('../platform/11120000.ufs/by-name/RADIO')
+    device_nodes()
+    cbd_permissions()
+    print('Private modem working copies staged; original identity/radio partitions not writable in runtime.')
+
+
+def cbd_permissions():
+    # Only private copies/nodes, never chmod/chown a stock partition or sysfs.
+    BASE.chmod(0o700)
+    for relative in ('', 'dev', 'dev/block', 'dev/block/platform',
+                     'dev/block/platform/11120000.ufs',
+                     'dev/block/platform/11120000.ufs/by-name', 'dev/block/by-name',
+                     'mnt', 'mnt/vendor'):
+        path = ROOT / relative
+        if path.exists():
+            path.chmod(0o755)
+    DATA.chmod(0o755)
+    log = DATA / 'log'
+    log.mkdir(exist_ok=True)
+    os.chown(log, 1001, 1001); log.chmod(0o700)
+    for name in ('efs', 'cpefs'):
+        base = STATE / name
+        if not base.is_dir():
+            raise RuntimeError('Missing working NV directory')
+        for path in [base] + list(base.rglob('*')):
+            if not path.is_symlink():
+                os.chown(path, 1001, 1001)
+                path.chmod(0o700 if path.is_dir() else 0o600)
+    radio = STATE / 'RADIO'
+    os.chown(radio, 1001, 1001); radio.chmod(0o400)
 
 
 def teardown():
@@ -83,10 +165,13 @@ def teardown():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('up', 'down'))
+    parser.add_argument('action', choices=('up', 'down', 'refresh-devices', 'stage-modem', 'cbd-permissions'))
+    parser.add_argument('--efs-backup', type=Path)
+    parser.add_argument('--cpefs-backup', type=Path)
     args = parser.parse_args()
     if os.geteuid() != 0:
         raise SystemExit('Run as root on the handset')
+    os.umask(0o077)
     compatibles = Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0')
     if b'samsung,star2lte' not in compatibles:
         raise SystemExit('Expected star2lte')
@@ -94,6 +179,13 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX)
         if args.action == 'down':
             teardown()
+        elif args.action == 'refresh-devices':
+            device_nodes()
+        elif args.action == 'stage-modem':
+            stage_modem(args.efs_backup, args.cpefs_backup)
+        elif args.action == 'cbd-permissions':
+            device_nodes()
+            cbd_permissions()
         else:
             if os.path.ismount(ROOT):
                 raise SystemExit('Runtime already mounted; existing runtime preserved')

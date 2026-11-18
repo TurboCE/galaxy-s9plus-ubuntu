@@ -21,11 +21,14 @@ def main():
     if not os.path.ismount(directory.parents[1]):
         raise SystemExit('Private vendor runtime is not mounted')
     os.umask(0o077)
-    directory.mkdir(mode=0o700, exist_ok=True)
+    directory.mkdir(mode=0o755, exist_ok=True)
+    directory.chmod(0o755)  # cbd drops to Android radio; parent runtime stays private
     path = directory / 'logdw'
     signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(SystemExit(0)))
     with args.output.open('x') as output, socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as server:
         server.bind(str(path))
+        os.chown(path, 0, 1001)
+        path.chmod(0o660)
         try:
             while True:
                 output.write(repr(server.recv(65536)) + '\n')

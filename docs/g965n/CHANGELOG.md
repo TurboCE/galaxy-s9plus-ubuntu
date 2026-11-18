@@ -300,3 +300,38 @@ On-device zero-length write returned0;1023/1024-byte writes returned EMSGSIZE
 before reaching the hub. No calibration or identity partition was written.
 Raw motion readings are verified, but IIO/automatic-rotation integration and
 longer power/restart tests remain open.
+
+## 2026-11-18 — Protected modem boot, SIM recognition and GPU isolation
+
+Extended the private vendor runtime with extracted backup-file NV working
+directories and a read-only regular RADIO copy. No original EFS/CPEFS mount.
+Verified a closed systemd device policy actually denies access to all three
+physical block devices; cbd receives only its modem character-device allowlist.
+The first bounded cbd run could not access private files after dropping to
+Android radio UID1001. A private strace showed EACCES, not a CP driver failure.
+Made the chroot root/search directories traversable inside the root-only host
+parent; granted UID1001 ownership only of cloned nodes, firmware and NV files.
+Adjusted the private Android log socket for that UID. Original paths untouched.
+
+With corrected permissions, CP reached ONLINE. Opening IPC/RFS channels completed
+the AP startup gate; the state probe received SIM status0 (ready),130 (initialized),
+and phone-state1. AT queries also returned CPIN READY. CFUN=1 was accepted;
+subsequent queries show LTE operator selection/search (CEREG0,2), packet attach0,
+and CFUN query still0. This is not registration or Internet success. Owner says
+the SIM was used for laptop data; subscription/device eligibility is not established.
+The current state-only probes drain but do not answer RFS; a complete persistent
+control/filesystem path remains necessary. No SMS/calls/PIN/identity queries.
+Physical EFS/CPEFS/RADIO SHA256 values still exactly match the fresh backup.
+Bounded cbd test timeouts are deliberate and must not be called spontaneous crashes.
+
+Built a second kernel, with AES built in, from source commit eb75af0:
+BOOT a87cf82f9e4bb9cede1365492b8ae8ce76e934730f5f27210b04edf57c2f2415,
+27,088,912bytes. Not flashed/boot-qualified yet.
+
+Firefox/desktop activity produced real GPU scheduler timeouts on #6. Tested
+always_on=Y from23:12:14: four100-frame readback runs passed without mismatch or
+fault in their bounded interval. A later GNOME DATA_INVALID_FAULT at23:19:47
+disproved this as a complete repair. Restored always_on=N; no persistent policy
+change. Battery sensor35.6C observed; CPU thermal limiting remained active.
+Vendor and mainline both derive DMA address width from GPU MMU properties;
+stock G965N DT has no coherency override. No speculative DMA/coherency edit made.

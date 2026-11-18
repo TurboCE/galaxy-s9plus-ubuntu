@@ -18,7 +18,7 @@ A build or a driver node is not sufficient evidence of a working function.
 | USB networking / SSH | Mac received address automatically; key-only SSH works | Verified |
 | Manual wired disconnect recovery | Console identified Wi-Fi path; privileged reconnection + gadget rebind restored USB SSH | Verified |
 | System services | No failed system units during initial checks | Short observation only |
-| LTE / voice / SMS | Modem/mailbox/shared-memory driver bound; umts control endpoints and rmnet interfaces created | CP boot, SIM registration and data not tested; not working yet |
+| LTE / voice / SMS | Own cbd booted CP; IPC and AT report SIM ready; LTE network search observed, packet attach still0 | SIM recognition verified; registration/data not working yet; laptop data-only SIM in use |
 | Speakers / microphone / headset | ABOX CRL0 booted; 2s silent PCM, 3s capture; two test frequencies observed in 5s capture; owner heard two quiet tones | Basic speaker/mic path passed; UCM exposes GNOME input/output; headset/call audio/quality and reboot persistence pending |
 | Bluetooth | hci0 firmware loaded at 3Mbaud; discovery found 12 peer addresses; missing AES supplied and controller power cycle passed | Discovery verified; pairing, audio and reboot persistence pending |
 | Accelerometer / gyroscope | Own SSP probe: chip0x55, firmware21031900; 19 accel and18 gyro samples with varying raw values | Raw readings verified; axes/calibration/automatic rotation and persistence pending |

@@ -44,7 +44,11 @@ Hardware validation sequence: review/generate G965N overlay, prepare OF overlay
 support, verify IRQ/shared memory, then controlled manual load after USB SSH is
 reliable. Boot the modem using own-device firmware and private NV working files,
 then test status/control. An active SIM can be inserted later for LTE data tests.
-Control endpoints have been observed; there is no successful CP/SIM/data result yet.
+CP boot and SIM recognition have since passed on #6 using own cbd, private
+working NV copies and a closed device policy. AT CPIN reports READY; LTE search
+is observed, but registration and packet attach remain incomplete. No LTE data
+success is claimed. state-probe.py and at-probe.py are original GPL-2.0-only
+diagnostics; their raw output stays private. They are not a complete RIL/RFS server.
 
 ## G965N overlay review
 
