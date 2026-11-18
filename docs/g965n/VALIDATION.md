@@ -15,6 +15,7 @@ A build or a driver node is not sufficient evidence of a working function.
 | Display / touch | Owner confirmed desktop/touch; 2x desktop scaling persisted at 720x1480 logical pixels | #14 touch binds after rail reset with no initial I2C timeout; basic interaction previously owner verified; apps wider than 720 minimum still need adaptations |
 | GPU | #14 same-kernel FIFO old31/31/31fps → latch60/61/61fps; #18 full33 +FIFO61/61/61fps at requested512x512 and independent128x128 readback100 pass,0 matching faults/new IRQ-check timeouts, runtime PM/DVFS retained | One-frame delay and repeated process polling reduced in bounded tests; generation-associated completion passed bounded hardware cadence test; #16 later idle vblank timeout prompted #18 tracked-tail/initial-enable fix; four bounded DPMS cycles/idle/SSH passed with0 new matching errors; owner reports improvement but residual desktop stutter;1440x2960 full33 stress FAILED with3 glmark scheduler timeouts despite FIFO61x3; #21 public targeted3-scene run stillFAILED with5 scheduler timeouts, all cores ready. nocrc remains required, lowmemY retained; private-high/shared-low allocation and long stability pending |
 | Wi-Fi | Connected; HTTPS200 explicitly bound to Wi-Fi; NTP synchronized | Data path verified; long reconnect tests pending |
+| Wi-Fi Direct / roaming | #21 P2P creation waits for IF_ADD and fails; roam-trigger firmware command rejected with collapsed error -52 | P2P not normal; roaming cause and actual handover unverified |
 | USB networking / SSH | Mac received address automatically; key-only SSH works | Verified |
 | Manual wired disconnect recovery | Console identified Wi-Fi path; privileged reconnection + gadget rebind restored USB SSH | Verified |
 | System services | #14 no failed system units; SO_PASSSEC set/get=1, former errno95/boot messages resolved; missing Dbusmenu dependency/import messages resolved | Bounded observation; other clkout/MFD/Wi-Fi boot messages remain |
@@ -56,3 +57,7 @@ proof. A later patched windowed native-request targeted run passed3/3 scenes
 with0 new GPU faults/timeouts and actual U-tiled presentation/private-library
 maps. Most buffers were1440x2896; steady full-height, full-suite and desktop
 qualification remain pending. The desktop still uses system Mesa.
+
+A separate isolated fullscreen targeted run now passes3/3 with all11772
+committed buffers1440x2960/U-tiled and0 new GPU faults/timeouts. Full33/FIFO,
+desktop and endurance qualification are still pending; system Mesa unchanged.

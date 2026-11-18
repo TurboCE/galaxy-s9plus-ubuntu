@@ -1672,3 +1672,37 @@ Added an explicit --fullscreen reproduction option after checking the installed
 glmark help. It replaces the window-size request without changing readback or
 deadlines, so actual steady full-height buffers can be measured separately.
 That new option has not yet been exercised on hardware at this entry.
+
+## 2026-11-19 — Full-height patched target also passes
+
+One separate fullscreen targeted run passed3/3 scenes, exit0 and physical
+Mali; actual glmark maps again prove private patched EGL/Gallium/GBM. All four
+created buffers/all11772 attach+commit uses are1440x2960 with explicit ARM
+U-tiled0x0810000000000001; no unknown commit. There are0 new matching kernel
+faults, scheduler timeouts or soft-stop failures. Big/GPU temperatures50/48C
+before, maximum73/66C. Original display-off/locked state and all GPU settings
+restored; no further workload or system driver switch.
+
+This removes the reduced window-height limitation for these three scenes.
+The full-height32bpp raw color payload exceeds16MiB, but actual BO allocations
+were not captured, so no universal allocation-limit conclusion is made. Full33,
+FIFO, desktop animation and long endurance with this stack remain unverified.
+
+## 2026-11-19 — Audit remaining boot warnings without hiding them
+
+Independent read-only#21 audit found no failed system services but confirmed
+Wi-Fi Direct interface creation times out waiting for IF_ADD. Ordinary Wi-Fi
+being up does not qualify P2P. Roam-trigger failure -52 is a collapsed firmware
+error, not proof of UNSUPPORTED; raw firmware status needs diagnosis. Optional
+txcap blob absence is separate and must not be filled with another device's data.
+
+MAX77705 MFD expects RGB/charger/haptic child DT nodes, while this board uses
+the charger on a separate I2C sibling and has no such children. Charging state
+still verifies; that does not qualify haptic/RGB. Exynos9810/exynos7-PMU fallback
+has no matching CLKOUT entry. Need actual consumers/register definitions before
+adding support; do not invent a5433 compatibility alias.
+
+External-initramfs trailing-data, UFS supply metadata and alternate-GPT fallback
+warnings also remain for separate source/backup inspection. No GPT repair,
+partition write, firmware substitution or warning suppression was performed.
+Raw boot logs and supply details stay private.
