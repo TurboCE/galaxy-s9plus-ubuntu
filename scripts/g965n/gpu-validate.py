@@ -6,7 +6,7 @@ Keep output PRIVATE: kernel logs and GPU dumps can contain application data.
 A benchmark score alone is not a pass. Reboot testing is separate.
 """
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from datetime import datetime, timezone
 import fcntl
 import glob
@@ -129,7 +129,7 @@ def journal(*args):
     return subprocess.check_output(['journalctl', '-k', '-b', '--no-pager', *args], text=True, stderr=subprocess.STDOUT)
 
 
-def run_timed(command, environment, timeout, timeline, name):
+def run_timed(command, environment, timeout, timeline, name, protocol=None):
     """Nonblocking line capture with one deadline, including silent/partial output.
 
     A fresh process group lets cleanup also reap the direct child when a
@@ -140,8 +140,13 @@ def run_timed(command, environment, timeout, timeline, name):
     finished = False
     code = 124
     deadline = time.monotonic() + timeout
-    with timeline.open('a', encoding='utf-8') as stream:
+    with ExitStack() as stack:
+        stream = stack.enter_context(timeline.open('a', encoding='utf-8')) if timeline else None
+        protocol_stream = stack.enter_context(protocol.open('xb')) if protocol else None
+
         def record(event, **fields):
+            if stream is None:
+                return
             row = {'command': name, 'event': event,
                    'utc': datetime.now(timezone.utc).isoformat(),
                    'monotonic_ns': time.monotonic_ns(), **fields}
@@ -150,10 +155,14 @@ def run_timed(command, environment, timeout, timeline, name):
         try:
             record('start')
             process = subprocess.Popen(command, env=environment, stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE if protocol else subprocess.STDOUT,
+                start_new_session=True)
             os.set_blocking(process.stdout.fileno(), False)
             with selectors.DefaultSelector() as selector:
-                selector.register(process.stdout, selectors.EVENT_READ)
+                selector.register(process.stdout, selectors.EVENT_READ, 'stdout')
+                if protocol:
+                    os.set_blocking(process.stderr.fileno(), False)
+                    selector.register(process.stderr, selectors.EVENT_READ, 'stderr')
                 while selector.get_map():
                     remaining = deadline - time.monotonic()
                     if remaining <= 0:
@@ -165,6 +174,9 @@ def run_timed(command, environment, timeout, timeline, name):
                         data = os.read(key.fd, 65536)
                         if not data:
                             selector.unregister(key.fileobj)
+                            continue
+                        if key.data == 'stderr':
+                            protocol_stream.write(data)
                             continue
                         output.extend(data); pending.extend(data)
                         while b'\n' in pending:
@@ -186,18 +198,25 @@ def run_timed(command, environment, timeout, timeline, name):
                         pass
                 process.wait()
                 process.stdout.close()
+                if process.stderr is not None:
+                    process.stderr.close()
         if pending:
             record('line', line=pending.decode(errors='replace'), partial=True)
         record('finish', exit=code, timed_out=not finished)
     return code, output.decode(errors='replace') + ('' if finished else '\nQUALIFICATION_TIMEOUT\n')
 
 
-def run(command, environment, timeout, timeline=None, name=None):
-    if timeline is not None:
+def run(command, environment, timeout, timeline=None, name=None, protocol=None):
+    if timeline is not None or protocol is not None:
+        command_name = name or Path(command[0]).name
         # glmark2 uses stdio; line buffering makes receipt times meaningful.
         if Path(command[0]).name == 'glmark2-es2-wayland':
+            if protocol is not None:
+                # An explicit per-child override; never change the caller's
+                # environment or enable tracing on readback/other commands.
+                environment = dict(environment, WAYLAND_DEBUG='client')
             command = ['stdbuf', '-oL', '-eL', *command]
-        return run_timed(command, environment, timeout, timeline, name or Path(command[0]).name)
+        return run_timed(command, environment, timeout, timeline, command_name, protocol)
     try:
         result = subprocess.run(command, env=environment, text=True,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout)
@@ -232,6 +251,8 @@ def main():
     parser.add_argument('--profile', choices=['full', 'targeted'], default='full',
                         help='Full qualification or the three bounded native-size timeout reproductions')
     parser.add_argument('--timeline', action='store_true', help='Write private per-command line timing to timeline.jsonl')
+    parser.add_argument('--wayland-protocol', action='store_true',
+                        help='Capture glmark child stderr/Wayland protocol separately; diagnostic only')
     parser.add_argument('--mesa-debug', choices=['normal', 'noafbc', 'nocrc', 'nocrc,noafbc', 'sync'], default='normal')
     parser.add_argument('--fifo', action='store_true', help='Also require near-60Hz FIFO presentation in three bounded scenes')
     parser.add_argument('--size', choices=['512x512', '720x1480', '1440x2960'], default='512x512',
@@ -266,11 +287,15 @@ def main():
             commands = commands_for(args.profile, args.readback, args.size, args.fifo)
             for name, command, timeout in commands:
                 timeline = args.output / 'timeline.jsonl' if args.timeline else None
-                code, output = run(command, env, timeout, timeline, name)
+                protocol = (args.output / (name + '.wayland.log') if args.wayland_protocol
+                            and Path(command[0]).name == 'glmark2-es2-wayland' else None)
+                code, output = run(command, env, timeout, timeline, name, protocol)
                 (args.output / (name + '.log')).write_text(output)
                 hardware = bool(re.search(r'(?:renderer=|GL_RENDERER:).*Mali', output))
                 complete = 'PASS frames=100' in output if name == 'readback' else False
                 results[name] = {'exit': code, 'physical_mali': hardware, 'complete': complete}
+                if protocol is not None:
+                    results[name]['wayland_protocol_log'] = protocol.name
                 if name in ('scenes', 'targeted'):
                     results[name].update(scene_result(output, args.profile))
                 surface = re.search(r'^\s*Surface Size:\s*(.+)$', output, re.M)
@@ -287,6 +312,8 @@ def main():
             passed = awake and unlocked and all(r['exit'] == 0 and r['physical_mali'] and r['complete'] and r.get('cadence_pass', True) for r in results.values()) and not faults
             receipt = {'kernel': os.uname().release, 'kernel_version': os.uname().version,
                        'profile': args.profile, 'line_timeline': args.timeline,
+                       'wayland_protocol': {'requested': args.wayland_protocol,
+                           'scope': 'Glmark child stderr only; presented wl_buffer modifier is not necessarily the render-target modifier; protocol tracing adds overhead'},
                        'mesa_debug': args.mesa_debug, 'requested_surface': args.size, 'display_awake_after': awake,
                        'desktop_unlocked_after': unlocked,
                        'temporary_idle_inhibitor': True, 'settings_before': settings,

@@ -84,6 +84,7 @@ class TimedCaptureTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.timeline = Path(self.temp.name) / 'timeline.jsonl'
+        self.protocol = Path(self.temp.name) / 'protocol.log'
 
     def rows(self):
         return [json.loads(line) for line in self.timeline.read_text().splitlines()]
@@ -131,3 +132,60 @@ class TimedCaptureTests(unittest.TestCase):
 
     def test_descendant_holding_output_cannot_extend_deadline(self):
         self.check_timeout("import subprocess,sys; subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(20)'])", '')
+
+    def test_separate_large_no_newline_stderr_preserves_partial_stdout_scene(self):
+        expected = ProfileTests().output()
+        script = ("import sys; s=" + repr(expected) + "; "
+                  "sys.stdout.write(s[:7]); sys.stdout.flush(); "
+                  "sys.stderr.write('x'*524288); sys.stderr.flush(); "
+                  "sys.stdout.write(s[7:]); sys.stdout.flush()")
+        code, output = gpu.run([sys.executable, '-c', script], dict(os.environ), 3,
+                               self.timeline, 'separate-fixture', self.protocol)
+        self.assertEqual((code, output), (0, expected))
+        self.assertEqual(self.protocol.stat().st_size, 524288)
+        self.assertTrue(gpu.scene_result(output, 'targeted')['complete'])
+        self.assertNotIn('x' * 100, self.timeline.read_text())
+
+    def test_separate_stderr_timeout_kills_reaps_and_closes_both_streams(self):
+        processes = []
+        original = subprocess.Popen
+
+        def capture(*args, **kwargs):
+            child = original(*args, **kwargs); processes.append(child); return child
+
+        script = ("import sys,time; sys.stdout.write('partial'); sys.stdout.flush(); "
+                  "sys.stderr.write('x'*524288); sys.stderr.flush(); time.sleep(20)")
+        start = time.monotonic()
+        with patch.object(gpu.subprocess, 'Popen', side_effect=capture):
+            code, output = gpu.run([sys.executable, '-c', script], dict(os.environ), 0.25,
+                                   self.timeline, 'stderr-timeout', self.protocol)
+        self.assertLess(time.monotonic() - start, 3)
+        self.assertEqual(code, 124)
+        self.assertIn('partial', output)
+        self.assertNotIn('x' * 100, output)
+        self.assertGreater(self.protocol.stat().st_size, 0)
+        self.assertIsNotNone(processes[0].returncode)
+        self.assertTrue(processes[0].stdout.closed)
+        self.assertTrue(processes[0].stderr.closed)
+
+    def test_silent_separate_stderr_needs_no_timeline_and_keeps_deadline(self):
+        code, output = gpu.run([sys.executable, '-c', 'import time; time.sleep(20)'],
+                               dict(os.environ), 0.25, protocol=self.protocol)
+        self.assertEqual(code, 124)
+        self.assertIn('QUALIFICATION_TIMEOUT', output)
+        self.assertEqual(self.protocol.stat().st_size, 0)
+        self.assertFalse(self.timeline.exists())
+
+    def test_wayland_debug_override_is_only_on_explicit_glmark_child(self):
+        env = dict(os.environ, WAYLAND_DEBUG='server')
+        with patch.object(gpu, 'run_timed', return_value=(0, '')) as run:
+            gpu.run(['glmark2-es2-wayland'], env, 3, protocol=self.protocol)
+        self.assertEqual(run.call_args.args[1]['WAYLAND_DEBUG'], 'client')
+        self.assertEqual(env['WAYLAND_DEBUG'], 'server')
+        with patch.object(gpu, 'run_timed', return_value=(0, '')) as run:
+            gpu.run(['/fixture/readback'], env, 3, self.timeline)
+        self.assertEqual(run.call_args.args[1]['WAYLAND_DEBUG'], 'server')
+        with patch.object(gpu.subprocess, 'run') as run:
+            run.return_value = subprocess.CompletedProcess([], 0, '')
+            gpu.run(['glmark2-es2-wayland'], env, 3)
+        self.assertEqual(run.call_args.kwargs['env']['WAYLAND_DEBUG'], 'server')

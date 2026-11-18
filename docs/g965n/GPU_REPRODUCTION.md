@@ -47,6 +47,27 @@ commands and output without a final newline cannot extend the deadline. Exit
 124 and `QUALIFICATION_TIMEOUT` identify a timed-out command; the overall
 qualification exits 2 on a failure.
 
+For an explicitly authorized modifier diagnostic, add `--wayland-protocol`.
+Only the glmark child receives `WAYLAND_DEBUG=client`; its complete stderr goes
+to the separate private `targeted.wayland.log`, `scenes.wayland.log` or
+`fifo.wayland.log`. Stdout remains separate so a trace arriving during an
+unfinished scene line cannot corrupt scene parsing. Both pipes share the same
+deadline and cleanup, including silent stderr, partial lines and large traces.
+`--timeline` remains optional and records stdout receipt times only.
+
+This option never changes the parent environment or enables tracing on the
+readback program. Without the option, existing environment inheritance and
+combined output behavior are unchanged; a pre-existing caller `WAYLAND_DEBUG`
+is not silently removed. The receipt records the diagnostic scope and log file.
+Tracing adds overhead, so compare modifiers rather than benchmark scores.
+
+Match `zwp_linux_buffer_params_v1.add` modifiers to buffer creation, surface
+attach and commit. An explicit modifier proves the **presented wl_buffer**
+layout. `DRM_FORMAT_MOD_INVALID` does not prove linear layout. Even explicit
+linear presentation may come from an intermediate copy and need not describe
+the original render target. Setting `PAN_MESA_DEBUG=noafbc` alone likewise does
+not prove the absence of externally supplied AFBC modifiers.
+
 `timeline.jsonl` stores command start/finish and received-line UTC/monotonic
 times. glmark2 is line-buffered through `stdbuf`. These are **output receipt
 times**, not GPU job submission, start or completion timestamps; do not assign

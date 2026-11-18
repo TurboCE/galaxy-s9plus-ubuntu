@@ -1528,3 +1528,23 @@ from the render target. The observation above establishes presented AFBC;
 runtime render/display FD identity was not captured. Do not generalize it to
 all import paths or every internal render resource. A creation-filter change
 and isolated-driver build are under source review, not yet deployed.
+
+
+## 2026-11-19 — Separate protocol tracing from benchmark scene parsing
+
+The explicit gpu-validate.py --wayland-protocol option now captures glmark
+stderr in a separate private binary log while retaining stdout scene parsing.
+Both streams share the fixed deadline and process-group cleanup; --timeline
+is optional and records stdout receipt only. Tracing is set on the glmark
+child environment only. Without the option, existing output/environment
+behavior is unchanged. Receipts state the presented-buffer and timing limits.
+16 host regressions pass, including large newline-free stderr, split stdout
+scene lines, silent streams, timeout reaping/pipe closure and child-only flags.
+No further hardware workload has used this new capture option yet.
+
+For the separate isolated Mesa build, installed native build prerequisites
+after checking a zero-upgrade/zero-removal package plan:62 new packages, no
+existing graphics replacement. Before/after package inventories, the exact
+plan and installation log are retained privately. The pinned upstream25.2.8
+archive hash matches its official release notes. This is build preparation;
+no custom Mesa library has been installed into system paths or GPU-tested.
