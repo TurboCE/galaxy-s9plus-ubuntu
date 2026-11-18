@@ -1369,3 +1369,23 @@ that lock and no MMIO acknowledgement/configuration writes are added.
 Exact known-v1 migration, idempotence and modified-v2-cache refusal checks pass.
 Compilation/actual register capture are still pending; no root cause is inferred
 from fields that have not yet been observed.
+
+
+## 2026-11-19 — Kernel#21 build, guarded BOOT update and baseline boot
+
+Source d681693a0cee894818062379a9036a8204da1f83 built kernel#21
+Nov18 20:51:24UTC with the recovery correction, timeout snapshot v2 and
+host-tested CP containment. Experimental module package now includes the
+source-built modem overlay; explicit read-only original stock BOOT comparison
+passed for all required subtrees.133 software regressions passed before the
+separate public targeted-runner enhancement. Build success is not modem proof.
+
+Fresh complete nine-partition backup verified; BOOT-only write/readback and
+native SSH passed. BOOT SHA256
+e792170f622d652d5d3e641479706bb7ece9cafbdaa0d51d3621bafbf1ff44a8,27088912bytes.
+Exact audio/BT manifests verify, both startup services active and no failed
+system units at inspection. Modem module is absent and no CP experiment was
+restarted. No recovery/identity/radio flash occurred. Current EFS metadata
+changed across recovery again, so existing private provenance is not silently
+reused. Actual GPU v2 diagnosis and acoustic/physical sensor/CP acceptance are
+separate pending tests.
