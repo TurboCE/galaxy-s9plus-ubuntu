@@ -146,7 +146,7 @@ def profile_files(home, trial, build, receipt):
     code += "for name,value in links.items():\n p=Path(name)\n if not p.resolve().is_relative_to(Path(build_root)) or not p.is_symlink() or os.readlink(name)!=value: raise SystemExit('Trial link changed')\n"
     code += 'env=dict(os.environ)\nfor name in ' + repr(VARIABLES) + ': env.pop(name,None)\nenv.update(environment)\n'
     code += "Path(environment['MESA_SHADER_CACHE_DIR']).mkdir(mode=0o700,parents=True,exist_ok=True)\nos.execve('/usr/bin/gnome-shell',['/usr/bin/gnome-shell'],env)\n"
-    envfile = home / '.config/environment.d' / ('91-g965n-mesa-trial-' + trial + '.conf')
+    envfile = home / '.config/environment.d' / ('99-z-g965n-mesa-trial-' + trial + '.conf')
     dropin = home / '.config/systemd/user/org.gnome.Shell@wayland.service.d' / ('91-g965n-mesa-trial-' + trial + '.conf')
     # Normal app launches inherit the coherent environment. Only Shell uses the
     # hash-checking wrapper; no kernel, system graphics or greeter files change.
@@ -201,6 +201,14 @@ def restore_environment(previous):
     if previous:
         manager('set-environment', *[key + '=' + value for key, value in previous.items()])
     manager('daemon-reload')
+
+
+def manager_environment_matches(expected):
+    actual = previous_environment(manager('show-environment', capture_output=True).stdout)
+    # Dictionary equality deliberately distinguishes an absent key from KEY=.
+    # All selected variables must match and every other GPU whitelist key must
+    # remain absent; a healthy private Shell alone does not prove app defaults.
+    return actual == expected
 
 
 def shell_metadata(expected_prefix):
@@ -273,17 +281,20 @@ def rollback_locked(directory, automatic=False):
     try:
         clean_user_manager()
         restore_environment(state['previous_environment'])
-        state['environment_restored'] = True
-        state['rolled_back'] = not changed
+        state['manager_environment_written'] = True
         write_state(directory, state)
         run(['systemctl', 'start', 'gdm.service'], timeout=45)
         state.update(wait_stable_shell(Path('/usr/lib')))
+        state['environment_restored'] = manager_environment_matches(state['previous_environment'])
+        state['rolled_back'] = not changed and state['environment_restored']
         write_state(directory, state)
     except BaseException:
         write_state(directory, state)
         raise
     if changed:
         raise RuntimeError('Rollback preserved modified files; manual review required: ' + ', '.join(changed))
+    if not state['environment_restored']:
+        raise RuntimeError('Rollback GPU manager environment differs after startup; no restart retry performed')
     if not state['desktop_recovered']:
         raise RuntimeError('Files/environment restored but GNOME desktop did not recover; no restart retry performed')
 
@@ -374,7 +385,10 @@ def apply(args):
         write_state(directory, state)
         run(['systemctl', 'start', 'gdm.service'], timeout=45)
         state.update(wait_stable_shell(build.resolve()))
+        state['manager_environment_matches'] = manager_environment_matches(environment)
         write_state(directory, state)
+        if not state['manager_environment_matches']:
+            raise RuntimeError('Trial GPU manager environment differs after startup; reverting once')
         if not state['desktop_recovered']:
             raise RuntimeError('Trial GNOME Shell did not become stable; reverting once')
     except BaseException:

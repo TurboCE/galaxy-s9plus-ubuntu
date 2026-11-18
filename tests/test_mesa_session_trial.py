@@ -70,7 +70,7 @@ class TrialTests(unittest.TestCase):
             if argv[0] == 'systemd-run' or argv[:2] == ['systemctl','is-active']:
                 self.assertFalse((home/'.config').exists())
             return types.SimpleNamespace(stdout='PAN_MESA_DEBUG=nocrc\n')
-        with patch.object(m, 'private_root', return_value=True), patch.object(m, 'STATE', self.root/'state'), patch.object(m, 'verify_device'), patch.object(m, 'verify_shell_command'), patch.object(m, 'wait_stable_shell', return_value={'desktop_recovered':True}), patch.object(m, 'verify_build', return_value=receipt), patch.object(m.pwd, 'getpwnam', return_value=types.SimpleNamespace(pw_uid=1000,pw_dir=str(home))), patch.object(m, 'run', side_effect=command), patch.object(m.os, 'chown'):
+        with patch.object(m, 'private_root', return_value=True), patch.object(m, 'STATE', self.root/'state'), patch.object(m, 'verify_device'), patch.object(m, 'verify_shell_command'), patch.object(m, 'wait_stable_shell', return_value={'desktop_recovered':True}), patch.object(m, 'manager_environment_matches', return_value=True), patch.object(m, 'verify_build', return_value=receipt), patch.object(m.pwd, 'getpwnam', return_value=types.SimpleNamespace(pw_uid=1000,pw_dir=str(home))), patch.object(m, 'run', side_effect=command), patch.object(m.os, 'chown'):
             m.apply(args)
         reserve = next(i for i,v in enumerate(events) if v[0]=='systemd-run')
         check = next(i for i,v in enumerate(events) if v[:2]==['systemctl','is-active'])
@@ -94,7 +94,7 @@ class TrialTests(unittest.TestCase):
         def command(argv,**kw):
             if argv[0]=='systemd-run':raise RuntimeError('reserve failed')
             return types.SimpleNamespace(stdout='')
-        with patch.object(m,'private_root',return_value=True),patch.object(m,'STATE',self.root/'state'),patch.object(m,'verify_device'),patch.object(m,'verify_shell_command'),patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}),patch.object(m,'verify_build',return_value=receipt),patch.object(m.pwd,'getpwnam',return_value=types.SimpleNamespace(pw_uid=1000,pw_dir=str(home))),patch.object(m,'run',side_effect=command):
+        with patch.object(m,'private_root',return_value=True),patch.object(m,'STATE',self.root/'state'),patch.object(m,'verify_device'),patch.object(m,'verify_shell_command'),patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}),patch.object(m,'manager_environment_matches',return_value=True),patch.object(m,'verify_build',return_value=receipt),patch.object(m.pwd,'getpwnam',return_value=types.SimpleNamespace(pw_uid=1000,pw_dir=str(home))),patch.object(m,'run',side_effect=command):
             with self.assertRaises(RuntimeError):m.apply(args)
         self.assertFalse((home/'.config').exists())
 
@@ -108,7 +108,7 @@ class TrialTests(unittest.TestCase):
     def test_automatic_accepted_timer_is_noop_but_manual_rollback_restores(self):
         directory=self.root/'state';directory.mkdir()
         state={'accepted':True,'files':{},'previous_environment':{}}
-        with patch.object(m,'load_state',return_value=state),patch.object(m,'cleanup_user_files',return_value=[]) as cleanup,patch.object(m,'restore_environment') as restore,patch.object(m,'run') as run,patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}):
+        with patch.object(m,'load_state',return_value=state),patch.object(m,'cleanup_user_files',return_value=[]) as cleanup,patch.object(m,'restore_environment') as restore,patch.object(m,'run') as run,patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}),patch.object(m,'manager_environment_matches',return_value=True):
             m.rollback_locked(directory,automatic=True)
             cleanup.assert_not_called();run.assert_not_called()
             m.rollback_locked(directory,automatic=False)
@@ -119,7 +119,7 @@ class TrialTests(unittest.TestCase):
     def test_changed_owned_files_preserved_and_reported_after_recovery(self):
         directory=self.root/'state';directory.mkdir()
         state={'accepted':False,'files':{'changed':'hash'},'previous_environment':{}}
-        with patch.object(m,'load_state',return_value=state),patch.object(m,'cleanup_user_files',return_value=['changed']),patch.object(m,'restore_environment'),patch.object(m,'run') as run,patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}):
+        with patch.object(m,'load_state',return_value=state),patch.object(m,'cleanup_user_files',return_value=['changed']),patch.object(m,'restore_environment'),patch.object(m,'run') as run,patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}),patch.object(m,'manager_environment_matches',return_value=True):
             with self.assertRaisesRegex(RuntimeError,'preserved modified'):
                 m.rollback_locked(directory)
             self.assertEqual([call.args[0] for call in run.call_args_list],[['systemctl','stop','gdm.service'],['systemctl','restart','user@1000.service'],['systemctl','start','gdm.service']])
@@ -177,7 +177,7 @@ class TrialTests(unittest.TestCase):
             barrier.wait(timeout=3)
             try:m.apply(types.SimpleNamespace(trial=name,build=build,expected_boot_sha256='b'*64));return 'applied'
             except RuntimeError as error:return str(error)
-        with patch.object(m,'private_root',return_value=True),patch.object(m,'STATE',self.root/'state'),patch.object(m,'verify_device'),patch.object(m,'verify_shell_command'),patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}),patch.object(m,'verify_build',return_value=receipt),patch.object(m.pwd,'getpwnam',return_value=types.SimpleNamespace(pw_uid=1000,pw_dir=str(home))),patch.object(m,'run',side_effect=command),patch.object(m,'write_user_files'):
+        with patch.object(m,'private_root',return_value=True),patch.object(m,'STATE',self.root/'state'),patch.object(m,'verify_device'),patch.object(m,'verify_shell_command'),patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}),patch.object(m,'manager_environment_matches',return_value=True),patch.object(m,'verify_build',return_value=receipt),patch.object(m.pwd,'getpwnam',return_value=types.SimpleNamespace(pw_uid=1000,pw_dir=str(home))),patch.object(m,'run',side_effect=command),patch.object(m,'write_user_files'):
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
                 futures=[pool.submit(attempt,name) for name in ('first','second')]
                 results=[f.result(timeout=4) for f in futures]
@@ -215,7 +215,7 @@ class TrialTests(unittest.TestCase):
     def test_failed_shell_does_not_mark_gdm_job_success_as_desktop_recovery(self):
         directory=self.root/'state';directory.mkdir()
         state={'accepted':False,'files':{},'previous_environment':{}}
-        with patch.object(m,'load_state',return_value=state),patch.object(m,'cleanup_user_files',return_value=[]),patch.object(m,'restore_environment'),patch.object(m,'run') as run,patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':False}):
+        with patch.object(m,'load_state',return_value=state),patch.object(m,'cleanup_user_files',return_value=[]),patch.object(m,'restore_environment'),patch.object(m,'run') as run,patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':False}),patch.object(m,'manager_environment_matches',return_value=True):
             with self.assertRaisesRegex(RuntimeError,'GNOME desktop did not recover'):
                 m.rollback_locked(directory)
         saved=json.loads((directory/'state.json').read_text())
@@ -239,6 +239,48 @@ class TrialTests(unittest.TestCase):
         with patch.object(m,'load_state',return_value=state),patch.object(m,'cleanup_user_files') as clean,patch.object(m,'run') as run:
             m.rollback_locked(self.root,automatic=True)
             clean.assert_not_called();run.assert_not_called()
+
+    def test_owned_environment_filename_sorts_after_global_environment(self):
+        receipt={'outputs':{'/build/libEGL_mesa.so.0.0.0':'a'*64},'runtime_links':{}}
+        files,_=m.profile_files(self.root/'home','priority',Path('/build'),receipt)
+        envfile=next(p for p in files if p.parent.name=='environment.d')
+        self.assertGreater(envfile.name,'99-environment.conf')
+        self.assertTrue(envfile.name.startswith('99-z-g965n-mesa-trial-'))
+        dropin=next(p for p in files if p.parent.name.endswith('.service.d'))
+        self.assertTrue(dropin.name.startswith('91-'))
+
+    def test_exact_manager_profile_rejects_pan_override_extra_and_empty_vendor(self):
+        expected={'PAN_MESA_DEBUG':'nocrc,noafbc','__EGL_VENDOR_LIBRARY_FILENAMES':'/private/vendor.json'}
+        def text(values):return ''.join(k+'='+v+'\n' for k,v in values.items())
+        with patch.object(m,'manager',return_value=types.SimpleNamespace(stdout=text(expected))):
+            self.assertTrue(m.manager_environment_matches(expected))
+        for actual in (dict(expected,PAN_MESA_DEBUG='nocrc'),dict(expected,MESA_LOADER_DRIVER_OVERRIDE=''),dict(expected,__EGL_VENDOR_LIBRARY_FILENAMES='')):
+            with patch.object(m,'manager',return_value=types.SimpleNamespace(stdout=text(actual))):
+                self.assertFalse(m.manager_environment_matches(expected))
+        with patch.object(m,'manager',return_value=types.SimpleNamespace(stdout='PAN_MESA_DEBUG=nocrc,noafbc\n')):
+            self.assertFalse(m.manager_environment_matches(expected))
+
+    def test_healthy_private_shell_with_wrong_manager_environment_reverts_once(self):
+        home=self.root/'home';home.mkdir();build=self.root/'build'
+        receipt={'outputs':{str(build/'build/src/egl/libEGL_mesa.so.0.0.0'):'a'*64},'runtime_links':{}}
+        args=types.SimpleNamespace(trial='wrong-pan',build=build,expected_boot_sha256='b'*64)
+        with patch.object(m,'private_root',return_value=True),patch.object(m,'STATE',self.root/'state'),patch.object(m,'verify_device'),patch.object(m,'verify_shell_command'),patch.object(m,'verify_build',return_value=receipt),patch.object(m.pwd,'getpwnam',return_value=types.SimpleNamespace(pw_uid=1000,pw_dir=str(home))),patch.object(m,'run',return_value=types.SimpleNamespace(stdout='PAN_MESA_DEBUG=nocrc\n')),patch.object(m,'write_user_files'),patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}) as stable,patch.object(m,'manager_environment_matches',return_value=False) as matches,patch.object(m,'rollback') as rollback:
+            with self.assertRaisesRegex(RuntimeError,'Trial GPU manager environment differs'):
+                m.apply(args)
+            stable.assert_called_once();matches.assert_called_once()
+            rollback.assert_called_once_with(self.root/'state/wrong-pan')
+        saved=json.loads((self.root/'state/wrong-pan/state.json').read_text())
+        self.assertTrue(saved['desktop_recovered']);self.assertFalse(saved['manager_environment_matches'])
+
+    def test_stock_shell_with_wrong_restored_manager_environment_is_not_complete(self):
+        directory=self.root/'state';directory.mkdir()
+        state={'accepted':False,'files':{},'previous_environment':{'PAN_MESA_DEBUG':'nocrc'}}
+        with patch.object(m,'load_state',return_value=state),patch.object(m,'cleanup_user_files',return_value=[]),patch.object(m,'restore_environment'),patch.object(m,'run'),patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}),patch.object(m,'manager_environment_matches',return_value=False):
+            with self.assertRaisesRegex(RuntimeError,'Rollback GPU manager environment differs'):
+                m.rollback_locked(directory)
+        saved=json.loads((directory/'state.json').read_text())
+        self.assertTrue(saved['files_restored']);self.assertTrue(saved['desktop_recovered'])
+        self.assertFalse(saved['environment_restored']);self.assertFalse(saved['rolled_back'])
 
 
 if __name__ == '__main__': unittest.main()

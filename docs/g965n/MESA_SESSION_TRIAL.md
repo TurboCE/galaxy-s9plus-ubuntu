@@ -71,6 +71,16 @@ the existing-state scan, new-state creation and timer reservation, so concurrent
 commands with different trial names cannot stage competing profiles. The lock
 is released before application or rollback calls.
 
+The owned environment file is named `99-z-g965n-mesa-trial-*.conf`, after
+`99-environment.conf` in the filename order used across environment.d search
+paths. This avoids editing `/etc/environment` or the system's compatibility
+symlink. After the three stable Shell observations, apply also requires the
+user manager's selected GPU whitelist to equal the whole requested profile:
+all seven profile values must match and every other whitelisted GPU variable
+must be absent. Absent and empty values are distinct, especially for the EGL
+vendor list. A healthy private Shell with a different application environment
+fails explicitly and invokes the existing single rollback path.
+
 The five-minute interval starts when the timer is reserved, before staging and
 the clean session transition. Do not assume five minutes remain after the login screen appears.
 Keep independent SSH access available. No source check cancels this timer.
@@ -124,7 +134,11 @@ manager through the same stop-GDM / restart-user-manager / restore-environment
 After startup it requires the same live UID1000 Shell PID, active unit and
 coherent loaded EGL/Gallium/GBM paths in three consecutive observations, within
 a bounded wait. `desktop_recovered` records this evidence separately from
-`files_restored` and `environment_restored`: GDM's job exit status alone cannot
+`files_restored` and `environment_restored`: the latter is checked again
+after graphical startup against the exact saved whitelist, so GNOME imports
+cannot silently turn an environment write into false restoration proof. A
+mismatch leaves `environment_restored` and `rolled_back` false and is reported
+separately. GDM's job exit status alone cannot
 qualify desktop recovery. A failed desktop wait is reported without a repeated
 automatic restart; the independent timer does not repeat an already attempted
 rollback. Explicit root manual recovery remains possible.
@@ -167,5 +181,20 @@ screen API responses, and restored screen-off/locked state on the unchanged
 kernel. This compound reset supports the corrected lifecycle, but does not
 identify stale D-Bus state, imported environment or failed session lifecycle as
 the unique cause. The old copied helper and first-trial evidence remain
-immutable and private. The corrected helper still requires a new real timer
-trial before claiming automatic GUI rollback works.
+immutable and private. A second natural 300-second timer trial of the clean-session correction
+then succeeded: all four owned files disappeared, the exact old `nocrc`
+manager environment returned, a new stock Shell and all four system graphics
+libraries were observed, UI APIs responded, and screen-off/locked state was
+restored. There were no new GPU faults or DECON timeout-counter increments;
+the separate known FUSE document-portal failure remained.
+
+That second trial also exposed a narrower application-environment bug:
+Shell's wrapper used `nocrc,noafbc`, but the user manager held `nocrc` because
+`/usr/lib/environment.d/99-environment.conf` links to `/etc/environment`, whose
+later filename-order assignment overrode the original `91-*` trial file.
+This is independent of the successful Shell startup and automatic rollback.
+The `99-z-*` filename and exact post-startup manager check address that source
+ordering issue without changing global configuration. Those latest changes
+require a new device trial before application-wide environment correctness
+can be claimed. No accepted persistent desktop profile is implied by either
+natural rollback test.

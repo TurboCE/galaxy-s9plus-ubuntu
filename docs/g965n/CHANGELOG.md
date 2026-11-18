@@ -1823,3 +1823,29 @@ private and restored stock sessions show it. Native#21 config has FUSE_FS=m
 and exactly matches the cached21 configuration byte-for-byte; the module is
 not supplied by the current image workflow. A source-only compatibility-addon
 recipe is being prepared; no FUSE module has been loaded yet.
+
+## 2026-11-19 — Clean-session automatic rollback verified; fix app environment priority
+
+The second trial used the corrected clean-session lifecycle. Its independent
+300s timer fired naturally; root service exited0 and all four owned files were
+removed. File/environment/desktop restoration state fields all verified true.
+Fresh SSH, a new stable stock Shell with system EGL/Gallium/GBM/dri_gbm, normal
+display API and original PAN_MESA_DEBUG=nocrc prove actual graphical recovery.
+No manual retry, acceptance or timer cancellation occurred. Restored screen-off/
+locked state; exact#21, no new GPU fault and DECON2/0 unchanged. FUSE portal
+failure remains separate. The trial was not accepted as persistent deployment.
+
+The trial Shell had nocrc,noafbc but user-manager apps inherited nocrc only.
+Actual source cause:99-environment.conf reads /etc/environment after the trial's
+91-prefixed file and overwrites PAN. Future owned environment files now sort
+after that99 file; no global/PAM configuration is edited. Post-startup manager
+environment must match the whole intended whitelist exactly, including missing
+versus empty. Rollback also checks the final effective manager environment.
+25 host tests pass. This latest priority fix still needs its own device trial.
+
+Prepared the exact#21 FUSE compatibility recipe with six host tests. Initial
+read-only inspection stopped at a nonexistent legacy include/linux/fuse.h;
+the pinned source uses include/uapi/linux/fuse.h and fs/fuse's own headers.
+Corrected that input list while retaining a clean check across all tracked
+common/ARM64 headers. Actual read-only inspection then verified native config,
+compiler, source,21 vmlinux and both symbol tables. No module build/load yet.
