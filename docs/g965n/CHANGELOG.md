@@ -896,3 +896,36 @@ The same build will include generation-associated DECON IRQ completion and
 separate IRQ-read accounting. Both changes await the exact next kernel compile,
 fresh backup/guarded BOOT deployment and bounded hardware tests. Existing tested
 #15 remains a rollback image. No original identity/radio/recovery writes planned.
+
+
+## 2026-11-19 — Kernel#16 hardware acceptance: completion generations and charging
+
+Built source ccd336120685edfd5dddde071d0cb4c69a5cc90b, verified a fresh
+nine-partition backup, then guarded BOOT-only write/readback and native boot
+passed. Kernel#16 BOOT SHA256 is
+06db513aac38376cda20f551523ff2af9046e9be428832581e00f34b5bbee259.
+RECOVERY/EFS/CPEFS/RADIO were preserved. Exact-BOOT audio/BT startup receipts
+match; this is startup evidence, not a new acoustic or peer test.
+
+With the desktop visible/unlocked, actual Mali rendering passed100 exact frames,
+all33 scenes and FIFO build/texture/ideas61/61/61fps. No matching kernel faults.
+DECON deltas:2795 generation marks,2795 IRQ shadow reads,5590 process shadow
+reads,2795 latched events/IRQ waits;0 new deferred events,0 IRQ-wait timeouts
+and0 atomic latch-check timeouts. Runtime PM remained auto50ms, DVFS stayed
+simple_ondemand260..572MHz,16 power cycles observed. Generation-associated
+completion therefore passes this bounded cadence test; desktop stutter, nocrc
+requirement and low-memory BO limitations remain unresolved.
+
+Charging now reads the requested500000uA input limit rather than525000uA.
+A bounded inhibit test reported Not charging/N/A for three samples with battery
+current937,0,3125uA; finally restoring auto reported Charging/Fast and171250uA.
+The first test expected the text None and failed its assertion: the kernel
+correctly renders CHARGE_TYPE_NONE as N/A. Auto was restored in its finally
+block and the corrected test passed. Fast denotes charging phase, not negotiated
+USB fast charging. No current limit was increased. Original charge-control
+register defect is fixed and hardware inhibition/restoration verified; full
+charging negotiation, idle drain and long thermal behavior remain unqualified.
+
+Owner is unavailable for further physical tests. Light illumination response,
+new acoustic tests and peer Bluetooth tests remain unverified; no user action
+is assumed.

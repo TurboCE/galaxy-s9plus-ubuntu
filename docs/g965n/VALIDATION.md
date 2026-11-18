@@ -13,7 +13,7 @@ A build or a driver node is not sufficient evidence of a working function.
 | Native builds / Git | Git clone+pull; real fixdep C source compiled on each CPU, 8 identical object hashes | Short test passed |
 | Storage | USERDATA mounted as root and grew to 230GiB | Verified |
 | Display / touch | Owner confirmed desktop/touch; 2x desktop scaling persisted at 720x1480 logical pixels | #14 touch binds after rail reset with no initial I2C timeout; basic interaction previously owner verified; apps wider than 720 minimum still need adaptations |
-| GPU | #14 same-kernel FIFO old31/31/31fps → latch60/61/61fps; #15 full33 +100 exact +FIFO61/61/61fps pass,0 matching faults, runtime PM/DVFS retained | One-frame delay and repeated process polling reduced in bounded tests; generation-race candidate under review; owner reports improvement but residual desktop stutter. nocrc remains required, lowmemY retained; private-high/shared-low allocation and long stability pending |
+| GPU | #14 same-kernel FIFO old31/31/31fps → latch60/61/61fps; #16 full33 +100 exact +FIFO61/61/61fps pass,0 matching faults or IRQ/check timeouts, runtime PM/DVFS retained | One-frame delay and repeated process polling reduced in bounded tests; generation-associated completion passed bounded hardware cadence test; owner reports improvement but residual desktop stutter. nocrc remains required, lowmemY retained; private-high/shared-low allocation and long stability pending |
 | Wi-Fi | Connected; HTTPS200 explicitly bound to Wi-Fi; NTP synchronized | Data path verified; long reconnect tests pending |
 | USB networking / SSH | Mac received address automatically; key-only SSH works | Verified |
 | Manual wired disconnect recovery | Console identified Wi-Fi path; privileged reconnection + gadget rebind restored USB SSH | Verified |
@@ -27,7 +27,7 @@ A build or a driver node is not sufficient evidence of a working function.
 | Cameras / flash / hardware video codecs | No full pipeline tested | Pending port/validation |
 | GPS / NFC / fingerprint / other Lineage-supported sensors | No end-to-end test yet | Pending port/validation |
 | Buttons / brightness / USB OTG / fast charging | Only individual parts observed; no complete acceptance test | Pending |
-| Charging / temperature / idle power | Battery stayed present during bring-up; native power testing still needed | Partial observation |
+| Charging / temperature / idle power | Native#16 input limit500000uA; inhibit → Not charging/N/A and near-zero battery current; auto → Charging/Fast restored | Charge-control field/encoding fixes hardware verified; no current increase. Fast charging negotiation, thermal endurance and screen-off drain unverified |
 | Sleep / resume / warm reboot | Sleep masked; upstream warm-reboot/deep-idle issues unresolved | Not normal |
 
 Software guard regressions cover recovery, transfers, filesystem status,
