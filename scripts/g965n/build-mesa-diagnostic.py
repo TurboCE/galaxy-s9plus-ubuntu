@@ -155,7 +155,7 @@ def make_launcher(root, receipt):
                    'LD_LIBRARY_PATH': ':'.join(library_dirs),
                    'GBM_BACKENDS_PATH': str(build / 'src/gbm/backends/dri'),
                    'LIBGL_DRIVERS_PATH': str(build / 'src/gallium/targets/dri'),
-                   'MESA_LOADER_DRIVER_OVERRIDE': 'panfrost', 'MESA_SHADER_CACHE_DISABLE': 'true'}
+                   'MESA_SHADER_CACHE_DISABLE': 'true'}
     # This launcher is emitted, never executed by the builder. Only its child
     # receives private library selection; it verifies all five coherent inputs.
     code = '#!/usr/bin/env python3\nimport os,sys,json,hashlib\nfrom pathlib import Path\n'
@@ -163,7 +163,7 @@ def make_launcher(root, receipt):
     code += "for name, expected in files.items():\n p=Path(name)\n if hashlib.sha256(p.read_bytes()).hexdigest()!=expected: raise SystemExit('Diagnostic build output drifted')\n"
     code += "for name, target in links.items():\n p=Path(name)\n if not p.is_symlink() or os.readlink(p)!=target: raise SystemExit('Diagnostic library link drifted')\n"
     code += "args=sys.argv[1:];args=args[1:] if args[:1]==['--'] else args\nif not args: raise SystemExit('Provide an explicitly authorized Wayland test command')\n"
-    code += "env=dict(os.environ)\nfor name in ['LD_PRELOAD','LD_AUDIT','__EGL_VENDOR_LIBRARY_DIRS','LIBGL_ALWAYS_SOFTWARE','GALLIUM_DRIVER']: env.pop(name,None)\nenv.update(environment)\nos.execvpe(args[0],args,env)\n"
+    code += "env=dict(os.environ)\nfor name in ['LD_PRELOAD','LD_AUDIT','__EGL_VENDOR_LIBRARY_DIRS','LIBGL_ALWAYS_SOFTWARE','GALLIUM_DRIVER','MESA_LOADER_DRIVER_OVERRIDE']: env.pop(name,None)\nenv.update(environment)\nos.execvpe(args[0],args,env)\n"
     launcher = root / 'launch.py'
     launcher.write_text(code)
     launcher.chmod(0o700)

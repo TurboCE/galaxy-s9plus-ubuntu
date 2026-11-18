@@ -1617,3 +1617,18 @@ the service stayed active and the next sample fell to80C at516/1325. Memory
 remained over4GiB available and no fatal compile error had appeared. Kept the
 85C stop threshold and recorded the bounded-service recipe; no hardware clock,
 voltage or compositor configuration was changed. Full build remains pending.
+
+The native patched build subsequently completed1325/1325 with successful user
+service exit and built receipt. Five output hashes, launcher/link hashes,
+private absolute EGL JSON target and all four ELF ARM64/little-endian headers
+passed independent read-only verification. Maximum sampled big temperature83C;
+available memory stayed over4GiB. Nothing was installed into system graphics
+paths, and no rendering qualification follows from these checks.
+
+Pre-launch source review found the diagnostic launcher's forced Panfrost name
+could bypass kmsro when Wayland chooses the Exynos display fd. The build already
+includes kmsro automatically. Future launchers now clear inherited overrides
+and retain normal fd-based selection. The completed09942cf build/receipt stays
+unchanged; any experiment using that immutable launcher must explicitly invoke
+its child through env -u MESA_LOADER_DRIVER_OVERRIDE. This selects the same
+verified libraries without editing the receipt or misrepresenting a rebuild.

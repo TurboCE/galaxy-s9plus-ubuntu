@@ -116,7 +116,7 @@ tests and extra tools are disabled. Meson may not download subprojects.
 The prefix points inside the private variant directory, but no install command
 is run. Keep compilation logs and dependency preparation receipts privately.
 
-During the first handset build, two unrestricted CPU equivalents reached83C.
+During the first handset build, two CPU equivalents reached83C.
 The operator reduced only the build service's CPU quota to one equivalent;
 temperature fell to80C at the next observation. For long handset compilation,
 use a bounded user service rather than assuming two jobs guarantee a low
@@ -170,6 +170,12 @@ the same diagnostic build. Selecting only a private DRI driver with the system
 Mesa vendor can fail `MESA_INTERFACE_VERSION_STRING` checks and is not this
 comparison. No `ldconfig`, shell profile, global environment or compositor
 configuration changes belong to this workflow.
+
+Keep fd-based driver detection: the launcher clears an inherited
+`MESA_LOADER_DRIVER_OVERRIDE` rather than forcing Panfrost on an Exynos display
+fd. The Panfrost-only build automatically includes kmsro for the separate
+display/render device path. Selecting private Mesa components does not require
+overriding that device selection.
 
 Record the variant receipt, explicit command, any child-only diagnostic flags,
 actual chosen modifier, and device evidence for each later comparison. The
