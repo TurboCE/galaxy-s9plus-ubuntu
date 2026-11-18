@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Grant only the active seat user access to this phone's GPIO buttons.
+# Do not add users to input or grant access to generic keyboard devices.
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="gpio-keys", PROGRAM=="/usr/local/libexec/g965n-screen-button --check-model", RESULT=="star2lte", TAG+="uaccess"

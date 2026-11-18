@@ -1,0 +1,209 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-only
+"""Toggle only the display on a short G965N GPIO power-button release.
+
+Runs as the desktop user. No event grab, suspend, poweroff, session unlock or
+input-group membership is used. Existing long-press handling is left intact.
+"""
+import argparse
+import fcntl
+import logging
+import os
+from pathlib import Path
+import select
+import signal
+import stat
+import struct
+import sys
+import time
+
+EV_SYN, EV_KEY = 0, 1
+SYN_REPORT, SYN_DROPPED = 0, 3
+KEY_POWER = 116
+EVENT = struct.Struct('@llHHi')
+# Linux input UAPI: _IOW('E', 0xa0, int). This changes only this open client's
+# timestamp clock; it does not claim or reconfigure the physical keyboard.
+EVIOCSCLOCKID = 0x400445A0
+CONFIG_ERROR = 78
+
+
+def is_star2lte(compatible):
+    return b'samsung,star2lte' in compatible.split(b'\0')
+
+
+def next_power_mode(mode):
+    if mode not in (0, 1, 2, 3):
+        raise ValueError('Display power management is unavailable')
+    return 3 if mode == 0 else 0
+
+
+class ShortPress:
+    """Match a complete short press, using evdev monotonic timestamps."""
+    def __init__(self, minimum=0.03, maximum=1.5, debounce=0.35):
+        self.minimum = minimum
+        self.maximum = maximum
+        self.debounce = debounce
+        self.pressed_at = None
+        self.last_toggle = None
+        self.synchronizing = False
+
+    def feed(self, timestamp, event_type, code, value):
+        if event_type == EV_SYN and code == SYN_DROPPED:
+            self.pressed_at = None
+            self.synchronizing = True
+            return False
+        if self.synchronizing:
+            if event_type == EV_SYN and code == SYN_REPORT:
+                self.synchronizing = False
+            return False
+        if event_type != EV_KEY or code != KEY_POWER:
+            return False
+        if value == 1:
+            if self.pressed_at is None:
+                self.pressed_at = timestamp
+            return False
+        if value != 0:  # includes autorepeat (2); never shorten a held press
+            return False
+        pressed_at, self.pressed_at = self.pressed_at, None
+        if pressed_at is None:
+            return False
+        duration = timestamp - pressed_at
+        if not self.minimum <= duration < self.maximum:
+            return False
+        if self.last_toggle is not None and timestamp - self.last_toggle < self.debounce:
+            return False
+        self.last_toggle = timestamp
+        return True
+
+
+def gpio_event_device(root=Path('/sys/class/input')):
+    candidates = []
+    for event in root.glob('event*'):
+        try:
+            if (event / 'device/name').read_text().strip() == 'gpio-keys':
+                candidates.append(Path('/dev/input') / event.name)
+        except OSError:
+            continue
+    if len(candidates) != 1:
+        raise RuntimeError('Expected exactly one gpio-keys input device')
+    return candidates[0]
+
+
+class Display:
+    def __init__(self):
+        # Deliberately imported only for a real desktop session, not udev's
+        # model check or host-side button-state tests.
+        from gi.repository import Gio, GLib
+        self.Gio, self.GLib = Gio, GLib
+        self.session = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        self.system = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        settings = Gio.Settings.new('org.gnome.settings-daemon.plugins.power')
+        if settings.get_string('power-button-action') != 'nothing':
+            raise ValueError("GNOME power-button-action must be 'nothing' before enabling this handler")
+        user = self.call(self.system, 'org.freedesktop.login1', '/org/freedesktop/login1',
+                         'org.freedesktop.login1.Manager', 'GetUser',
+                         GLib.Variant('(u)', (os.getuid(),))).unpack()[0]
+        display = self.property(self.system, 'org.freedesktop.login1', user,
+                                'org.freedesktop.login1.User', 'Display')
+        self.login_session = display[1]
+        if self.login_session == '/':
+            raise RuntimeError('Local graphical login session is not ready')
+
+    def call(self, bus, destination, path, interface, method, parameters=None):
+        return bus.call_sync(destination, path, interface, method, parameters,
+                             None, self.Gio.DBusCallFlags.NO_AUTO_START, 2000, None)
+
+    def property(self, bus, destination, path, interface, name):
+        return self.call(bus, destination, path, 'org.freedesktop.DBus.Properties', 'Get',
+                         self.GLib.Variant('(ss)', (interface, name))).unpack()[0]
+
+    def toggle(self):
+        props = self.call(self.system, 'org.freedesktop.login1', self.login_session,
+                          'org.freedesktop.DBus.Properties', 'GetAll',
+                          self.GLib.Variant('(s)', ('org.freedesktop.login1.Session',))).unpack()[0]
+        if (props.get('Active') is not True or props.get('Remote') is not False or
+                props.get('Type') not in ('wayland', 'x11') or
+                props.get('User', (None,))[0] != os.getuid()):
+            logging.info('Ignoring power button outside the active local graphical session')
+            return
+        destination = 'org.gnome.Mutter.DisplayConfig'
+        path = '/org/gnome/Mutter/DisplayConfig'
+        interface = 'org.gnome.Mutter.DisplayConfig'
+        mode = self.property(self.session, destination, path, interface, 'PowerSaveMode')
+        wanted = next_power_mode(mode)
+        self.call(self.session, destination, path, 'org.freedesktop.DBus.Properties', 'Set',
+                  self.GLib.Variant('(ssv)', (interface, 'PowerSaveMode', self.GLib.Variant('i', wanted))))
+        actual = self.property(self.session, destination, path, interface, 'PowerSaveMode')
+        if actual != wanted:
+            raise RuntimeError('Display power-mode readback did not match the request')
+        logging.info('Display %s; no suspend or session-unlock request', 'off' if wanted == 3 else 'on')
+
+
+def run(display):
+    runtime = Path('/run/user') / str(os.getuid())
+    lock = os.open(runtime / 'g965n-screen-button.lock',
+                   os.O_RDWR | os.O_CREAT | os.O_CLOEXEC | os.O_NOFOLLOW, 0o600)
+    device = None
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        device = os.open(gpio_event_device(), os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC)
+        if not stat.S_ISCHR(os.fstat(device).st_mode):
+            raise RuntimeError('Expected a character input device')
+        fcntl.ioctl(device, EVIOCSCLOCKID, struct.pack('i', time.CLOCK_MONOTONIC))
+        matcher = ShortPress()
+        pending = bytearray()
+        while True:
+            if not select.select([device], [], [])[0]:
+                continue
+            data = os.read(device, EVENT.size * 64)
+            if not data:
+                raise RuntimeError('GPIO button device was removed')
+            pending.extend(data)
+            while len(pending) >= EVENT.size:
+                seconds, microseconds, event_type, code, value = EVENT.unpack_from(pending)
+                del pending[:EVENT.size]
+                if matcher.feed(seconds + microseconds / 1_000_000, event_type, code, value):
+                    try:
+                        display.toggle()
+                    except Exception:
+                        # Do not retry a toggle automatically: a delayed success
+                        # followed by a retry could undo the user's single press.
+                        logging.exception('Display toggle failed')
+    finally:
+        if device is not None:
+            os.close(device)
+        os.close(lock)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--check-model', action='store_true', help='udev-only model predicate')
+    args = parser.parse_args()
+    try:
+        board = is_star2lte(Path('/sys/firmware/devicetree/base/compatible').read_bytes())
+    except OSError:
+        board = False
+    if args.check_model:
+        if board:
+            print('star2lte')
+        return 0 if board else 1
+    logging.basicConfig(level=logging.INFO, format='g965n-screen-button: %(message)s')
+    if not board or os.geteuid() == 0:
+        logging.error('Requires star2lte and a non-root desktop user')
+        return CONFIG_ERROR
+
+    def stop(*_):
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, stop)
+    try:
+        display = Display()
+    except ValueError as error:
+        logging.error('%s', error)
+        return CONFIG_ERROR
+    run(display)
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

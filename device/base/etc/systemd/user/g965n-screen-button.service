@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Unit]
+Description=G965N short power button display toggle
+After=graphical-session-pre.target
+PartOf=graphical-session.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/usr/local/libexec/g965n-screen-button
+Restart=on-failure
+RestartSec=5
+RestartPreventExitStatus=78
+TimeoutStopSec=3
+NoNewPrivileges=yes
+UMask=0077
+
+[Install]
+WantedBy=graphical-session.target

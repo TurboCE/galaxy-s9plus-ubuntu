@@ -1,4 +1,6 @@
-# Touchscreen and keys are plain evdev; make them readable by the seat
-SUBSYSTEM=="input", KERNEL=="event*", TAG+="uaccess"
+# Retain direct seat access for this phone's touchscreen only. GPIO buttons
+# have their own model-guarded rule. Other keyboards keep the distribution's
+# standard logind/libinput path; do not grant this raw reader every event node.
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="s6sy761", TAG+="uaccess"
 # Framebuffer access for X without root
 SUBSYSTEM=="graphics", KERNEL=="fb0", MODE="0660", GROUP="video"

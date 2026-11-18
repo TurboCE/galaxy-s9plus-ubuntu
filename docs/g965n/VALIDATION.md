@@ -26,7 +26,7 @@ A build or a driver node is not sufficient evidence of a working function.
 | Korean text | Noto CJK/emoji installed; ko fallback selects KR; Pango Korean sample has 0 missing glyphs | Font coverage verified; live app refresh may be needed |
 | Cameras / flash / hardware video codecs | No full pipeline tested | Pending port/validation |
 | GPS / NFC / fingerprint / other Lineage-supported sensors | No end-to-end test yet | Pending port/validation |
-| Buttons / brightness / USB OTG / fast charging | Only individual parts observed; no complete acceptance test | Pending |
+| Buttons / brightness / USB OTG / fast charging | #16 non-root GPIO reader/seat ACL verified; direct display-off8s retained SSH and16 background heartbeats, no new GPU faults; finally restored original off/locked state | Screen-only software path verified; physical short/long button interaction, brightness, OTG and fast-charge negotiation pending |
 | Charging / temperature / idle power | Native#16 input limit500000uA; inhibit → Not charging/N/A and near-zero battery current; auto → Charging/Fast restored | Charge-control field/encoding fixes hardware verified; no current increase. Fast charging negotiation, thermal endurance and screen-off drain unverified |
 | Sleep / resume / warm reboot | Sleep masked; upstream warm-reboot/deep-idle issues unresolved | Not normal |
 

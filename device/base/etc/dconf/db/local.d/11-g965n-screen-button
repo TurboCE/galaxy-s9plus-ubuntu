@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Short presses are handled by the non-root GPIO display-toggle service.
+# Lock-screen, idle and logind long-press settings remain independent.
+[org/gnome/settings-daemon/plugins/power]
+power-button-action='nothing'

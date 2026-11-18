@@ -952,3 +952,33 @@ it is not yet a hardware fix and no warning is suppressed.
 The first candidate compile failed before image packaging because dereferencing
 drm_atomic_state needs its defining drm_atomic.h header. Added the explicit
 include and retried; no device write took place for that failed build.
+
+Retry compiled and packaged kernel#17 (source ce61485aff680948b58d057e7160dbf563596e9c,
+UTS Nov18 19:14:34UTC, BOOT
+c159ad82b03af430c6c1afe28f7f9de95c3a7e2a9cd31010e2c58e6163bed479).
+Matching opt-in modules were packaged privately. Build success alone does not
+qualify the new tail; no installation or idle-timeout fix is claimed here.
+
+
+## 2026-11-19 — Screen-only power handler: software path tested on#16
+
+Added a model-guarded non-root GPIO short-release handler, user service and
+active-seat uaccess rule. Raw input access is narrowed to the named touchscreen
+and this model's GPIO keys. No event grab, input-group membership, suspend,
+poweroff or session unlock is used. Complete short releases are debounced;
+repeats, long/orphan presses and SYN_DROPPED do not trigger a display toggle.
+GNOME short-button action is nothing; existing lock and long-press policies
+remain independent. python3-gi is an explicit image dependency.10 host checks
+pass. Source installation enables the user service for the graphical session.
+
+After exact#16 BOOT checks and private config backups, live service ran as
+UID1000 with only the intended GPIO fd, active-seat ACL and direct user-open
+verified. Direct normal-API off/on took279.19/210.70ms. During8s display-off,
+a separate SSH connection confirmed PowerSaveMode3 and KMS CRTC active0;
+a background heartbeat continued16 times, maximum501.51ms gap for a500ms
+period. No new matching GPU faults or vblank timeout in that test interval.
+Original display-off/locked state was restored in finally, with no unlock
+request. This verifies the software screen-only/background path, not actual
+physical short/long button behavior or Android-equivalent standby drain. The
+interaction between a physical key wake and release-driven toggle is pending
+owner testing. Service health alone is not physical-button acceptance.

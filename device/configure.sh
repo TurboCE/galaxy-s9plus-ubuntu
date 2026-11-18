@@ -14,6 +14,11 @@ systemctl enable usb-gadget.service s9p-touch-power.service s9p-stability.servic
 	s9p-wifi-guard.service serial-getty@ttyGS0.service s9p-usb-dhcp.service
 dnsmasq --test --conf-file=/etc/dnsmasq.d/s9p-usb-only.conf
 
+# The active desktop user's GPIO-only handler changes display power, not system
+# sleep. Its dconf default leaves short power presses for that handler; existing
+# user overrides and the screen lock/long-press policies are not rewritten here.
+systemctl --global enable g965n-screen-button.service
+
 # The common image sets up zram swap, but this kernel has no zram (and the
 # image carries no modules): zram-generator would create dev-zram0.swap for
 # a device that never appears, and every boot would wait 90 s for it, then
