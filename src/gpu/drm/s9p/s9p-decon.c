@@ -58,6 +58,7 @@
 #include <drm/drm_gem_dma_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 #include <drm/drm_module.h>
+#include <drm/drm_modeset_helper_vtables.h>
 #include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_simple_kms_helper.h>
@@ -739,6 +740,31 @@ static const struct drm_connector_funcs s9p_conn_funcs = {
 
 /* ------------------------------------------------------------- drm device */
 
+static void s9p_decon_commit_tail(struct drm_atomic_state *state)
+{
+	struct drm_device *dev = state->dev;
+
+	drm_atomic_helper_commit_modeset_disables(dev, state);
+	drm_atomic_helper_commit_planes(dev, state, 0);
+	drm_atomic_helper_commit_modeset_enables(dev, state);
+	drm_atomic_helper_fake_vblank(state);
+	drm_atomic_helper_commit_hw_done(state);
+	/*
+	 * atomic_commit sets up tracked flip completions, including internal
+	 * events for commits without a userspace event. pipe_update delivers
+	 * only after the requested address latched (or arms the next IRQ).
+	 * Wait for that completion before releasing old buffers. Waiting for
+	 * yet another vblank can stall for a second on a command-mode panel
+	 * which has no further transfer to start while the desktop is idle.
+	 */
+	drm_atomic_helper_wait_for_flip_done(dev, state);
+	drm_atomic_helper_cleanup_planes(dev, state);
+}
+
+static const struct drm_mode_config_helper_funcs s9p_mode_helpers = {
+	.atomic_commit_tail = s9p_decon_commit_tail,
+};
+
 static const struct drm_mode_config_funcs s9p_mode_funcs = {
 	.fb_create = drm_gem_fb_create,
 	.atomic_check = drm_atomic_helper_check,
@@ -937,6 +963,7 @@ static int s9p_decon_probe(struct platform_device *pdev)
 	drm->mode_config.min_height = priv->height;
 	drm->mode_config.max_height = priv->height;
 	drm->mode_config.funcs = &s9p_mode_funcs;
+	drm->mode_config.helper_private = &s9p_mode_helpers;
 
 	ret = drm_connector_init(drm, &priv->connector, &s9p_conn_funcs,
 				 DRM_MODE_CONNECTOR_DSI);

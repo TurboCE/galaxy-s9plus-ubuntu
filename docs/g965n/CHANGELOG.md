@@ -929,3 +929,22 @@ charging negotiation, idle drain and long thermal behavior remain unqualified.
 Owner is unavailable for further physical tests. Light illumination response,
 new acoustic tests and peer Bluetooth tests remain unverified; no user action
 is assumed.
+
+
+## 2026-11-19 — Post-test idle vblank timeout; next candidate not qualified
+
+After the successful bounded#16 GPU test, a separate idle-period kernel warning
+reported drm_atomic_helper_wait_for_vblanks timing out at04:01:55KST. The
+screen-button agent had not yet changed DPMS, so that test is not its cause.
+The earlier test's zero-fault result applies only to its recorded interval.
+No failed system units were present when inspected. Other boot warnings remain,
+including CPU feature variation, clkout/MFD matching and Wi-Fi P2P creation.
+
+Source review finds the default atomic tail waits for another vblank after
+pipe_update has already delivered its latch-associated event. A command-mode
+idle transfer may not provide another FRAME_START. Prepared a standard helper
+tail using tracked flip_done completion instead, preserving modeset/plane/hw_done/
+cleanup order and old-buffer lifetime. Existing atomic_commit initializes
+internal events even when userspace supplies none. This hypothesis/candidate
+requires review, compile, boot, idle-transition and full rendering validation;
+it is not yet a hardware fix and no warning is suppressed.
