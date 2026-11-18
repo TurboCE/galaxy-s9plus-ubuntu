@@ -1359,3 +1359,13 @@ Python checks pass. Source-to-artifact-to-manual-guarded-stage instructions are
 in MODEM_OVERLAY_BUILD.md. Build never stages, flashes or autoloads anything;
 firmware/image publishing in CI remains disabled. No private stock BOOT or
 firmware content is included in Git.
+
+
+Timeout snapshot v2 additionally captures all three live job slots and full-width
+shader/tiler/L2 present, ready and transition masks, to distinguish a stalled
+producer or unavailable core. It remains timeout-only, under the existing
+already-active PM reference and short queue lock; all printing is outside
+that lock and no MMIO acknowledgement/configuration writes are added.
+Exact known-v1 migration, idempotence and modified-v2-cache refusal checks pass.
+Compilation/actual register capture are still pending; no root cause is inferred
+from fields that have not yet been observed.

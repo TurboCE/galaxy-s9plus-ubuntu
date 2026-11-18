@@ -325,14 +325,7 @@ if "S9P_TIMEOUT_OWNER" not in pj:
         + anchor, 1)
     (src / pj_path).write_text(pj)
 
-# Timeout-only observation: retain the normal scheduler/recovery behavior.
-# The PM reference never wakes the GPU; job_lock protects queue/fence snapshots.
-# MMIO reads do not ACK interrupts, and printk runs after releasing job_lock.
-pj = (src / pj_path).read_text()
-if "S9P_TIMEOUT_SNAPSHOT" not in pj:
-    anchor = "static enum drm_gpu_sched_stat panfrost_job_timedout(struct drm_sched_job\n"
-    assert pj.count(anchor) == 1
-    diagnostic = r"""/* S9P_TIMEOUT_SNAPSHOT: diagnostics only, no acknowledgement or recovery writes. */
+timeout_snapshot_v1 = r"""/* S9P_TIMEOUT_SNAPSHOT: diagnostics only, no acknowledgement or recovery writes. */
 static void panfrost_job_timeout_snapshot(struct panfrost_job *job)
 {
 	struct panfrost_device *pfdev = job->pfdev;
@@ -399,11 +392,135 @@ static void panfrost_job_timeout_snapshot(struct panfrost_job *job)
 }
 
 """
+
+# Timeout-only observation: retain the normal scheduler/recovery behavior.
+# The PM reference never wakes the GPU; job_lock protects queue/fence snapshots.
+# MMIO reads do not ACK interrupts, and printk runs after releasing job_lock.
+pj = (src / pj_path).read_text()
+if "S9P_TIMEOUT_SNAPSHOT" not in pj:
+    anchor = "static enum drm_gpu_sched_stat panfrost_job_timedout(struct drm_sched_job\n"
+    assert pj.count(anchor) == 1
+    diagnostic = timeout_snapshot_v1
     pj = pj.replace(anchor, diagnostic + anchor, 1)
     anchor = '\t/* S9P_TIMEOUT_OWNER: distinguish compositor and benchmark jobs. */\n'
     assert pj.count(anchor) == 1
     pj = pj.replace(anchor, '\tpanfrost_job_timeout_snapshot(job);\n\n' + anchor, 1)
     (src / pj_path).write_text(pj)
+
+# Upgrade the exact known v1 helper in cached trees; never guess at changed C.
+# Bounded reads only on timeout, under the existing PM/queue guard. No MMIO
+# writes, no fence callbacks under job_lock, and every printk remains outside it.
+pj = (src / pj_path).read_text()
+timeout_snapshot_v2 = r"""/* S9P_TIMEOUT_SNAPSHOT: diagnostics only, no acknowledgement or recovery writes.
+ * S9P_TIMEOUT_SNAPSHOT_V2: live producer slots and full-width power masks.
+ */
+static void panfrost_job_timeout_snapshot(struct panfrost_job *job)
+{
+	struct panfrost_device *pfdev = job->pfdev;
+	struct panfrost_job *queued;
+	unsigned long flags, suspended;
+	int js = panfrost_job_get_slot(job), pm_ref;
+	unsigned int i, j;
+	u32 irq[9] = {}, state = 0;
+	u32 slots[NUM_JOB_SLOTS][14] = {}, power[3][6] = {};
+	u32 gpu_status = 0;
+	u64 seqno[2] = {};
+	bool present[2] = {}, matches[2] = {}, signaled[2] = {};
+	bool mmio = false;
+	const u32 irq_regs[] = {
+		JOB_INT_RAWSTAT, JOB_INT_MASK, JOB_INT_STAT,
+		MMU_INT_RAWSTAT, MMU_INT_MASK, MMU_INT_STAT,
+		GPU_INT_RAWSTAT, GPU_INT_MASK, GPU_INT_STAT,
+	};
+
+	const u32 power_regs[3][6] = {
+		{ GPU_SHADER_PRESENT_LO, GPU_SHADER_PRESENT_HI,
+		  SHADER_READY_LO, SHADER_READY_HI, SHADER_PWRTRANS_LO, SHADER_PWRTRANS_HI },
+		{ GPU_TILER_PRESENT_LO, GPU_TILER_PRESENT_HI,
+		  TILER_READY_LO, TILER_READY_HI, TILER_PWRTRANS_LO, TILER_PWRTRANS_HI },
+		{ GPU_L2_PRESENT_LO, GPU_L2_PRESENT_HI,
+		  L2_READY_LO, L2_READY_HI, L2_PWRTRANS_LO, L2_PWRTRANS_HI },
+	};
+	const char * const power_names[] = { "shader", "tiler", "l2" };
+
+	/* Pin only an already active, referenced device. Never wake it merely
+	 * to diagnose a timeout, or schedule a new idle transition on release.
+	 */
+	pm_ref = pm_runtime_get_if_in_use(pfdev->base.dev);
+	spin_lock_irqsave(&pfdev->js->job_lock, flags);
+	suspended = READ_ONCE(pfdev->is_suspended[0]);
+	for (i = 0; i < ARRAY_SIZE(seqno); i++) {
+		queued = pfdev->jobs[js][i];
+		present[i] = queued != NULL;
+		matches[i] = queued == job;
+		if (queued && queued->done_fence) {
+			seqno[i] = queued->done_fence->seqno;
+			/* Do not call a fence helper that might acquire job_lock. */
+			signaled[i] = test_bit(DMA_FENCE_FLAG_SIGNALED_BIT,
+					      &queued->done_fence->flags);
+		}
+	}
+	if (pm_ref > 0 && !suspended) {
+		for (i = 0; i < ARRAY_SIZE(irq_regs); i++)
+			irq[i] = job_read(pfdev, irq_regs[i]);
+		state = job_read(pfdev, JOB_INT_JS_STATE);
+		for (i = 0; i < NUM_JOB_SLOTS; i++) {
+			const u32 regs[] = {
+				JS_STATUS(i), JS_CONFIG(i), JS_AFFINITY_LO(i), JS_AFFINITY_HI(i),
+				JS_HEAD_LO(i), JS_HEAD_HI(i), JS_TAIL_LO(i), JS_TAIL_HI(i),
+				JS_COMMAND_NEXT(i), JS_CONFIG_NEXT(i),
+				JS_HEAD_NEXT_LO(i), JS_HEAD_NEXT_HI(i),
+				JS_AFFINITY_NEXT_LO(i), JS_AFFINITY_NEXT_HI(i),
+			};
+
+			for (j = 0; j < ARRAY_SIZE(regs); j++)
+				slots[i][j] = job_read(pfdev, regs[j]);
+		}
+		for (i = 0; i < ARRAY_SIZE(power_regs); i++) {
+			for (j = 0; j < ARRAY_SIZE(power_regs[0]); j++)
+				power[i][j] = job_read(pfdev, power_regs[i][j]);
+		}
+		gpu_status = job_read(pfdev, GPU_STATUS);
+		mmio = true;
+	}
+	spin_unlock_irqrestore(&pfdev->js->job_lock, flags);
+	if (pm_ref > 0)
+		pm_runtime_put_noidle(pfdev->base.dev);
+
+	/* MMIO values span a few reads, not an atomic hardware snapshot.
+	 * Print only after releasing job_lock; never expose BO contents.
+	 */
+	dev_err(pfdev->base.dev,
+		"timeout snapshot js=%d pm_ref=%d suspended=%#lx reset=%d mmio=%d q0=%d/%d/%llu/%d q1=%d/%d/%llu/%d\n",
+		js, pm_ref, suspended, atomic_read(&pfdev->reset.pending), mmio,
+		present[0], matches[0], (unsigned long long)seqno[0], signaled[0],
+		present[1], matches[1], (unsigned long long)seqno[1], signaled[1]);
+	if (!mmio)
+		return;
+	dev_err(pfdev->base.dev,
+		"timeout registers job_irq=%#x/%#x/%#x mmu_irq=%#x/%#x/%#x gpu_irq=%#x/%#x/%#x js_state=%#x gpu_status=%#x\n",
+		irq[0], irq[1], irq[2], irq[3], irq[4], irq[5],
+		irq[6], irq[7], irq[8], state, gpu_status);
+	for (i = 0; i < NUM_JOB_SLOTS; i++)
+		dev_err(pfdev->base.dev,
+			"timeout slot%u status=%#x config=%#x affinity=%#x:%08x head=%#x:%08x tail=%#x:%08x next_cmd=%#x next_config=%#x next_head=%#x:%08x next_affinity=%#x:%08x\n",
+			i, slots[i][0], slots[i][1], slots[i][3], slots[i][2],
+			slots[i][5], slots[i][4], slots[i][7], slots[i][6],
+			slots[i][8], slots[i][9], slots[i][11], slots[i][10],
+			slots[i][13], slots[i][12]);
+	for (i = 0; i < ARRAY_SIZE(power); i++)
+		dev_err(pfdev->base.dev,
+			"timeout power %s present=%#x:%08x ready=%#x:%08x transition=%#x:%08x\n",
+			power_names[i], power[i][1], power[i][0], power[i][3],
+			power[i][2], power[i][5], power[i][4]);
+}
+
+"""
+if "S9P_TIMEOUT_SNAPSHOT_V2" not in pj:
+    assert pj.count(timeout_snapshot_v1) == 1, "Panfrost timeout snapshot v1 anchor drift"
+    (src / pj_path).write_text(pj.replace(timeout_snapshot_v1, timeout_snapshot_v2, 1))
+else:
+    assert pj.count(timeout_snapshot_v2) == 1, "Panfrost timeout snapshot v2 anchor drift"
 
 # Independent recovery correction, adapted from the upstream mailing-list patch:
 # Arun Iyengar <aiyengar1990@gmail.com>, 2026-11-13 09:03:04 +0000,
