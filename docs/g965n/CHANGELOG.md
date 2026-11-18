@@ -1203,7 +1203,10 @@ This is diagnostic evidence, not a stability fix.
 
 A separately bounded nocrc,noafbc targeted comparison also produced6 glmark
 JS0 timeouts and Soft-stop failed, with no compositor timeout in that interval.
-Thus AFBC compression alone is not a repair. No global noafbc setting was
+Thus that debug configuration did not repair the failure. The actual render
+target modifier was not captured in this comparison, so it does not establish
+that AFBC was absent; externally imported buffers need separate verification.
+No global noafbc setting was
 installed; all clocks/voltage/runtime-PM settings and desktop state retained.
 The helper accepts that exact combined debug option for reproducible diagnosis.
 
@@ -1446,3 +1449,35 @@ every other object/register was absent. Initial field-size/source arithmetic
 audit finds no proven tiler/header overflow at native resolution; the16MiB
 render-buffer size correlation is a hypothesis only. Further diagnosis remains
 open, and no new CP security trial has been performed.
+
+
+## 2026-11-19 — Inspect existing GPU metadata without another stress run
+
+Read-only structural analysis of the preserved#21 dump finds eight valid BOs
+and one invalid sparse-heap object. The invalid object's bytes are not decoded:
+the missing SGT makes those bytes unqualified, not evidence of GPU contents.
+No pixels, textures, private dump or identifiers are published.
+
+The valid fragment descriptor reports an actual1440x2896 render target,
+distinct from the window's reported1440x2960 size. Its target is AFBC32x8
+wide/split RGBA8; CRC reads/writes are disabled as expected with nocrc. Header,
+body alignment and worst-case buffer extent fit the backing allocation in this
+snapshot. This rules out that specific simple size/stride mismatch, not all
+AFBC or synchronization defects. Previous noafbc comparisons checked the
+environment only; they did not capture an actual modifier, so AFBC is not
+excluded as a contributor. No global compression change is made.
+
+The valid command pool also retains a completed indexed-vertex descriptor
+whose tiler pointer matches this fragment's tiler context. Both associated
+shader pointers resolve inside valid BOs. Private analysis using the official
+Mesa25.2.8 Bifrost disassembler finds straight-line vertex/fragment programs
+with end markers and no branches; the fragment declares no texture/sampler
+inputs. There is no evidence of a shader-code infinite loop in that snapshot.
+This does not establish total overdraw cost or exclude fixed-function, cache,
+memory or synchronization stalls. Shader bytes/disassembly remain private.
+
+A subsequent read-only health check still finds native kernel#21, no failed
+system units, the modem module absent and five cumulative GPU scheduler
+timeouts, unchanged from the completed targeted run. Physical light-response
+and acoustic tests are deferred while the owner is unavailable. No further
+CP security operation, reboot, flash or GPU stress run was performed here.

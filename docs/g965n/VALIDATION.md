@@ -34,3 +34,11 @@ Software guard regressions cover recovery, transfers, filesystem status,
 Wi-Fi recovery, ACPM dispatch, hub patch validation BOOT-only updates and private RFS copies.
 CI never flashes or publishes blobs.
 The full-function target is **not achieved**. Only the individual observations above are verified; full LTE/audio/Bluetooth/sensor support is not claimed.
+
+GPU diagnosis: the preserved#21 timeout dump's valid fragment metadata shows
+an actual1440x2896 AFBC32x8 render target, versus the reported1440x2960 window.
+Its simple header/body extents fit the backing allocation. Earlier noafbc
+environment-only comparisons did not verify the actual modifier, so they do
+not exclude compression as a contributor. The invalid sparse-heap dump object
+is not decoded or treated as valid evidence. No additional stress run or
+physical light-response test is implied by this metadata inspection.
