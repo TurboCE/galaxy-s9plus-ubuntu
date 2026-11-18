@@ -22,6 +22,7 @@
 #include <linux/of.h>
 #include <linux/timekeeping.h>
 #include <linux/workqueue.h>
+#include <linux/soc/samsung/s9p-acpm.h>
 
 #define MBOX_PHYS		0x14100000
 #define SRAM_PHYS		0x02039000

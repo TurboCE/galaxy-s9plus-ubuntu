@@ -897,3 +897,16 @@ if 'S9P_TOUCH_RAIL_READY' not in touch:
         '\t\treturn dev_err_probe(&client->dev, -EPROBE_DEFER,\n'
         '\t\t\t\t     "waiting for touch rail reset\\n");\n\n' + anchor, 1)
     touch_path.write_text(touch)
+
+# touchscreen_parse_properties(..., true) configures MT axes. Check those,
+# not unused legacy ABS_X/Y, and keep the warning for genuinely unset axes.
+touch = touch_path.read_text()
+if 'S9P_TOUCH_MT_AXIS_CHECK' not in touch:
+    anchor = ('\tif (!input_abs_get_max(sdata->input, ABS_X) ||\n'
+              '\t    !input_abs_get_max(sdata->input, ABS_Y)) {')
+    assert touch.count(anchor) == 1
+    touch = touch.replace(anchor,
+        '\t/* S9P_TOUCH_MT_AXIS_CHECK: this input device reports multitouch axes. */\n'
+        '\tif (!input_abs_get_max(sdata->input, ABS_MT_POSITION_X) ||\n'
+        '\t    !input_abs_get_max(sdata->input, ABS_MT_POSITION_Y)) {', 1)
+    touch_path.write_text(touch)

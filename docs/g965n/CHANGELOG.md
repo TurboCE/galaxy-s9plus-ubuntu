@@ -777,3 +777,19 @@ still observes residual desktop stutter. MemAvailable~4.6GiB and boot-to-check
 pgscan_direct/allocstall/compact_stall counters0 do not support current direct
 reclaim as the explanation in that sampled interval. The separate high-memory
 allocation/export limitation remains an open pressure issue.
+
+A controlled four-window GTK transition trace (normal application launch, no
+restricted Shell API) contains621208bytes/126 FrameClock marks. Dispatch p95=
+31.102ms/max112.062ms, paint p95=7.117ms/max81.563ms, swap p95=4.426ms/max6.15ms.
+This differs from the earlier manual overview workload and is NOT an equal-workload
+before/after percentage. It proves profiling works when UI activity overlaps.
+Raw trace persists privately; animations remain enabled and display power mode0.
+
+Prepared a second DECON candidate: use counted FRAME_START as a wakeup hint,
+then still verify the real shadow latch under the original total50ms deadline.
+The old250us polling policy is available by runtime switch. IRQ wait timeout/read
+counters allow an actual old/new overhead comparison. Missing IRQs retain the
+hardware-poll fallback; no event is completed based on IRQ alone. Candidate not
+yet built/boot-qualified. Also included the ACPM driver's own prototype header,
+and corrected the touch diagnostic to check its actual MT axes rather than
+unused legacy ABS_X/Y. Real unset-MT-axis warnings remain active.

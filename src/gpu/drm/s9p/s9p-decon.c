@@ -40,6 +40,8 @@
 #include <linux/aperture.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/wait.h>
+#include <linux/ktime.h>
 #include <linux/platform_device.h>
 
 #include <drm/clients/drm_client_setup.h>
@@ -175,6 +177,13 @@ MODULE_PARM_DESC(panel_sleep, "also put the panel into sleep mode when blanking"
 static bool s9p_latched_flip_events = true;
 module_param_named(latched_flip_events, s9p_latched_flip_events, bool, 0644);
 MODULE_PARM_DESC(latched_flip_events, "complete flips on the counted latch edge instead of the following frame");
+static bool s9p_irq_latch_wait = true;
+module_param_named(irq_latch_wait, s9p_irq_latch_wait, bool, 0644);
+MODULE_PARM_DESC(irq_latch_wait, "wait for FRAME_START before checking the shadow latch");
+static unsigned long s9p_irq_waits, s9p_irq_wait_timeouts, s9p_shadow_reads;
+module_param_named(irq_waits, s9p_irq_waits, ulong, 0444);
+module_param_named(irq_wait_timeouts, s9p_irq_wait_timeouts, ulong, 0444);
+module_param_named(shadow_reads, s9p_shadow_reads, ulong, 0444);
 static unsigned long s9p_latched_events, s9p_deferred_events;
 module_param_named(latched_events, s9p_latched_events, ulong, 0444);
 module_param_named(deferred_events, s9p_deferred_events, ulong, 0444);
@@ -200,6 +209,7 @@ struct s9p_decon {
 	u32 inherited_path0;
 	u32 inherited_path1;
 	int irq_frame_start;
+	wait_queue_head_t frame_wait;
 	/* one all-black frame, for display-off (see s9p_decon_blank) */
 	void __iomem *dsim;		/* DSIM0, for DCS display off/on */
 	void *black_cpu;
@@ -242,13 +252,49 @@ static u32 s9p_shadow_mask(const struct s9p_decon *priv)
 #define SHADOW_POLL_US		250
 #define SHADOW_TIMEOUT_US	50000
 
+static u32 s9p_shadow_read(struct s9p_decon *priv)
+{
+	s9p_shadow_reads++;
+	return readl(priv->decon + DECON_SHADOW_REG_UPDATE_REQ);
+}
+
 static int s9p_wait_shadow_idle(struct s9p_decon *priv)
 {
 	u32 v;
 
-	return readl_poll_timeout(priv->decon + DECON_SHADOW_REG_UPDATE_REQ,
-				  v, (v & s9p_shadow_mask(priv)) == 0,
-				  SHADOW_POLL_US, SHADOW_TIMEOUT_US);
+	return read_poll_timeout(s9p_shadow_read, v,
+				(v & s9p_shadow_mask(priv)) == 0,
+				SHADOW_POLL_US, SHADOW_TIMEOUT_US, false, priv);
+}
+
+/* Preserve the same total 50ms deadline and the hardware shadow check. The
+ * IRQ is a wakeup hint, never proof that the framebuffer has latched. If the
+ * interrupt is missing, the remaining-time poll still checks real hardware.
+ */
+static int s9p_wait_flip_latch(struct s9p_decon *priv, struct drm_crtc *crtc,
+			       u64 before, bool vblank_held)
+{
+	ktime_t deadline;
+	s64 remaining;
+	u32 v;
+
+	if (!vblank_held || !READ_ONCE(s9p_irq_latch_wait))
+		return s9p_wait_shadow_idle(priv);
+
+	deadline = ktime_add_us(ktime_get(), SHADOW_TIMEOUT_US);
+	s9p_irq_waits++;
+	if (!wait_event_timeout(priv->frame_wait,
+			drm_crtc_vblank_count(crtc) != before,
+			msecs_to_jiffies(40)))
+		s9p_irq_wait_timeouts++;
+
+	remaining = ktime_us_delta(deadline, ktime_get());
+	if (remaining <= 0)
+		return (s9p_shadow_read(priv) & s9p_shadow_mask(priv)) ?
+			-ETIMEDOUT : 0;
+	return read_poll_timeout(s9p_shadow_read, v,
+				(v & s9p_shadow_mask(priv)) == 0,
+				SHADOW_POLL_US, remaining, false, priv);
 }
 
 static void s9p_hw_trigger_unmask(struct s9p_decon *priv)
@@ -308,6 +354,7 @@ static irqreturn_t s9p_decon_irq(int irq, void *data)
 		writel_relaxed(DECON_FRAME_START_INT_PEND,
 			       priv->decon + DECON_INTERRUPT_PENDING);
 		drm_crtc_handle_vblank(&priv->pipe.crtc);
+		wake_up_all(&priv->frame_wait);
 	}
 	if (pend & DECON_FRAME_DONE_INT_PEND)
 		writel_relaxed(DECON_FRAME_DONE_INT_PEND,
@@ -509,7 +556,7 @@ static void s9p_decon_pipe_update(struct drm_simple_display_pipe *pipe,
 			 * screen that is a torn, half-drawn frame right after
 			 * every click, followed by the correct one.
 			 */
-			if (s9p_wait_shadow_idle(priv))
+			if (s9p_wait_flip_latch(priv, crtc, before_latch, vblank_held))
 				drm_err_ratelimited(&priv->drm,
 					"flip did not latch within 50 ms\n");
 			else
@@ -628,6 +675,7 @@ static int s9p_decon_probe(struct platform_device *pdev)
 	if (IS_ERR(priv))
 		return PTR_ERR(priv);
 	drm = &priv->drm;
+	init_waitqueue_head(&priv->frame_wait);
 
 	priv->decon = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(priv->decon))
