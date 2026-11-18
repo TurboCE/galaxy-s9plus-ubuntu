@@ -13,7 +13,7 @@ A build or a driver node is not sufficient evidence of a working function.
 | Native builds / Git | Git clone+pull; real fixdep C source compiled on each CPU, 8 identical object hashes | Short test passed |
 | Storage | USERDATA mounted as root and grew to 230GiB | Verified |
 | Display / touch | Owner confirmed desktop/touch; 2x desktop scaling persisted at 720x1480 logical pixels | #14 touch binds after rail reset with no initial I2C timeout; basic interaction previously owner verified; apps wider than 720 minimum still need adaptations |
-| GPU | #14 same-kernel FIFO old31/31/31fps → latch60/61/61fps; #18 full33 +100 exact +FIFO61/61/61fps at512x512 pass,0 matching faults/new IRQ-check timeouts, runtime PM/DVFS retained | One-frame delay and repeated process polling reduced in bounded tests; generation-associated completion passed bounded hardware cadence test; #16 later idle vblank timeout prompted #18 tracked-tail/initial-enable fix; four bounded DPMS cycles/idle/SSH passed with0 new matching errors; owner reports improvement but residual desktop stutter;1440x2960 full33 stress FAILED with3 glmark scheduler timeouts despite FIFO61x3; #21 public targeted3-scene run stillFAILED with5 scheduler timeouts, all cores ready. nocrc remains required, lowmemY retained; private-high/shared-low allocation and long stability pending |
+| GPU | #14 same-kernel FIFO old31/31/31fps → latch60/61/61fps; #18 full33 +FIFO61/61/61fps at requested512x512 and independent128x128 readback100 pass,0 matching faults/new IRQ-check timeouts, runtime PM/DVFS retained | One-frame delay and repeated process polling reduced in bounded tests; generation-associated completion passed bounded hardware cadence test; #16 later idle vblank timeout prompted #18 tracked-tail/initial-enable fix; four bounded DPMS cycles/idle/SSH passed with0 new matching errors; owner reports improvement but residual desktop stutter;1440x2960 full33 stress FAILED with3 glmark scheduler timeouts despite FIFO61x3; #21 public targeted3-scene run stillFAILED with5 scheduler timeouts, all cores ready. nocrc remains required, lowmemY retained; private-high/shared-low allocation and long stability pending |
 | Wi-Fi | Connected; HTTPS200 explicitly bound to Wi-Fi; NTP synchronized | Data path verified; long reconnect tests pending |
 | USB networking / SSH | Mac received address automatically; key-only SSH works | Verified |
 | Manual wired disconnect recovery | Console identified Wi-Fi path; privileged reconnection + gadget rebind restored USB SSH | Verified |
@@ -50,5 +50,6 @@ runner's unmodified scene-completeness check; it is a diagnostic comparison,
 not another qualified rendering pass. All temporary session state was restored.
 The isolated Mesa explicit-modifier candidate has passed host selector tests
 and native configuration/compilation. Output hashes, coherent vendor paths and
-ARM64 ELF headers verified. It has not been loaded by the desktop or qualified
-on the GPU.
+ARM64 ELF headers verified. An isolated128x128/100-frame readback then passed
+with zero pixel mismatches/new matching kernel faults and private-library load
+proof. The desktop still uses system Mesa; native-size qualification is pending.

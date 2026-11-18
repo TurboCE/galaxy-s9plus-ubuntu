@@ -25,7 +25,7 @@ independent readback program, and it does not substitute three scenes for the
 full profile's 33-scene qualification. `--fifo` explicitly adds the existing
 three-scene presentation check if needed.
 
-`--profile full` remains the default: the 100-frame readback program, all 33
+`--profile full` remains the default: the independent128x128/100-frame readback program, all 33
 one-second glmark2 scenes, and optional FIFO checks use the original deadlines.
 For example:
 

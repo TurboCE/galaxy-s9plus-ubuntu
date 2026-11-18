@@ -1632,3 +1632,20 @@ and retain normal fd-based selection. The completed09942cf build/receipt stays
 unchanged; any experiment using that immutable launcher must explicitly invoke
 its child through env -u MESA_LOADER_DRIVER_OVERRIDE. This selects the same
 verified libraries without editing the receipt or misrepresenting a rebuild.
+
+## 2026-11-19 — Isolated Mesa tiny readback passes before native-size testing
+
+The frozen source/binary smoke program is128x128, not512x512. Pre-run review
+caught the requested-size wording error, retained the unchanged program and
+qualified only its actual dimensions. With the verified patched launcher and
+child-only override removal,100 frames/6553600 bytes compared exactly with0
+mismatches. Exit0 in2.972s within the30s deadline; child reaped. Actual Mali-G72
+renderer and dynamic-loader init paths prove private EGL/Gallium/GBM libraries
+were loaded. The separate dri_gbm backend was not used in surfaceless mode.
+
+Kernel cursor delta has0 new matching GPU/DECON faults. Original display-off,
+locked state and PM/clock/voltage/driver settings were unchanged; big/GPU
+temperatures55/49C before and48/48C afterward. Raw logs remain private. This
+is a small offscreen correctness pass, not a native-size timeout repair or a
+desktop driver switch. The next bounded targeted modifier comparison is a
+separate pending qualification.
