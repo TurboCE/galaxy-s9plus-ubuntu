@@ -117,3 +117,10 @@ and an input-event path max229.25ms. These exceed a60Hz16.7ms budget at times;
 the owner's rough-animation report is therefore an open performance issue,
 not dismissed as normal or proved fixed by a high glmark score. This first trace
 does not isolate cold caches, memory pressure, scheduling and driver latency.
+
+Kernel#13 additionally corrects the board's ACPM-owned supply description.
+The whole-boot missing-mali-regulator error is absent. Another full33-scene/
+100-frame exact pass reports0 matching errors.50ms sampling observes260/455/
+572MHz with the existing950mV setting and runtime power cycling; no forced
+high-frequency or always-on default. This does not close the animation or
+private-high/shared-low allocation issues.

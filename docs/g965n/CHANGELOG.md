@@ -662,3 +662,36 @@ capture/API analysis helpers and repeat instructions; no raw trace committed.
 Kernel#13 candidate with corrected rail ownership built successfully from08e6464,
 BOOT e86e3b48b3765b60c1eb5a7b85929a7e983684597253a8e8fc4784c89d5662ac.
 It is not installed/boot-qualified yet; running device remains#12.
+
+## 2026-11-19 — Kernel#13 native rail-ownership validation
+
+Fresh nine-partition backup completed. An initial installer invocation named a
+nonexistent timestamped image; preflight refused it before any write. Re-ran with
+the actual manifest-matching artifact, verified BOOT-only readback and native
+boot#13. BOOT e86e3b48b3765b60c1eb5a7b85929a7e983684597253a8e8fc4784c89d5662ac,
+27,088,912bytes, UTS Nov18T17:14:11UTC. Protected partitions were not flashed.
+The `_opp_set_regulators` missing-mali-supply error is absent from this full boot,
+not just the benchmark interval. GPU initializes at572MHz/950mV in the dedicated
+clock provider, AARCH64_4K and conservative lowmemY confirmed. No matched GPU/
+display faults, panic/oops/WARNING/SError/lockup in the inspected whole-boot log.
+Audio/BT exact-BOOT services active, hci0 and both GNOME audio nodes present;
+this does not repeat the earlier owner's acoustic/ASR test after this reboot.
+No failed system units in the check. The next bounded GPU/DVFS check is running.
+
+Other boot messages remain: clkout probe-22, initial s6sy761 probe-110,
+MAX77705 child DT-node messages, Wi-Fi roam/P2P failures and SO_PASSSEC unsupported.
+The existing uniloader build script explicitly records why its20byte empty-gzip
+external ramdisk is retained: changing it to an empty cpio historically hung
+before console. Kept that known warning path unchanged rather than repeating
+that unsafe workaround. It is not represented as an entirely clean boot.
+Raw animation traces used runtime storage and expired on reboot; numerical
+summaries above were read before reboot. Future repeat captures should use a
+persistent private output path when follow-up analysis is required.
+
+Kernel#13 full33 scenes and100 exact readback frames passed with0 matching
+GPU/display errors.50ms frequency samples observed260/455/572MHz (239/14/580
+samples), rail-setting readback950000uV throughout;15 more power-on/off cycles.
+Both CPU policies also changed frequencies (little350..1499MHz, big1066..2327MHz)
+during this bounded test. This establishes functioning observed DVFS, not a
+physical rail-voltage measurement or animation smoothness. No fixed-frequency
+or always-on performance workaround was installed.24 host guard tests passed.
