@@ -9,9 +9,8 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/firmware.h>
 
-extern const u8 zrn_overlay[];
-extern const u32 zrn_overlay_size;
 static int overlay_id = -1;
 
 extern struct platform_driver *zrn_mcu_ipc_driver, *zrn_shmem_driver, *zrn_modem_driver;
@@ -27,13 +26,24 @@ module_param(enable_g965n, bool, 0444);
 static int __init zrn_modem_init(void)
 {
 	int i, ret;
+	const struct firmware *overlay;
 
-	if (!of_machine_is_compatible("samsung,star2lte") || !enable_g965n || zrn_overlay_size < 40)
+	if (!of_machine_is_compatible("samsung,star2lte") || !enable_g965n)
 		return -ENODEV;
 	ret = zrn_shm_find_memory();
 	if (ret)
 		return ret;
-	ret = of_overlay_fdt_apply(zrn_overlay, zrn_overlay_size, &overlay_id, NULL);
+	/* The local DTBO is generated from GPL board source and checked against
+	 * the owner's stock BOOT. No opaque embedded overlay is used. */
+	ret = request_firmware(&overlay, "g965n/modem.dtbo", NULL);
+	if (ret)
+		return ret;
+	if (overlay->size < 40 || overlay->size > 128 * 1024) {
+		release_firmware(overlay);
+		return -EINVAL;
+	}
+	ret = of_overlay_fdt_apply(overlay->data, overlay->size, &overlay_id, NULL);
+	release_firmware(overlay);
 	if (ret) {
 		pr_err("zrn-modem: device tree overlay: %d\n", ret);
 		if (overlay_id >= 0)

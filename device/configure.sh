@@ -37,4 +37,14 @@ cat > /etc/fstab <<'FSTAB'
 LABEL=s9plus-root  /  ext4  defaults,noatime  0 0
 FSTAB
 
+# The built-in panel at 3x leaves only 480 logical pixels. Firefox and many
+# desktop dialogs have a larger minimum width. A fresh user's 2x profile gives
+# 720x1480; existing user choices must not be overwritten by this build step.
+phone_home=$(getent passwd "$IMAGE_USER" | cut -d: -f6)
+phone_group=$(id -gn "$IMAGE_USER")
+install -d -m 700 -o "$IMAGE_USER" -g "$phone_group" "$phone_home/.config"
+if [[ ! -e "$phone_home/.config/monitors.xml" ]]; then
+	install -m 644 -o "$IMAGE_USER" -g "$phone_group" \
+		/usr/share/g965n/monitors-2x.xml "$phone_home/.config/monitors.xml"
+fi
 dconf update

@@ -22,7 +22,9 @@ OUTPUT. This handset's record passed format/payload-length checks and matched
 the reference Android10 patch. Keep the output private and install locally at
 /lib/firmware/g965n/bcm4773-patch.bin. The original C-string terminator is kept.
 
-This is not an end-to-end sensor implementation yet. The owner's vendor lhd,
-its Android runtime/configuration, SSP decoding, coordinate transforms and
-Linux sensor integration still need validation. No accel/gyro data measured.
+Manual load on kernel #6 created the transport devices. The owner's lhd ran in
+the restricted vendor runtime and reached hub-ready when given its actual stock
+/vendor/etc/sensor/lhd.conf argument. A 30s test timeout intentionally stopped
+it afterwards. This is not end-to-end sensor support: SSP decoding, coordinate
+transforms and Linux integration still need validation. No accel/gyro data measured.
 Do not automatically load this transport or start the closed daemon at boot.

@@ -477,6 +477,10 @@ int zrn_shm_find_memory(void)
 		pr_err("zrn-modem: no reserved memory for the modem in the device tree\n");
 		return -ENOENT;
 	}
+	if (base != 0xf0000000ULL || size != 0x9200000) {
+		pr_err("zrn-modem: unexpected G965N reserved memory layout\n");
+		return -EINVAL;
+	}
 	pdata.p_addr = base;
 	pdata.t_size = size;
 	pr_info("zrn-modem: modem memory at %pa, %u bytes\n", &base, size);

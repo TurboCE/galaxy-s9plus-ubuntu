@@ -343,7 +343,9 @@ AUDIO_KCONFIG
 	cfg --enable I2C_GPIO
 fi
 if [ "${S9_EXPERIMENTAL_BLUETOOTH:-0}" = 1 ]; then
-	for sym in RFKILL BT BT_BREDR BT_RFCOMM BT_BNEP BT_HCIUART SERIAL_DEV_BUS SERIAL_DEV_CTRL_TTYPORT BT_HCIUART_SERDEV BT_HCIUART_BCM I2C_GPIO; do
+	# Image-only deployment has no generic AES module to auto-load. SMP's
+	# cmac(aes) must be usable when the Bluetooth controller registers.
+	for sym in RFKILL BT BT_BREDR BT_RFCOMM BT_BNEP BT_HCIUART SERIAL_DEV_BUS SERIAL_DEV_CTRL_TTYPORT BT_HCIUART_SERDEV BT_HCIUART_BCM I2C_GPIO CRYPTO_AES; do
 		cfg --enable "$sym"
 	done
 	python3 "$PROJ/scripts/g965n/patch-bluetooth.py" "$PWD" || exit 1

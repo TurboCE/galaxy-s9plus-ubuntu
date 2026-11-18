@@ -1,0 +1,5 @@
+# Desktop apps often exceed 480 logical pixels at the panel's automatic 3x scale.
+# The device configure step gives a fresh user a 2x monitor profile (720 wide).
+[org/gnome/mutter]
+auto-maximize=true
+center-new-windows=true

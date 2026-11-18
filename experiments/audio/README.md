@@ -9,10 +9,16 @@ G965N stock recovery exposes CS47L93 (SPI), ABOX at 0x17c50000, audio IRQ/GIC,
 MAX98512 speaker paths and umts modem devices. LineageOS machine driver:
 https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/sound/soc/samsung/exynos9810_madera.c
 
+The #6 experimental kernel booted on G965N and the module ran Calliope CRL0.
+Short silent playback, microphone capture and two-tone correlation passed;
+the owner heard both quiet tones. UCM now exposes speaker/microphone to GNOME.
+This is basic path evidence, not full audio/speech/headset/call qualification.
+No module autoload or reboot persistence has been validated yet.
+
 Object compilation and full module linking against the Linux 7.1 port passed
 after enabling ALSA PCM and preparing module link scripts/symbols. The first
 boot baseline has SOUND disabled; only the separate experimental kernel matches
-this module. Neither build proves G965N audio support. Use a kernel built with the explicit option below:
+this module. Use a kernel built with the explicit option below:
 
 ```bash
 S9_EXPERIMENTAL_AUDIO=1 bash scripts/g965n/build.sh kernel

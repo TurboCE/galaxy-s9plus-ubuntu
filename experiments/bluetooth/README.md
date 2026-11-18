@@ -17,7 +17,11 @@ An unverified vendor choice is a test candidate, not established hardware ID.
 After a controlled module load, attach ttySAC0 with btattach, wait for firmware
 setup before management queries, then test scanning, pairing and actual audio.
 Do not unload/reload the Samsung UART in the same boot as a recovery shortcut.
-Suspend is a separate, unqualified test. No Bluetooth hardware success yet.
+The first G965N manual test registered hci0, loaded firmware and discovered 12
+peers. CRYPTO_AES was unexpectedly modular; building/loading crypto/aes.ko fixed
+the missing CMAC implementation and power cycling passed. Future recipes force
+AES built in. Peer addresses remain private. Pairing/A2DP/reboot persistence
+and suspend remain unqualified; discovery alone is not full Bluetooth support.
 
 Reference investigation:
 https://github.com/Zerone-Laboratories/ztOS/tree/8bfb09011757f06c68a055fbfd95ea07d5e4fbe1/bluetooth

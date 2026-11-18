@@ -214,3 +214,68 @@ Added an explicit BOOT-only installer mode that runs the existing G965N and
 nine-partition backup/identity checks while preserving USERDATA and RECOVERY.
 The consent regression initially failed on argparse wording; restored explicit
 consent validation before any device access. All 20 guard regressions pass.
+
+## 2026-11-18 — Experimental #6 hardware boot and desktop integration
+
+Kept a full private copy of the working Ubuntu BOOT. The first kernel update
+stopped before writing because EFS differed from the previous raw backup.
+Compared copies offline: all 127 regular files identical, no additions/removals;
+only superblock mount/write times/count metadata changed. Exact source of that
+metadata change is not established. Took a fresh nine-partition verified backup;
+did not weaken identity checks. BOOT-only write/readback passed and #6 booted
+with USB SSH and zero initial failed system units. USERDATA was preserved.
+systemctl reboot recovery was rejected; the supported --reboot-argument=recovery
+form reached TWRP. No bootloader or RECOVERY update.
+
+Audio manual load with cp_vss=0 booted Calliope CRL0 and registered speaker PCMs.
+2s zero-data playback took 2.185s, no watchdog recovery. Reloaded with capture=1,
+mic_gain=0 after stopping the user audio services; codec 0x6371 rev1 initialized.
+3s capture produced 576,000 bytes, nonzero samples on both channels. A 5s
+speaker/microphone test showed the expected separated 700/1300Hz peaks; owner
+confirmed hearing two quiet tones. No recording is published. This is basic
+path evidence, not speech/headset/call-audio quality or long-term qualification.
+
+Owner reported no Sound input/output devices. Restored the stopped services;
+generic ALSA probing exposed playback only. Added a GPL UCM profile for playback
+device0 and capture device2, installed alsa-ucm-conf/pulseaudio-utils/rtkit, and
+restarted WirePlumber. Phone speakers and Phone microphone appeared, GNOME
+Settings connected to the real capture stream; both set as defaults, output25%.
+Future images include these packages/profiles.
+
+Bluetooth manual board load created ttySAC0; btattach loaded own-device Semco
+candidate HCD and registered hci0. Discovery saw 12 distinct peers (IDs private).
+Setup reported missing CMAC: CRYPTO_AES was modular but no module was deployed.
+The first individual build used the obsolete aes_generic.ko target and failed;
+Linux7.1 uses crypto/aes.ko. Built/loaded that exact module; cmac(aes) appeared
+and controller off/on passed without another CMAC error. Future kernel recipe
+forces AES built in. Pairing, A2DP and automatic restart remain unverified.
+
+Hub transport manual load created bbd/ttyBCM/SSP endpoints. Initial standby
+attempts left MCU_RESP high; not taken as a working sensor result. Added our
+own restricted stock-vendor runtime: SYSTEM/VENDOR ro,noload, individual char
+nodes only, no identity block devices. First lhd invocation aborted because
+its default /data/etc/lhd.conf was absent. Private Android log capture exposed
+the error; stock init confirms the /vendor/etc/sensor/lhd.conf argument. With
+that argument, kernel reported hub ready. A deliberate 30s test-service timeout
+then stopped the daemon and produced NOTREADY/CRASHED teardown notifications;
+those are not evidence of a spontaneous firmware crash. No sensor samples yet.
+
+Replaced the modem's empty embedded overlay with a bounded local DTBO request,
+kept model/opt-in checks and added an exact reserved-memory layout check. The
+GPL candidate still passes private stock comparison. Manual load bound mailbox,
+shared-memory and modem drivers and created control/rmnet endpoints. Logs show
+unimplemented vendor QoS/ECT and missing legacy reset GPIO; no CP boot/SIM/data
+claim. RADIO/EFS/CPEFS are not written by this stage.
+
+Owner reported oversized Firefox. Automatic3x left 480px logical width; applied
+persistent2x via Mutter API, yielding720x1480, with auto-maximize/centering on.
+The first call's optional layout-mode property was rejected; omitting it passed.
+The reusable helper initially indexed the mode's scale list incorrectly; corrected
+to field5 and ran it successfully. Saved a fresh-image display profile. Larger
+application minima remain a limitation; no all-app fit guarantee.
+
+Owner reported Korean squares: no Korean font was installed. Added Noto CJK and
+emoji, explicit ko->KR fallback and font-cache refresh. fc-match selects Noto
+Sans CJK KR; Pango's Korean sample has zero missing glyphs. Existing app caches
+may need reopening. GPU acceleration remains active but additional GNOME job
+faults were observed on #6, including JOB_BUS_FAULT; not marked stable.
