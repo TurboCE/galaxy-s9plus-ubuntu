@@ -1598,3 +1598,15 @@ mask0x05771777 has18 cores, ID range27/highest index26. Mesa keeps those values
 separate; TLS/WLS/scratch/query allocation uses the range, while the kernel
 exports the original mask. This is source evidence against that specific
 hypothesis, not a runtime measurement of every descriptor allocation.
+
+The fresh patched work tree then configured successfully on native ARM64 using
+the tracked builder and exact private Meson1.4.1. Also supplied libclc-18's
+runtime SPIR-V builtins: development headers alone do not contain them. Its
+separate checked plan adds one package without upgrading/removing existing
+packages; both required mesa3d SPIR-V files are now present. Public dependency
+instructions include both packages.
+
+Actual two-job compilation is running as a bounded user service with3GiB memory
+cap, no swap, at most two CPU equivalents and low background priority. Its
+output and receipt stay private; it does not install libraries or start GPU
+tests. Completion, output verification and actual rendering remain pending.

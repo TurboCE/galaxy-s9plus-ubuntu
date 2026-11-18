@@ -48,3 +48,6 @@ The later#21 nocrc,noafbc protocol comparison still presents AFBC32x8 buffers
 and incurs five glmark timeouts. Interleaved protocol output invalidated the
 runner's unmodified scene-completeness check; it is a diagnostic comparison,
 not another qualified rendering pass. All temporary session state was restored.
+The isolated Mesa explicit-modifier candidate has passed host selector tests
+and native configuration; its first full compilation is in progress. It has
+not been loaded by the desktop or qualified on the GPU.

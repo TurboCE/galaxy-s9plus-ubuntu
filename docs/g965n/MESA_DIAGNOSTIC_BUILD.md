@@ -21,7 +21,7 @@ python3-mako python3-packaging python3-yaml python3-ply python3-pycparser
 python3-jinja2 python3-venv python3-setuptools
 libdrm-dev libudev-dev libexpat1-dev libwayland-dev libwayland-egl-backend-dev wayland-protocols
 libelf-dev libzstd-dev zlib1g-dev libglvnd-dev
-llvm-18-dev libclang-18-dev libclang-cpp18-dev libclc-18-dev
+llvm-18-dev libclang-18-dev libclang-cpp18-dev libclc-18-dev libclc-18
 libllvmspirvlib-18-dev spirv-tools spirv-headers
 ```
 
@@ -29,6 +29,8 @@ The builder never installs these packages. Missing prerequisites stop the build.
 Panfrost's compiler requires LLVM/CLC, a matching LLVM-SPIR-V translator, and
 SPIRV-Tools 2024.1 or newer. Mesa's configure step checks their compatibility.
 Use LLVM18 together with its matching development packages.
+`libclc-18-dev` supplies metadata/headers; `libclc-18` also supplies the
+`spirv-mesa3d-.spv` and `spirv64-mesa3d-.spv` files used by the compiler.
 
 Ubuntu 24.04's Meson 1.3 is too old: this source requires Meson >=1.4.0. Use
 **Meson 1.4.1 in a separately prepared private virtual environment with
