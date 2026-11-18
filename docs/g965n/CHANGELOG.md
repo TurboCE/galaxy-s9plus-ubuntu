@@ -1267,3 +1267,20 @@ this recovery-state discrepancy, not a claim to explain the first GPU hang.
 Exact pinned-source/idempotence checks pass; compile and hardware recovery
 qualification are still pending. Original proposal:
 https://lists.openwall.net/linux-kernel/2026/11/13/872
+
+
+Explicit#19 EFS maintenance and existing-copy resume now pass on hardware.
+One private history entry records the8-byte proof; exact old receipt preserved
+mode0600. Working NV hashes remain identical to#18 staging, archive/quarantine
+inventories unchanged, original hashes match fresh#19, private binds and
+read-only SYSTEM/VENDOR/RADIO validated. No daemon was started for these checks.
+This verifies the explicit maintenance path, not silent acceptance of arbitrary
+EFS changes.
+
+Sensor reports now separate pre-enable counts, each sensor's enable phase and
+the actual timed receive window. Each sensor array is cleared immediately
+before its own A1 and all arrays again at window start. On-change initial
+readings may qualify post-enable observation separately, while startup-only
+data cannot qualify sampling.25 host checks pass. Previous#19 aggregate counts
+remain raw startup-inclusive observations, not corrected window measurements.
+No additional state command or physical-response claim was introduced.

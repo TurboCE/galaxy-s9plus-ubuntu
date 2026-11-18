@@ -47,6 +47,35 @@ def sampling_complete(selected, sensor_mask, samples):
     return all(sensor_mask & (1 << sensor) and samples.get(sensor) for sensor in selected)
 
 
+def summarize_samples(selected, samples):
+    result = {}
+    for sensor in selected:
+        values = samples.get(sensor, [])
+        result[str(sensor)] = {'count': len(values), 'first': values[0] if values else None,
+            'min': [min(v[i] for v in values) for i in range(len(values[0]))] if values else None,
+            'max': [max(v[i] for v in values) for i in range(len(values[0]))] if values else None}
+    return result
+
+
+def enable_sampling_phases(probe, selected, sensor_mask, enabled):
+    """Count startup separately and retain only each sensor's post-enable data."""
+    startup_counts = {}
+    for sensor in selected:
+        startup_counts[str(sensor)] = len(probe.samples.get(sensor, []))
+        # Other sensors may report while earlier enable transactions are being
+        # handled. Clear immediately before THIS sensor's A1, not only once.
+        probe.samples[sensor] = []
+        if not sensor_mask & (1 << sensor):
+            continue
+        enabled.append(sensor)
+        probe.transaction(0xA1, struct.pack('<BiiB', sensor, 200, 0, 0))
+    enable_samples = {sensor: list(probe.samples[sensor]) if sensor in enabled else []
+                      for sensor in selected}
+    for sensor in selected:
+        probe.samples[sensor] = []
+    return startup_counts, enable_samples
+
+
 def require_hub(chip_id):
     if chip_id != 0x55:
         raise RuntimeError('Unexpected sensor hub identity; no sensor enabled')
@@ -267,11 +296,8 @@ def main():
                 if args.ap_awake:
                     probe.notify_ap_awake()
                     result['ap_awake_notification'] = {'commands': [0xD1, 0xD3], 'acknowledged': False}
-                for sensor in selected:
-                    if not result['sensor_mask'] & (1 << sensor):
-                        continue
-                    enabled.append(sensor)
-                    probe.transaction(0xA1, struct.pack('<BiiB', sensor, 200, 0, 0))
+                startup_counts, enable_samples = enable_sampling_phases(
+                    probe, selected, result['sensor_mask'], enabled)
                 started = time.monotonic()
                 deadline = started + args.sample_seconds
                 next_report = started + 1
@@ -284,12 +310,15 @@ def main():
                             if values else None}), flush=True)
                         next_report += 1
                 result['light_layout'] = args.light_layout
-                result['samples'] = {str(sensor): {'count': len(values),
-                    'first': values[0] if values else None,
-                    'min': [min(v[i] for v in values) for i in range(len(values[0]))] if values else None,
-                    'max': [max(v[i] for v in values) for i in range(len(values[0]))] if values else None}
-                    for sensor, values in probe.samples.items() if sensor in selected}
-                complete = bool(sampling_complete(selected, result['sensor_mask'], probe.samples))
+                result['startup_sample_counts'] = startup_counts
+                result['enable_samples'] = summarize_samples(selected, enable_samples)
+                result['samples'] = summarize_samples(selected, probe.samples)
+                result['measurement_window_seconds'] = round(time.monotonic() - started, 3)
+                result['sampling_window_complete'] = bool(sampling_complete(
+                    selected, result['sensor_mask'], probe.samples))
+                observations = {sensor: enable_samples[sensor] + probe.samples.get(sensor, [])
+                                for sensor in selected}
+                complete = bool(sampling_complete(selected, result['sensor_mask'], observations))
                 result['sampling_complete'] = complete
             result['unparsed_frames'] = probe.unparsed
             print(json.dumps(result, indent=2))

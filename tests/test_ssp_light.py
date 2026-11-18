@@ -3,6 +3,8 @@ import importlib.util
 from pathlib import Path
 import struct
 import signal
+import io
+import json
 import unittest
 from unittest.mock import patch, mock_open
 
@@ -262,3 +264,103 @@ class StartupReadinessTests(unittest.TestCase):
             ssp.main()
         self.assertEqual(Probe.calls, [])
         close.assert_called_once_with(123)
+
+
+class SamplingPhaseTests(unittest.TestCase):
+    def test_each_sensor_discards_earlier_startup_and_snapshots_are_independent(self):
+        class Probe:
+            samples = {0: [(100,)], 9: [(200,)]}
+            calls = []
+
+            def transaction(self, command, payload):
+                sensor = payload[0]
+                self.calls.append((command, sensor))
+                self.samples[sensor].append((sensor + 1,))
+                if sensor == 0:
+                    self.samples[9].append((999,))  # received before light A1
+
+        p = Probe(); enabled = []
+        counts, initial = ssp.enable_sampling_phases(p, [0, 9], (1 << 0) | (1 << 9), enabled)
+        self.assertEqual(counts, {'0': 1, '9': 2})
+        self.assertEqual(initial, {0: [(1,)], 9: [(10,)]})
+        self.assertEqual(p.samples, {0: [], 9: []})
+        p.samples[9].append((20,))
+        self.assertEqual(initial[9], [(10,)])
+        self.assertEqual(enabled, [0, 9])
+        self.assertEqual(p.calls, [(0xA1, 0), (0xA1, 9)])
+
+    def run_main(self, initial_report=False, window_report=False):
+        clock = StartupReadinessTests.Clock(); clock.now = 100
+        sample = (250, 5500, 11, 22, 33, 44, 50, 8)
+
+        class Probe:
+            fd = 123
+            calls = []
+            unparsed = 0
+
+            def __init__(self, _layout):
+                self.samples = {9: [sample] * 4}
+
+            def transaction(self, command, payload):
+                self.calls.append(command)
+                if command == 0xA1:
+                    clock.now += .5
+                    if initial_report:
+                        self.samples[9].append(sample)
+
+            def pump(self, seconds):
+                clock.pump(seconds)
+                if window_report:
+                    self.samples[9].append((350,) + sample[1:])
+
+        output = io.StringIO(); exit_code = 0
+        with patch.object(ssp, 'Probe', Probe), patch.object(ssp, 'require_board'), \
+             patch.object(ssp.Path, 'read_text', return_value='1'), \
+             patch.object(ssp, 'acquire_hub_identity', return_value={'chip_id': 0x55, 'firmware': 1, 'sensor_mask': 1 << 9}), \
+             patch('builtins.open', mock_open()), patch.object(ssp.fcntl, 'flock'), \
+             patch.object(ssp.signal, 'signal'), patch.object(ssp.os, 'close'), \
+             patch.object(ssp.time, 'monotonic', side_effect=lambda: clock.now), \
+             patch('sys.stdout', output), \
+             patch('sys.argv', ['ssp-probe', '--sensors', 'light', '--light-layout', 'lux18', '--sample-seconds', '2', '--stream']):
+            try:
+                ssp.main()
+            except SystemExit as error:
+                exit_code = error.code
+        text = output.getvalue(); start = text.index('\n{\n')
+        streams = [json.loads(line) for line in text[:start].splitlines()]
+        return exit_code, json.loads(text[start+1:]), streams, Probe.calls
+
+    def test_startup_only_cannot_qualify_enable_or_measurement(self):
+        code, result, streams, calls = self.run_main()
+        self.assertEqual(code, 2)
+        self.assertEqual(result['startup_sample_counts'], {'9': 4})
+        self.assertEqual(result['enable_samples']['9']['count'], 0)
+        self.assertEqual(result['samples']['9']['count'], 0)
+        self.assertFalse(result['sampling_window_complete'])
+        self.assertFalse(result['sampling_complete'])
+        self.assertTrue(all(row['light_count'] == 0 and row['light'] is None for row in streams))
+        self.assertEqual(calls, [0xA1, 0xA2])
+
+    def test_on_change_initial_report_is_separate_from_empty_window(self):
+        code, result, streams, calls = self.run_main(initial_report=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(result['enable_samples']['9']['count'], 1)
+        self.assertEqual(result['samples']['9']['count'], 0)
+        self.assertTrue(result['sampling_complete'])
+        self.assertFalse(result['sampling_window_complete'])
+        self.assertTrue(all(row['light_count'] == 0 for row in streams))
+        self.assertEqual(calls, [0xA1, 0xA2])
+
+    def test_window_counts_and_elapsed_start_after_enable_phase(self):
+        code, result, streams, calls = self.run_main(initial_report=True, window_report=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(result['startup_sample_counts']['9'], 4)
+        self.assertEqual(result['enable_samples']['9']['count'], 1)
+        self.assertGreater(result['samples']['9']['count'], 1)
+        self.assertEqual(result['enable_samples']['9']['first'][0], 250)
+        self.assertEqual(result['samples']['9']['first'][0], 350)
+        self.assertTrue(result['sampling_window_complete'])
+        self.assertLess(result['measurement_window_seconds'], 2.11)
+        self.assertGreaterEqual(result['measurement_window_seconds'], 2)
+        self.assertTrue(all(1 <= row['elapsed_s'] <= 2.1 for row in streams))
+        self.assertEqual(calls, [0xA1, 0xA2])
