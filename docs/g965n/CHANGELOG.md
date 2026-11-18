@@ -144,3 +144,43 @@ overlay drops them and declares the observed revision explicitly for the adapted
 get_system_rev. Verification compares remaining properties and all 23 modem
 subnodes against private stock BOOT and checks revision 26. All checks pass.
 The active module blob remains deliberately empty: no hardware probe yet.
+
+## 2026-11-18 — First G965N Ubuntu hardware boot
+
+Rootfs ae4ca7012f47a06119b92a7e12fd65f39ad5de7dd08e9cbe0ff94b89703b23ff
+and baseline BOOT b95db6e62e9a534cb43212a936a8cf0f0276d43b66f43efebc150a65410ea8c9
+were written with complete readback verification. RECOVERY and radio/identity
+partitions were preserved. Ubuntu booted: 8 CPUs, 230GiB root, zero failed units.
+Owner verified desktop/touch and connected Wi-Fi; Wi-Fi-bound HTTPS200 and NTP
+passed. GPU reported Mali-G72/Panfrost direct hardware acceleration, GLES3.1.
+Native Git clone/pull and pinned per-CPU C compilation passed on all 8 cores
+with identical object hashes. Added required developer/ALSA packages to future images.
+
+An intentional wired disconnect removed USB reachability. Console login found
+the Wi-Fi path; privileged nmcli activation and usb-gadget restart restored the
+Mac's DHCP lease and USB SSH. This was user-requested disconnect, not a proven
+driver failure. Recovery procedure should preserve Wi-Fi and use console/SSH.
+
+The owner clarified full Lineage-supported hardware parity as the acceptance
+target. Bluetooth has no controller, sensors no IIO/class nodes; LTE/audio
+prototypes have not been loaded. USIM was inserted for later LTE testing.
+Full feature parity is not achieved; see the expanded validation matrix.
+
+## 2026-11-18 — Filesystem failure must stop before BOOT
+
+Review found the original writer ran e2fsck and blkid in one shell and ignored
+its result, so blkid could mask a filesystem failure. Added an explicit status
+marker and accept only clean/repaired (0/1); missing status and transport errors
+stop installation. Three regressions cover masked inner failures and lost status.
+First successful installation used the previous path and optimized directories
+without reported errors. The stricter guard applies to future installations.
+
+## 2026-11-18 — Reproducible first-boot and recovery profile
+
+Published the observed basic success profile with local artifact hashes, explicit
+remaining hardware gaps, and no credentials/blobs. Added a manual on-device
+USB recovery helper matching the tested Wi-Fi/console recovery sequence.
+Git/build/ALSA tools are now included in the recipe rather than a forgotten
+post-install step. Added host-resolved source-commit metadata for worktree builds.
+Local password policy remains configurable with an explicit short-password
+opt-in; no actual device password is published or stored in the profile.

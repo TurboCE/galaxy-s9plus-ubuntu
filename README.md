@@ -4,9 +4,9 @@
 [SheroAbi의 G965F 포팅](https://github.com/SheroAbi/galaxy-s9plus-mainline-linux)을 기반으로
 원본 커널 드라이버, uniLoader, 빌드·설치 코드를 포함합니다.
 
-**현재 G965N은 TWRP·백업·펌웨어 추출만 실기 검증 완료했습니다. Ubuntu 부팅은 미검증입니다.**
+**G965N에서 Ubuntu 부팅, 화면·터치, CPU 8개, USB SSH, Wi-Fi 인터넷과 GPU 하드웨어 가속을 확인했습니다.**
 LTE·오디오·Bluetooth·카메라·절전은 이 mainline 기준에서 완성되지 않았습니다.
-완성된 설치판으로 오해하지 않도록 [검증표](docs/g965n/VALIDATION.md)를 먼저 확인하세요.
+전체 하드웨어 정상화는 진행 중입니다. [검증표](docs/g965n/VALIDATION.md)를 먼저 확인하세요.
 
 ## 빌드
 
@@ -39,7 +39,7 @@ bash scripts/g965n/build.sh all
 
 ## 실험용 설치
 
-**Android 사용자 데이터가 삭제됩니다. G965N Ubuntu 첫 부팅은 아직 검증 중입니다.**
+**Android 사용자 데이터가 삭제됩니다. 검증은 G965N rev26 / G965NKSU5FVA2 한 기기 기준입니다.**
 [설치·복구 문서](docs/g965n/INSTALL.ko.md)를 읽고 생성된 파일명을 지정하세요.
 
 ```bash
@@ -66,3 +66,7 @@ NVRAM, 개인 백업, 비밀번호, 설치 이미지를 Git에 포함하지 않�
 펌웨어를 추출하며 외부 도구는 공식 출처에서 받습니다.
 
 테스트: `python3 -m unittest discover -s tests -v`
+
+로그인 비밀번호는 빌드 시 직접 정합니다. 기본 최소 길이는 8자이며, 명시적으로 짧은
+비밀번호를 선택하려면 로컬 image.env에 IMAGE_ALLOW_SHORT_PASSWORD=1을 설정할 수 있습니다.
+실험용 LTE·오디오 코드는 codex/g965n-lte-audio 브랜치에 있으며 하드웨어 검증 전입니다.

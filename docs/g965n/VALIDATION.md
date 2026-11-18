@@ -1,24 +1,33 @@
-# Validation matrix
+# SM-G965N hardware validation
 
-Evidence date: 2026-11-18. Korean SM-G965N, Exynos9810 rev26, 256GB,
-stock Android 10 G965NKSU5FVA2 before recovery installation.
+Evidence date: 2026-11-18. One Korean SM-G965N rev26 / 256GB,
+original firmware G965NKSU5FVA2. Target is parity with the hardware features
+supported by the reference LineageOS build, not just desktop startup.
+A build or a driver node is not sufficient evidence of a working function.
 
-| Item | Evidence | Status |
+| Feature | Actual evidence | State |
 |---|---|---|
-| Identity | Android/Download Mode and recovery G965N bootloader prefix | Verified |
-| TWRP | ADB recovery, 3.3.1-0, root; RECOVERY readback equals official image prefix | Verified |
-| Repository backup tool | device.py ran on hardware, nine byte counts and SHA256 matches | Verified |
-| Repository firmware extraction | VENDOR ro,noload; three files transferred and device hashes matched | Verified |
-| Docker preparation | build.sh prepare built the new Dockerfile, including regulatory data | Verified |
-| Automated guards | Fourteen recovery/network/MMIO-dispatch guard tests | Passed |
-| Original G965F kernel + uniLoader | Local build and header checks succeeded | Build only |
-| Ubuntu ARM64 userspace | Original local recipe produced 3200MiB ext4, e2fsck clean, build exit 0 | Built |
-| Source-only recipe, complete kernel/rootfs run | New complete run still pending | Not qualified end to end |
-| G965N Ubuntu boot / display / USB SSH / Wi-Fi | No Ubuntu BOOT or USERDATA writes yet | Not tested |
-| LTE/audio/BT/camera | Not implemented in this mainline baseline | Not working baseline |
-| Suspend/deep idle | Upstream limitations remain | Not qualified |
+| TWRP and recovery | 3.3.1-0 root; nine partitions backed up with device hash checks | Verified |
+| Source build and installation | Own G965N firmware; rootfs and BOOT readback hashes passed | First installation verified |
+| CPU / RAM | 8 online cores; 5523MiB usable RAM | Verified |
+| Native builds / Git | Git clone+pull; real fixdep C source compiled on each CPU, 8 identical object hashes | Short test passed |
+| Storage | USERDATA mounted as root and grew to 230GiB | Verified |
+| Display / touch | Owner confirmed desktop and touch interaction | Basic interaction verified |
+| GPU | glxinfo direct rendering, Accelerated=yes, Mali-G72/Panfrost, GLES3.1 | Hardware acceleration verified; long stress pending |
+| Wi-Fi | Connected; HTTPS200 explicitly bound to Wi-Fi; NTP synchronized | Data path verified; long reconnect tests pending |
+| USB networking / SSH | Mac received address automatically; key-only SSH works | Verified |
+| Manual wired disconnect recovery | Console identified Wi-Fi path; privileged reconnection + gadget rebind restored USB SSH | Verified |
+| System services | No failed system units during initial checks | Short observation only |
+| LTE / voice / SMS | Owner inserted USIM; compile-stage modem .ko exists, hardware load blocked | Not working yet |
+| Speakers / microphone / headset | Experimental ALSA kernel + .ko build passed; not loaded on handset | Not working yet |
+| Bluetooth | No controller in installed kernel; UART/driver/firmware work needed | Not working |
+| Accelerometer / gyroscope / compass / light / proximity | No IIO or Android sensor-class nodes in installed kernel | Not exposed; not working |
+| Cameras / flash / hardware video codecs | No full pipeline tested | Pending port/validation |
+| GPS / NFC / fingerprint / other Lineage-supported sensors | No end-to-end test yet | Pending port/validation |
+| Buttons / brightness / USB OTG / fast charging | Only individual parts observed; no complete acceptance test | Pending |
+| Charging / temperature / idle power | Battery stayed present during bring-up; native power testing still needed | Partial observation |
+| Sleep / resume / warm reboot | Sleep masked; upstream warm-reboot/deep-idle issues unresolved | Not normal |
 
-Local baseline rootfs SHA256:
-`1dc8054f7ac3da10f5d7ba78bb5f8842c9cba5aa0c4957aab89b6baa6e19d56a`.
-This is a build record, not a published image or a hardware certification.
-CI never flashes, publishes images or accesses proprietary firmware.
+17 software guard regressions cover recovery, transfers, filesystem status,
+Wi-Fi recovery and safe ACPM diagnostic dispatch. CI never flashes or publishes blobs.
+The full-function target is **not achieved**. No LTE/audio/Bluetooth/sensor success is claimed.
