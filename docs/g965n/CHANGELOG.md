@@ -1575,3 +1575,26 @@ Mesa's >=1.4.0 requirement. The private venv now reports1.4.1; no global pip
 installation occurred. A failed wheel lookup does not establish that the
 upstream1.4.2 source release is absent. The source archive copied to the phone
 has the exact official SHA256. System services still show no failed units.
+
+
+## 2026-11-19 — Start the isolated native Mesa build and correct prerequisites
+
+Pinned build-only script supports separate baseline/patched source/build trees,
+exact archive/patch/resource/tool hashes, private Meson1.4.1 and coherent private
+EGL/Gallium/GBM output receipts. It never installs or launches graphics. Two
+host regressions reject source/variant drift; review also corrected self-test
+failure exit status before publication. Native patched prepare from the
+committed source snapshot09942cf passed archive checks and zero-fuzz patching.
+
+The first actual configure stopped at missing wayland-egl-backend development
+metadata. libwayland-dev alone is insufficient on Ubuntu24.04. Preserved that
+partial configure and its logs; added libwayland-egl-backend-dev to the public
+dependency recipe. A separately checked plan adds this one package with no
+upgrade/removal. This failure is not a GPU or image boot result. A fresh private
+work directory will retain the original failed tree for comparison.
+
+Additional source-only sparse-core audit finds no count/range under-allocation:
+mask0x05771777 has18 cores, ID range27/highest index26. Mesa keeps those values
+separate; TLS/WLS/scratch/query allocation uses the range, while the kernel
+exports the original mask. This is source evidence against that specific
+hypothesis, not a runtime measurement of every descriptor allocation.

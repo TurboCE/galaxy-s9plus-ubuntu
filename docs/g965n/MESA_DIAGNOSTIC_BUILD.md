@@ -19,7 +19,7 @@ Ninja, pkg-config, patch, and these development packages:
 bison flex
 python3-mako python3-packaging python3-yaml python3-ply python3-pycparser
 python3-jinja2 python3-venv python3-setuptools
-libdrm-dev libudev-dev libexpat1-dev libwayland-dev wayland-protocols
+libdrm-dev libudev-dev libexpat1-dev libwayland-dev libwayland-egl-backend-dev wayland-protocols
 libelf-dev libzstd-dev zlib1g-dev libglvnd-dev
 llvm-18-dev libclang-18-dev libclang-cpp18-dev libclc-18-dev
 libllvmspirvlib-18-dev spirv-tools spirv-headers
