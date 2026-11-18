@@ -104,6 +104,46 @@ Resume binds those existing copies and reconstructs nodes/permissions without
 extracting, replacing or deleting them. If TWRP or Android changes the original
 partition bytes, stop for provenance review rather than relaxing the checks.
 
+### Explicit primary-superblock maintenance exception
+
+Ordinary `resume-modem` still rejects any original EFS hash drift. The separate
+`revalidate-efs-superblock` command is a reviewed, explicit maintenance operation,
+not automatic adoption or a replacement for the guard. It requires both the exact
+old EFS backup named by the stored receipt and a newly verified complete
+nine-partition backup, new EFS/CPEFS images and matching current hardware hashes.
+CPEFS and RADIO must be identical to the old receipt, and bootloader provenance
+must be unchanged. Originals must remain unmounted; clients must be stopped and
+private modem binds absent under the exclusive runtime lease.
+
+The only accepted EFS differences are the primary ext4 superblock fields at
+absolute offsets 0x42c (4-byte mount time), 0x430 (4-byte write time), 0x434
+(2-byte mount count), and 0x578 (8-byte lifetime write KiB). Both images must have
+the ext4 magic. Every byte outside these four fields must be identical, including
+all NV, inode, journal, backup-superblock and other metadata bytes. Values must
+increase monotonically with no wrap: each timestamp delta at most 24 hours,
+mount-count delta at most 4, lifetime-write delta at most 4096 KiB. Unknown drift,
+clock rollback, counter overflow or larger intervals stop for manual review.
+
+After operator review and explicit approval, with the private runtime up but no
+NV binds or clients active, the command shape is:
+
+```sh
+python3 vendor-runtime.py revalidate-efs-superblock \
+  --old-efs-backup /private/previous-verified/EFS.img \
+  --efs-backup /private/new-verified/EFS.img \
+  --cpefs-backup /private/new-verified/CPEFS.img \
+  --backup-manifest /private/new-verified/manifest.json \
+  --confirm-efs-superblock-revalidation
+```
+
+It snapshots verified input bytes, preserves the exact old private receipt under
+a unique name, and atomically publishes a new receipt with old/new source hashes,
+the new manifest hash, bounded-field proof and a history entry. Working NV,
+RADIO, legacy archives and full extraction quarantines are checked unchanged.
+It does not clone, archive, bind, resume or start a daemon. Only after successful
+maintenance may the separately guarded `resume-modem` command be tried. At this
+checkpoint maintenance has host-test evidence only; its live execution is pending.
+
 Both test launchers additionally verify provenance, current NV and exact private
 mount inodes, read-only stock SYSTEM/VENDOR and a read-only ordinary private RADIO
 before CP I/O. Keep `vendor-runtime.py` beside each launcher or provide its reviewed
@@ -147,7 +187,10 @@ The initial S9 builder deliberately supports IPv4, CID1, no credentials and
 zero reserved/auth/reason fields. Parsers reject every unqualified IP length,
 wrong CID, invalid addresses, noncontiguous supplied netmask and out-of-range
 MTU. They preserve unknown fields/flags and raw status/end-reason/throttle values
-without guessing region-specific mappings or timer units. Absent gateway and
+without guessing region-specific mappings or timer units. Each valid selected-CID
+status event produces one protected private-journal record containing only the
+raw state/end-reason, auxiliary flag/status and raw throttle timer, plus CID; no
+raw packet or identifying values are included. Absent gateway and
 mask remain absent; the stock implementation's guessed gateway and /24 defaults
 are not automatically applied. IPv6 and P-CSCF fields are parsed as facts but no
 IPv6 activation or IMS functionality is claimed.
@@ -192,8 +235,8 @@ marking data working. No calls, SMS, PIN or IMEI operations are part of this lab
   revalidation after the asynchronous service-start handoff.
 - Added pre-CP launcher provenance/private-bind/read-only RADIO checks and a
   source-qualified reference-only PDP planner; S9 wire-layout gaps fail closed.
-- Host verification: 29 runtime tests, 5 launcher preflight tests, 4 reference PDP
-  tests and 13 S9 candidate tests, Python compile and diff whitespace checks passed. Device archive/stage/
+- Host verification: 35 runtime tests, 5 launcher preflight tests, 4 reference PDP
+  tests and 14 S9 candidate tests, Python compile and diff whitespace checks passed. Device archive/stage/
   resume and data connectivity still require separate recorded hardware evidence.
 
 ## Kernel 18 migration observations pending integration

@@ -7,6 +7,7 @@ SYSTEM/VENDOR are read-only with no journal replay; identity/radio partitions
 are never mounted or exposed as block devices inside this runtime.
 """
 import argparse
+import copy
 import fcntl
 import hashlib
 import json
@@ -17,6 +18,7 @@ from pathlib import Path
 import stat
 import subprocess
 import shutil
+import struct
 import tempfile
 from contextlib import contextmanager
 
@@ -731,6 +733,125 @@ def resume_modem():
     print('Existing private modem copies resumed after provenance and checksum verification; no data replaced.')
 
 
+# Absolute offsets in the primary ext4 superblock only. No backup-superblock,
+# inode, journal, checksum or other metadata changes are permitted here.
+EFS_SUPERBLOCK_FIELDS = {
+    'mount_time': (0x42c, '<I', 86400),
+    'write_time': (0x430, '<I', 86400),
+    'mount_count': (0x434, '<H', 4),
+    'lifetime_write_kib': (0x578, '<Q', 4096),
+}
+
+
+def efs_superblock_proof(old, new):
+    if len(old) != len(new) or len(old) < 0x580:
+        raise RuntimeError('Unexpected EFS snapshot size')
+    if old[0x438:0x43a] != b'\x53\xef' or new[0x438:0x43a] != b'\x53\xef':
+        raise RuntimeError('Missing primary ext4 superblock magic')
+    masked_old = bytearray(old); masked_new = bytearray(new)
+    fields = {}; changed = []
+    for name, (offset, fmt, bound) in EFS_SUPERBLOCK_FIELDS.items():
+        size = struct.calcsize(fmt)
+        before = struct.unpack_from(fmt, old, offset)[0]
+        after = struct.unpack_from(fmt, new, offset)[0]
+        delta = after - before
+        if not 0 <= delta <= bound:
+            raise RuntimeError('EFS superblock counter/time exceeds maintenance bounds')
+        fields[name] = {'old': before, 'new': after, 'delta': delta}
+        changed += [offset+i for i in range(size) if old[offset+i] != new[offset+i]]
+        masked_old[offset:offset+size] = bytes(size)
+        masked_new[offset:offset+size] = bytes(size)
+    if masked_old != masked_new:
+        raise RuntimeError('EFS bytes changed outside the four approved superblock fields')
+    if not changed:
+        raise RuntimeError('No EFS superblock change; use ordinary provenance verification')
+    return {'schema': 1, 'policy': 'primary-ext4-four-fields-only-v1',
+            'changed_byte_offsets': changed, 'fields': fields,
+            'all_other_bytes_sha256': hashlib.sha256(masked_old).hexdigest()}
+
+
+def preservation_inventory():
+    return {path.name: archive_tree_inventory(path)
+            for pattern in ('archive-*', 'quarantine-*') for path in sorted(STATE.glob(pattern))}
+
+
+def revalidate_efs_superblock(old_efs, new_efs, cpefs, manifest, confirm=False):
+    """Explicit provenance maintenance; never modify originals or working NV.
+
+    Caller must hold the exclusive runtime lease. The old trusted image plus
+    complete new same-handset backup establish the sole allowed byte changes.
+    """
+    if not confirm:
+        raise RuntimeError('Explicit EFS superblock revalidation consent is required')
+    assert_board(); assert_modem_stopped(); modem_bindings_absent(); private_state()
+    receipt_path = STATE / RECEIPT_NAME
+    old_bytes = launch_receipt_bytes()
+    old_hash = hashlib.sha256(old_bytes).hexdigest()
+    old = json.loads(old_bytes); model_fields(old)
+    if old.get('schema') != 1 or not isinstance(old.get('source'), dict) or set(old['source']) != set(PARTITION_SPECS):
+        raise RuntimeError('Unsupported old provenance receipt')
+    for name, (node, size) in PARTITION_SPECS.items():
+        source = old['source'][name]
+        if (not isinstance(source, dict) or source.get('node') != str(node) or source.get('bytes') != size or
+                not isinstance(source.get('sha256'), str) or not re.fullmatch(r'[0-9a-f]{64}', source['sha256'])):
+            raise RuntimeError('Malformed old provenance source')
+    if (old.get('backup_sha256') != {name: source['sha256'] for name, source in old['source'].items()} or
+            not isinstance(old.get('backup_manifest_sha256'), str) or
+            not re.fullmatch(r'[0-9a-f]{64}', old['backup_manifest_sha256'])):
+        raise RuntimeError('Incomplete old backup provenance')
+    current = backup_provenance(new_efs, cpefs, manifest)
+    if current['bootloader'] != old['bootloader']:
+        raise RuntimeError('Bootloader provenance changed; stop for review')
+    if any(current['source'][name] != old['source'][name] for name in ('CPEFS', 'RADIO')):
+        raise RuntimeError('CPEFS/RADIO changed; superblock maintenance is forbidden')
+    if old_efs is None:
+        raise RuntimeError('Exact old verified EFS backup is required')
+    with verified_backup_snapshot(old_efs, old['source']['EFS']) as before, verified_backup_snapshot(new_efs, current['source']['EFS']) as after:
+        proof = efs_superblock_proof(read_regular(before, old['source']['EFS']['bytes']),
+                                     read_regular(after, current['source']['EFS']['bytes']))
+    working = validate_modem_state(old)
+    radio_before = file_inventory(STATE / 'RADIO')
+    preserved = preservation_inventory()
+    history = old.get('efs_superblock_revalidations', [])
+    if not isinstance(history, list) or len(history) >= 32:
+        raise RuntimeError('EFS provenance maintenance history requires manual review')
+    suffix = str(time.time_ns())
+    archived_receipt = STATE / ('provenance-before-efs-revalidation-' + suffix + '.json')
+    updated = copy.deepcopy(old)
+    updated.update(source=current['source'], backup_manifest_sha256=current['backup_manifest_sha256'],
+                   backup_sha256=current['backup_sha256'])
+    updated['efs_superblock_revalidations'] = history + [
+        {'old_receipt_sha256': old_hash, 'old_receipt_copy': str(archived_receipt),
+         'old_source': old['source'], 'new_source': current['source'],
+         'new_backup_manifest_sha256': current['backup_manifest_sha256'], 'proof': proof}]
+    if len((json.dumps(updated, sort_keys=True, indent=2)+'\n').encode()) > 65536:
+        raise RuntimeError('Updated provenance receipt exceeds private bound')
+    if (validate_modem_state(updated) != working or file_inventory(STATE / 'RADIO') != radio_before or
+            preservation_inventory() != preserved or partition_fingerprints() != current['source']):
+        raise RuntimeError('State changed during EFS revalidation; preserve everything for review')
+    assert_modem_stopped(); modem_bindings_absent()
+    if launch_receipt_bytes() != old_bytes:
+        raise RuntimeError('Old receipt changed during EFS revalidation')
+    # Preserve exact opaque bytes, including formatting, before atomic publish.
+    fd = os.open(archived_receipt, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with open(fd, 'wb', closefd=True) as stream:
+        stream.write(old_bytes); stream.flush(); os.fsync(stream.fileno())
+    if digest(archived_receipt) != old_hash:
+        raise RuntimeError('Old receipt preservation verification failed')
+    temporary = STATE / ('.provenance-revalidated-' + suffix + '.json')
+    write_private_json(temporary, updated)
+    os.replace(temporary, receipt_path)
+    directory = os.open(STATE, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+    if (validate_modem_state(read_provenance()) != working or file_inventory(STATE / 'RADIO') != radio_before or
+            preservation_inventory() != preserved):
+        raise RuntimeError('Post-publish state verification failed; old receipt and all NV preserved')
+    print('Explicit EFS superblock-only provenance revalidated; old receipt and all working/source data preserved; no daemon started.')
+
+
 def archive_modem_state(efs, cpefs, backup_manifest, confirm=False):
     if not confirm:
         raise RuntimeError('Explicit private-state archive consent is required')
@@ -835,14 +956,16 @@ def teardown():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('up', 'down', 'refresh-devices', 'stage-modem', 'resume-modem', 'archive-modem-state', 'cbd-permissions'))
+    parser.add_argument('action', choices=('up', 'down', 'refresh-devices', 'stage-modem', 'resume-modem', 'archive-modem-state', 'cbd-permissions', 'revalidate-efs-superblock'))
     parser.add_argument('--efs-backup', type=Path)
+    parser.add_argument('--old-efs-backup', type=Path)
+    parser.add_argument('--confirm-efs-superblock-revalidation', action='store_true')
     parser.add_argument('--cpefs-backup', type=Path)
     parser.add_argument('--backup-manifest', type=Path)
     parser.add_argument('--confirm-archive-existing-private-state', action='store_true')
     args = parser.parse_args()
     # Normalize lexically, without following links; validation still checks every component.
-    for name in ('efs_backup', 'cpefs_backup', 'backup_manifest'):
+    for name in ('efs_backup', 'old_efs_backup', 'cpefs_backup', 'backup_manifest'):
         value = getattr(args, name)
         if value is not None:
             setattr(args, name, Path(os.path.abspath(value)))
@@ -868,6 +991,9 @@ def main():
         elif args.action == 'archive-modem-state':
             archive_modem_state(args.efs_backup, args.cpefs_backup, args.backup_manifest,
                                 args.confirm_archive_existing_private_state)
+        elif args.action == 'revalidate-efs-superblock':
+            revalidate_efs_superblock(args.old_efs_backup, args.efs_backup, args.cpefs_backup, args.backup_manifest,
+                                      args.confirm_efs_superblock_revalidation)
         elif args.action == 'cbd-permissions':
             assert_modem_stopped()
             validate_modem_state(read_provenance())

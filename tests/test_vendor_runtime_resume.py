@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import stat
+import struct
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -397,6 +398,114 @@ class PrivateRuntimeTests(unittest.TestCase):
         self.assertTrue((quarantine/'efs/unknown-link').is_symlink())
         self.assertFalse((self.state/'efs').exists())
         self.assertFalse((self.state/vr.RECEIPT_NAME).exists())
+        self.assert_no_binding()
+
+    def prepare_superblock_change(self, outside=False, counters=None):
+        original=bytearray(self.specs['EFS'][0].read_bytes())
+        original[0x438:0x43a]=b'\x53\xef'
+        defaults={'mount_time':100000,'write_time':100000,'mount_count':4,'lifetime_write_kib':1000}
+        for key,(offset,fmt,bound) in vr.EFS_SUPERBLOCK_FIELDS.items():
+            struct.pack_into(fmt,original,offset,defaults[key])
+        self.old_efs=self.original/'old-EFS.img';self.old_efs.write_bytes(original)
+        old_fingerprints=copy.deepcopy(self.fingerprints)
+        old_fingerprints['EFS']['sha256']=hashlib.sha256(original).hexdigest()
+        self.receipt.update(source=copy.deepcopy(old_fingerprints),
+                            backup_sha256={k:v['sha256'] for k,v in old_fingerprints.items()})
+        (self.state/vr.RECEIPT_NAME).write_text(json.dumps(self.receipt)+'\n')
+        updated=bytearray(original)
+        for key,(offset,fmt,bound) in vr.EFS_SUPERBLOCK_FIELDS.items():
+            value=(counters or {}).get(key,defaults[key]+1)
+            struct.pack_into(fmt,updated,offset,value)
+        if outside:updated[0x600]^=1
+        self.specs['EFS'][0].write_bytes(updated)
+        self.fingerprints['EFS']['sha256']=hashlib.sha256(updated).hexdigest()
+        manifest=json.loads(self.manifest.read_text())
+        for entry in manifest['partitions']:
+            if entry['name'] in self.fingerprints:entry['sha256']=self.fingerprints[entry['name']]['sha256']
+        self.manifest.write_text(json.dumps(manifest))
+        return bytes(original),bytes(updated)
+
+    def revalidate_fixture(self,confirm=True):
+        vr.revalidate_efs_superblock(self.old_efs,self.specs['EFS'][0],self.specs['CPEFS'][0],self.manifest,confirm)
+
+    def test_explicit_superblock_revalidation_preserves_old_receipt_nv_and_quarantine(self):
+        old_image,new_image=self.prepare_superblock_change()
+        quarantine=self.state/'quarantine-fixture';quarantine.mkdir(mode=0o700)
+        (quarantine/'original').write_bytes(b'preserve raw extraction')
+        (quarantine/'link').symlink_to('/never/follow')
+        before=vr.preservation_inventory()
+        working={name:vr.tree_inventory(self.state/name) for name in ('efs','cpefs')}
+        receipt_bytes=(self.state/vr.RECEIPT_NAME).read_bytes()
+        physical={p:p.read_bytes() for p,_ in self.specs.values()}
+        with self.assertRaisesRegex(RuntimeError,'consent'):self.revalidate_fixture(False)
+        with self.assertRaises(RuntimeError):vr.read_provenance()
+        self.revalidate_fixture()
+        receipt=vr.read_provenance()
+        history=receipt['efs_superblock_revalidations'];self.assertEqual(len(history),1)
+        old_copy=Path(history[0]['old_receipt_copy'])
+        self.assertEqual(old_copy.read_bytes(),receipt_bytes)
+        self.assertEqual(stat.S_IMODE(old_copy.stat().st_mode),0o600)
+        self.assertEqual(history[0]['proof']['policy'],'primary-ext4-four-fields-only-v1')
+        self.assertEqual(receipt['source'],self.fingerprints)
+        self.assertEqual(vr.preservation_inventory(),before)
+        self.assertEqual({name:vr.tree_inventory(self.state/name) for name in ('efs','cpefs')},working)
+        self.assertEqual({p:p.read_bytes() for p in physical},physical)
+        self.assertEqual(self.old_efs.read_bytes(),old_image)
+        self.assertEqual(self.specs['EFS'][0].read_bytes(),new_image)
+        self.assert_no_binding()
+
+    def test_outside_superblock_mask_single_byte_change_rejected(self):
+        self.prepare_superblock_change(outside=True)
+        before=(self.state/vr.RECEIPT_NAME).read_bytes()
+        with self.assertRaisesRegex(RuntimeError,'outside the four'):self.revalidate_fixture()
+        self.assertEqual((self.state/vr.RECEIPT_NAME).read_bytes(),before)
+        self.assertEqual(list(self.state.glob('provenance-before-*')),[])
+        self.assert_no_binding()
+
+    def test_wrong_old_backup_rejected_without_receipt_change(self):
+        self.prepare_superblock_change();self.old_efs.write_bytes(b'x'*4096)
+        before=(self.state/vr.RECEIPT_NAME).read_bytes()
+        with self.assertRaisesRegex(RuntimeError,'checksum'):self.revalidate_fixture()
+        self.assertEqual((self.state/vr.RECEIPT_NAME).read_bytes(),before)
+        self.assert_no_binding()
+
+    def test_cpefs_drift_forbids_superblock_only_maintenance(self):
+        self.prepare_superblock_change()
+        path,size=self.specs['CPEFS'];path.write_bytes(b'x'*size)
+        self.fingerprints['CPEFS']['sha256']=hashlib.sha256(path.read_bytes()).hexdigest()
+        manifest=json.loads(self.manifest.read_text())
+        for entry in manifest['partitions']:
+            if entry['name']=='CPEFS':entry['sha256']=self.fingerprints['CPEFS']['sha256']
+        self.manifest.write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(RuntimeError,'CPEFS/RADIO'):self.revalidate_fixture()
+        self.assertEqual(list(self.state.glob('provenance-before-*')),[])
+        self.assert_no_binding()
+
+    def test_superblock_counter_bounds_magic_and_all_other_bytes(self):
+        old,new=self.prepare_superblock_change()
+        proof=vr.efs_superblock_proof(old,new)
+        self.assertTrue(proof['changed_byte_offsets'])
+        for field,(offset,fmt,bound) in vr.EFS_SUPERBLOCK_FIELDS.items():
+            for delta in (-1,bound+1):
+                bad=bytearray(new);value=struct.unpack_from(fmt,old,offset)[0]+delta
+                struct.pack_into(fmt,bad,offset,value)
+                with self.assertRaisesRegex(RuntimeError,'bounds'):vr.efs_superblock_proof(old,bad)
+        bad=bytearray(new);bad[0x438:0x43a]=bytes(2)
+        with self.assertRaisesRegex(RuntimeError,'magic'):vr.efs_superblock_proof(old,bad)
+        with self.assertRaisesRegex(RuntimeError,'No EFS'):vr.efs_superblock_proof(old,old)
+        for offset in (0,0x42b,0x436,0x577,0x580,4095):
+            bad=bytearray(new);bad[offset]^=1
+            with self.assertRaisesRegex(RuntimeError,'outside'):vr.efs_superblock_proof(old,bad)
+
+    def test_atomic_receipt_publish_failure_preserves_old_state(self):
+        self.prepare_superblock_change()
+        before=(self.state/vr.RECEIPT_NAME).read_bytes()
+        with patch.object(vr.os,'replace',side_effect=OSError('synthetic publish failure')):
+            with self.assertRaisesRegex(OSError,'publish'):self.revalidate_fixture()
+        self.assertEqual((self.state/vr.RECEIPT_NAME).read_bytes(),before)
+        old_copy=next(self.state.glob('provenance-before-*'))
+        self.assertEqual(old_copy.read_bytes(),before)
+        self.assertEqual((self.state/'efs/nv_data.bin').read_bytes(),self.nv)
         self.assert_no_binding()
 
     def test_archive_preserves_all_contents_metadata_and_does_not_adopt(self):

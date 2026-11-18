@@ -1231,3 +1231,24 @@ readiness qualification is pending.
 S9 PDP private status reports now retain selected raw state/reason/throttle
 fields for rejection diagnosis, without payload, credentials or identifiers.
 S9 plan tests14 pass. Units and 3GPP cause meanings are not guessed.
+
+
+## 2026-11-19 — Explicit superblock provenance maintenance candidate
+
+Added an opt-in revalidate-efs-superblock action requiring the exact old EFS
+image/old private receipt and complete fresh backup/current-original checks.
+CPEFS/RADIO must be unchanged. EFS comparison masks only four primary ext4
+superblock maintenance fields; any other changed byte, wrong magic, backwards/
+out-of-bound counters or times stops the action. Old receipt is preserved
+byte-for-byte before atomic new publication with proof/history; original
+partitions, working NV, RADIO, archives and quarantine are verified unchanged.
+35 runtime checks and independent review pass. Host proof on the actual images
+finds8 changed bytes: mount/write deltas1602s, mount count+1 and lifetime+4KiB.
+Actual receipt maintenance/resume has not yet run at this entry.
+
+With the bounded readiness delay on#19, baseline and AP-awake probe invocations
+both completed with chip55/fw21031900 and0 unparsed records; motion values
+varied and cleanup/daemon stop succeeded. Their aggregate sample counts include
+startup settling, so cannot qualify sampling-window rates or AP-state improvement.
+Both light observations remained lux/RGBW0,CCT1452,time17,gain64. Optical
+response is still unverified. Phase-separated counting is being corrected.
