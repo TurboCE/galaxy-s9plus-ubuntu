@@ -42,3 +42,5 @@ environment-only comparisons did not verify the actual modifier, so they do
 not exclude compression as a contributor. The invalid sparse-heap dump object
 is not decoded or treated as valid evidence. No additional stress run or
 physical light-response test is implied by this metadata inspection.
+The source-only zero-initialization correction for invalid dump ranges is not
+a GPU-stability fix or a claim that sparse heap capture is now supported.

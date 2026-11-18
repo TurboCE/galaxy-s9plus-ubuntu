@@ -602,6 +602,21 @@ static bool panfrost_slots_idle(struct panfrost_device *pfdev)
         pj = pj.replace(old, new, 1)
     (src / pj_path).write_text(pj)
 
+# A failed BO dump still reserves its full data range. Zero the complete file
+# so invalid/mapping-failure ranges never expose untouched vmalloc contents.
+# Preserve dump validity/layout and do not populate sparse heap pages here.
+dump_path = src / 'drivers/gpu/drm/panfrost/panfrost_dump.c'
+dump = dump_path.read_text()
+dump_old = '\titer.start = __vmalloc(file_size, GFP_KERNEL | __GFP_NOWARN |\n\t\t\t__GFP_NORETRY);'
+dump_new = ('\t/* S9P_DUMP_ZERO: invalid BO ranges must contain defined bytes. */\n'
+            '\titer.start = __vmalloc(file_size, GFP_KERNEL | __GFP_NOWARN |\n'
+            '\t\t\t__GFP_NORETRY | __GFP_ZERO);')
+if 'S9P_DUMP_ZERO' not in dump:
+    assert dump.count(dump_old) == 1, 'Panfrost dump allocation anchor drift'
+    dump_path.write_text(dump.replace(dump_old, dump_new, 1))
+else:
+    assert dump.count(dump_new) == 1, 'Panfrost zeroed dump allocation drift'
+
 # Report why BO backing failed rather than only a WARN backtrace.
 mmu_path = src / "drivers/gpu/drm/panfrost/panfrost_mmu.c"
 mmu = mmu_path.read_text()

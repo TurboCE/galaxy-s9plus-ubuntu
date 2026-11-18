@@ -1481,3 +1481,21 @@ system units, the modem module absent and five cumulative GPU scheduler
 timeouts, unchanged from the completed targeted run. Physical light-response
 and acoustic tests are deferred while the owner is unavailable. No further
 CP security operation, reboot, flash or GPU stress run was performed here.
+
+
+## 2026-11-19 — Define invalid GPU dump bytes without changing validity
+
+Source review found that a failed BO mapping still reserves its full size in
+the vmalloc-backed dump but does not fill that range. Add __GFP_ZERO to the
+existing dump allocation; retain all validity flags, headers, offsets and
+existing failure behavior. This avoids exposing untouched allocation bytes.
+It neither decodes the old invalid heap nor populates absent sparse pages.
+No new page/DMA locking, timeout policy or normal rendering path is changed.
+The extra zeroing cost occurs only during the existing one-shot dump capture.
+This is a diagnostic-data correction, not a fix for the initiating GPU stall.
+The full patch script applied twice to the actual pinned kernel cache; the
+dump source hash stayed identical on the second application. ARM64 compilation
+of panfrost_dump.o passed. No new image was installed: native kernel#21 still
+runs the previous dump implementation, so hardware qualification is pending.
+Sparse-heap capture remains unsupported; marking zero-filled holes valid would
+misrepresent missing memory and is deliberately not done.
