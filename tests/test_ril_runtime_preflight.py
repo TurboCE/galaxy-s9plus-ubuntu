@@ -1,10 +1,14 @@
 # SPDX-License-Identifier: GPL-2.0-only
-"""No modem power operation before private provenance and runtime checks."""
+"""No unit/vendor launch before private provenance and runtime checks."""
 import importlib.util
+import io
+import ast
+import builtins
+import sys
 from pathlib import Path
-from types import SimpleNamespace
+from types import SimpleNamespace, ModuleType
 import unittest
-from contextlib import nullcontext
+from contextlib import nullcontext, redirect_stdout
 from unittest.mock import patch, MagicMock
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,7 +19,7 @@ spec = importlib.util.spec_from_file_location('cbd_launcher_test', ROOT/'scripts
 cbd = importlib.util.module_from_spec(spec); spec.loader.exec_module(cbd)
 
 
-class RuntimePreflightTests(unittest.TestCase):
+class StartupPreflightTests(unittest.TestCase):
     def runtime(self):
         return SimpleNamespace(ROOT=Path('/fixture/runtime'), STATE=Path('/fixture/state'),
             DATA=Path('/fixture/state/data'), assert_board=MagicMock(),
@@ -65,12 +69,12 @@ class RuntimePreflightTests(unittest.TestCase):
             args=SimpleNamespace(activate_pdp_s9=selected,confirm_reviewed_s9_pdp_layout=reviewed,
                                  apn='fixture.apn')
             with patch.object(launcher.argparse.ArgumentParser,'parse_args',return_value=args), \
-                    patch.object(launcher.fcntl,'ioctl') as ioctl, \
+                    patch.object(launcher.subprocess,'run') as run, \
                     patch.object(launcher,'load_runtime') as load:
                 with self.assertRaisesRegex(SystemExit,'explicit opt-in'):launcher.main()
-                ioctl.assert_not_called();load.assert_not_called()
+                run.assert_not_called();load.assert_not_called()
 
-    def test_provenance_rejection_happens_before_modem_off(self):
+    def test_provenance_rejection_happens_before_unit_or_vendor_launch(self):
         args = SimpleNamespace(apn='fixture.apn', lab_directory=ROOT/'experiments/modem',
             runtime_helper=ROOT/'scripts/g965n/vendor-runtime.py', seconds=30)
         with patch.object(launcher.argparse.ArgumentParser, 'parse_args', return_value=args), \
@@ -79,9 +83,43 @@ class RuntimePreflightTests(unittest.TestCase):
                 patch.object(launcher.subprocess, 'run', return_value=SimpleNamespace(returncode=3)), \
                 patch.object(launcher, 'load_runtime', return_value=self.runtime()), \
                 patch.object(launcher, 'verify_private_runtime', side_effect=RuntimeError('bad provenance')), \
-                patch.object(launcher.fcntl, 'ioctl') as ioctl:
+                patch.dict(sys.modules, {'gi': None}):
             with self.assertRaisesRegex(RuntimeError, 'bad provenance'): launcher.main()
-            ioctl.assert_not_called()
+
+    def test_parent_has_no_forced_off_and_validation_precedes_startup(self):
+        args=SimpleNamespace(apn='fixture.apn',lab_directory=ROOT/'experiments/modem',
+            runtime_helper=ROOT/'scripts/g965n/vendor-runtime.py',seconds=30,activate_pdp_s9=False,
+            confirm_reviewed_s9_pdp_layout=False,pdp_cid=1,pdp_seconds=30)
+        runtime=self.runtime();runtime.launch_receipt_digest=lambda:'a'*64
+        order=[]
+        bus=SimpleNamespace(call_sync=lambda *a,**k:order.append('unit-start'))
+        gio=SimpleNamespace(BusType=SimpleNamespace(SYSTEM=0),DBusProxy=SimpleNamespace(new_for_bus_sync=lambda *a,**k:bus))
+        repository=ModuleType('gi.repository');repository.Gio=gio
+        repository.GLib=SimpleNamespace(Variant=lambda signature,value:value)
+        gi=ModuleType('gi');gi.repository=repository
+        commands=[]
+        def run(command,**kwargs):
+            commands.append(command)
+            if command[0]!='systemctl':order.append('vendor-launch')
+            return SimpleNamespace(returncode=3 if command[0]=='systemctl' else 0)
+        real_open=builtins.open
+        def guarded_open(path,*a,**kwargs):
+            if str(path)=='/dev/umts_boot0':raise AssertionError('Parent must not force CP power transitions')
+            return real_open(path,*a,**kwargs)
+        with patch.object(launcher.argparse.ArgumentParser,'parse_args',return_value=args), \
+                patch.object(launcher.os,'geteuid',return_value=0), \
+                patch.object(Path,'read_bytes',return_value=b'samsung,star2lte\0'), \
+                patch.object(launcher.subprocess,'run',side_effect=run), \
+                patch.object(launcher,'load_runtime',return_value=runtime), \
+                patch.object(launcher,'verify_private_runtime',side_effect=lambda *a:order.append('validated')), \
+                patch.dict(sys.modules,{'gi':gi,'gi.repository':repository}), \
+                patch('builtins.open',side_effect=guarded_open):
+            with redirect_stdout(io.StringIO()):launcher.main()
+        self.assertEqual(order,['validated','unit-start','vendor-launch'])
+        self.assertEqual(sum(c[0]!='systemctl' for c in commands),1)
+        tree=ast.parse((ROOT/'scripts/g965n/run-ril-test.py').read_text())
+        self.assertFalse(any(isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=='ioctl' for n in ast.walk(tree)))
+        self.assertFalse(any(isinstance(n,ast.Constant) and n.value==0x6f20 for n in ast.walk(tree)))
 
     def test_provenance_and_bind_validation_both_required(self):
         runtime = self.runtime()

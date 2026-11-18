@@ -1389,3 +1389,26 @@ restarted. No recovery/identity/radio flash occurred. Current EFS metadata
 changed across recovery again, so existing private provenance is not silently
 reused. Actual GPU v2 diagnosis and acoustic/physical sensor/CP acceptance are
 separate pending tests.
+
+
+## 2026-11-19 — Preserve the stock CBD cold/warm bootstrap sequence
+
+Independent read-only analysis of the owner's CBD shows its normal path calls
+STATUS, skips RESET for raw0, otherwise requests RESET, then mode2 security,
+firmware transfer, mode0 verification and MODEM_ON. Removed the experimental
+parent launcher's unconditional pre-boot MODEM_OFF, an extra destructive step
+not in that path and a candidate contributor to the observed cold PMU state.
+No new query/reset policy, security bypass or SMC arguments were added.
+6 launcher regressions include real main/preflight-before-launch behavior and
+absence of the parent's boot-node open/OFF ioctl.
+
+STATUS is not assumed to be a pure physical-state read: the driver can consume
+SIM events and advance NV-rebuild state. No extra status pre-query was added
+that could alter CBD's decision. Logical offline/fresh module alone is still
+not proof of physical cold state; this source correction has not been retested
+on hardware and no CP retry is authorized on the post-panic state.
+
+Attribution audit of pinned Lineage revision26 DTS found no original copyright
+or license header to restore; its repository COPYING specifies GPLv2, matching
+the existing GPL-2.0-only overlay declaration. Original source/commit attribution
+is retained; no invented notice or proprietary data was added.

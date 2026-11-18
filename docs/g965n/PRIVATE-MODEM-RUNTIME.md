@@ -146,7 +146,7 @@ checkpoint maintenance has host-test evidence only; its live execution is pendin
 
 Both test launchers additionally verify provenance, current NV and exact private
 mount inodes, read-only stock SYSTEM/VENDOR and a read-only ordinary private RADIO
-before CP I/O. Keep `vendor-runtime.py` beside each launcher or provide its reviewed
+before unit/vendor launch. Keep `vendor-runtime.py` beside each launcher or provide its reviewed
 path via `--runtime-helper`. This option must also work when tools are copied into
 a private lab directory. Do not expand the inner RIL unit's device policy to
 expose original block devices.
@@ -235,7 +235,7 @@ marking data working. No calls, SMS, PIN or IMEI operations are part of this lab
   revalidation after the asynchronous service-start handoff.
 - Added pre-CP launcher provenance/private-bind/read-only RADIO checks and a
   source-qualified reference-only PDP planner; S9 wire-layout gaps fail closed.
-- Host verification: 35 runtime tests, 5 launcher preflight tests, 4 reference PDP
+- Host verification: 35 runtime tests, 6 launcher preflight tests, 4 reference PDP
   tests and 14 S9 candidate tests, Python compile and diff whitespace checks passed. Device archive/stage/
   resume and data connectivity still require separate recorded hardware evidence.
 
@@ -302,3 +302,22 @@ This is a containment candidate, not a demonstrated cold-boot fix. No further CP
 trial is authorized by a successful build or these host tests. Manual module
 reload alone does not prove physical readiness or retain a previous failure's
 history; automatic reload/retry remains prohibited.
+
+### Owner CBD startup control flow
+
+Independent analysis of the owner's CBD establishes its Shannon310 startup
+sequence: query the modem status, skip RESET when the raw status is zero, or
+request RESET when nonzero; then security mode 2, firmware transfer, normal
+security mode 0, MODEM_ON and the boot handshake. Mode-2 nonnegative status
+continues the original flow; negative errors abort. The parent launcher's extra
+unconditional preliminary OFF was removed so the owner's status-dependent
+sequence remains in control. All existing private provenance/bind checks still
+precede unit/vendor launch. No new cold-launch option or forced reset fallback
+was introduced.
+
+This removes a source-proven extra mutation; it does not establish physical cold
+state, explain every PMU handshake failure or prove a successful cold boot. The
+software OFFLINE value is initialized by the driver and cannot independently
+prove hardware power state. After the panic, a new CP trial still requires a
+separately approved fresh physical cold/proven handoff condition; no automated
+retry, reload or reset is authorized.

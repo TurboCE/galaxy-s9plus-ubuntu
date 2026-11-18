@@ -2,12 +2,11 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """Start a bounded IPC/RFS test, then the own-vendor modem boot daemon.
 
-Only for the manually reviewed G965N experimental driver. Powers off this
-modem first; does not reboot the phone or write a partition. Uses the OFF
-ioctl defined in the GPL vendor modem_prj.h. Never use during a live call.
+Only for the manually reviewed G965N experimental driver. The owner CBD keeps
+its original STATUS/conditional RESET startup flow; the parent does not force
+a preliminary power transition. Never use during a live call.
 """
 import argparse
-import fcntl
 import os
 from pathlib import Path
 import subprocess
@@ -26,7 +25,7 @@ def load_runtime(helper):
 
 
 def verify_private_runtime(helper, runtime=None):
-    """Caller holds shared runtime lease; no MODEM_OFF before all checks pass."""
+    """Caller holds shared runtime lease; no unit/vendor launch before all checks pass."""
     runtime = runtime if runtime is not None else load_runtime(helper)
     runtime.assert_board()
     runtime.validate_modem_state(runtime.read_provenance())
@@ -63,9 +62,7 @@ def main():
     with runtime.shared_runtime_lock():
         verify_private_runtime(args.runtime_helper, runtime)
         from gi.repository import Gio, GLib
-        # No active modem-control daemon. This affects only the test handset CP.
-        with open('/dev/umts_boot0', 'rb', buffering=0) as boot:
-            fcntl.ioctl(boot.fileno(), 0x6f20, 0)  # _IO('o',0x20), IOCTL_MODEM_OFF
+        # Preserve owner CBD's own status-dependent reset/startup sequence.
         command = ['/usr/bin/python3', str((args.lab_directory / 'ril-lab.py').resolve()),
                    '--seconds', str(args.seconds), '--configure-radio', '--apn', args.apn,
                    '--runtime-helper', str(args.runtime_helper.resolve()),
