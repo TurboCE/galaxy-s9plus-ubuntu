@@ -34,7 +34,8 @@ fi
 docker image inspect "$IMAGE" >/dev/null
 docker volume create "$VOLUME" >/dev/null
 RUN=(docker run --rm --platform linux/amd64 --cpus "${S9_BUILD_CPUS:-3}"
-  --memory "${S9_BUILD_MEMORY:-4g}" -v "$VOLUME:/build" -v "$ROOT:/src")
+  --memory "${S9_BUILD_MEMORY:-4g}" -v "$VOLUME:/build" -v "$ROOT:/src"
+  -e "S9_PROJECT_COMMIT=$(git rev-parse HEAD)")
 if [[ "$ACTION" = kernel || "$ACTION" = all ]]; then
   "${RUN[@]}" "$IMAGE" bash scripts/g965n/container-kernel.sh \
     2>&1 | tee "$STATE/logs/kernel.log"

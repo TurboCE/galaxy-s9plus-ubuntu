@@ -30,7 +30,7 @@ TWRP_IMG=/build/reference/twrp.img bash scripts/build/pack_uniloader.sh "$out" "
 mkdir -p dist/g965n
 cp /build/firmware-inputs.sha256 dist/g965n/
 dpkg-query -W > dist/g965n/build-host-packages.txt
-git rev-parse HEAD > dist/g965n/project-commit.txt
+printf '%s\n' "${S9_PROJECT_COMMIT:-$(git rev-parse HEAD)}" > dist/g965n/project-commit.txt
 git -C /build/src/mainline rev-parse HEAD > dist/g965n/kernel-commit.txt
 sha256sum /build/out/busybox-arm64 > dist/g965n/busybox.sha256
 sha256sum "dist/uniloader/$name" > dist/g965n/boot.sha256

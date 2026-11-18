@@ -38,7 +38,7 @@ def find_serial():
     return hits[0]
 
 
-SERIAL = find_serial()
+SERIAL = None
 BYNAME = "/dev/block/platform/11120000.ufs/by-name"
 MB = 1 << 20
 CHUNK_MB = 128
@@ -67,6 +67,8 @@ def adb(*args, timeout=3600, retries=3):
 
 
 def main() -> int:
+    global SERIAL
+    SERIAL = find_serial()
     image = Path(sys.argv[1]).resolve()
     scratch = Path(sys.argv[2]) if len(sys.argv) > 2 else image.parent / "chunk.tmp"
     size = image.stat().st_size
@@ -126,10 +128,24 @@ def main() -> int:
 
     # e2fsck exits 1 when it repaired something, which is not a transfer failure.
     check = subprocess.run([str(ADB), "-s", SERIAL, "shell",
-                            f"e2fsck -f -y {node}; blkid {node}"],
+                            f'e2fsck -f -y {node}; s9_fsck_status=$?; '
+                            'printf "\\nS9_FSCK_EXIT=%d\\n" "$s9_fsck_status"; '
+                            'exit "$s9_fsck_status"'],
                            capture_output=True, text=True, timeout=3600)
     print((check.stdout + check.stderr).strip(), flush=True)
+    validate_fsck_result(check)
+    print(adb("shell", f"blkid {node}"), flush=True)
     return 0
+
+
+def validate_fsck_result(result):
+    # An explicit marker also protects older ADB shells that mask remote exit
+    # codes. Never let a subsequent successful blkid hide a failed e2fsck.
+    statuses = [line.split("=", 1)[1] for line in result.stdout.splitlines()
+                if line.startswith("S9_FSCK_EXIT=")]
+    require(len(statuses) == 1 and statuses[0] in ("0", "1")
+            and result.returncode in (0, 1),
+            "Filesystem check failed or its status is unknown; leave the phone in recovery.")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,45 @@
+{
+  "status": "first_boot_basic_features_verified_not_full_hardware",
+  "date": "2026-11-18",
+  "device": {
+    "model": "SM-G965N",
+    "revision": 26,
+    "firmware": "G965NKSU5FVA2",
+    "capacity_gb": 256
+  },
+  "kernel": {
+    "version": "7.1",
+    "commit": "8cd9520d35a6c38db6567e97dd93b1f11f185dc6",
+    "boot_sha256": "b95db6e62e9a534cb43212a936a8cf0f0276d43b66f43efebc150a65410ea8c9"
+  },
+  "rootfs": {
+    "ubuntu": "24.04",
+    "bytes": 3355443200,
+    "local_image_sha256": "ae4ca7012f47a06119b92a7e12fd65f39ad5de7dd08e9cbe0ff94b89703b23ff"
+  },
+  "notes": [
+    "Image hash records one local build, not a universal expected hash; credentials and update versions differ.",
+    "No installation image, password, SSH key, raw logs or proprietary firmware is distributed.",
+    "Git/build/ALSA utilities were installed natively after first boot; device/packages.txt now includes them for future builds.",
+    "Use first-boot code path for basic features; experimental modules are not hardware-qualified."
+  ],
+  "verified": [
+    "desktop_touch_owner_report",
+    "eight_cpu_native_compile",
+    "wifi_bound_https_200",
+    "usb_dhcp_and_key_ssh",
+    "gpu_panfrost_accelerated"
+  ],
+  "not_complete": [
+    "lte",
+    "audio",
+    "bluetooth",
+    "sensors",
+    "camera",
+    "gps",
+    "nfc",
+    "fingerprint",
+    "suspend",
+    "long_run_stability"
+  ]
+}

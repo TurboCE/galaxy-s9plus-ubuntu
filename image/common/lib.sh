@@ -47,7 +47,9 @@ image_settings() {
 		[ "$a" = "$b" ] || die "the passwords differ"
 		IMAGE_PASSWORD=$a
 	fi
-	[ "${#IMAGE_PASSWORD}" -ge 8 ] || die "use a password of at least 8 characters"
+	local password_min=8
+	[ "${IMAGE_ALLOW_SHORT_PASSWORD:-0}" = 1 ] && password_min=4
+	[ "${#IMAGE_PASSWORD}" -ge "$password_min" ] || die "use a password of at least $password_min characters"
 	IMAGE_PASSWORD_HASH=$(printf '%s\n' "$IMAGE_PASSWORD" | openssl passwd -6 -stdin)
 	unset IMAGE_PASSWORD
 	IMAGE_SSH_KEY=
