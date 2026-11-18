@@ -13,6 +13,13 @@
 #define W 128
 #define BYTES (W * W * 4)
 static void fail(const char *what) { fprintf(stderr, "%s: EGL=%#x GL=%#x\n", what, eglGetError(), glGetError()); exit(1); }
+static void check_gl(const char *what)
+{
+    GLenum error = glGetError();
+    if (error != GL_NO_ERROR) {
+        fprintf(stderr, "%s: GL=%#x\n", what, error); exit(1);
+    }
+}
 static GLuint shader(GLenum type, const char *source)
 {
     GLuint s = glCreateShader(type);
@@ -36,9 +43,14 @@ static void pressure_verify(GLuint texture, unsigned index, unsigned char *outpu
     glBindTexture(GL_TEXTURE_2D, texture);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); glFinish();
     glReadPixels(0, 0, W, W, GL_RGBA, GL_UNSIGNED_BYTE, output);
-    if (glGetError() != GL_NO_ERROR) fail("pressure render/readback");
-    for (unsigned i = 0; i < BYTES; i++)
-        if (output[i] != color[i % 4]) fail("pressure texture mismatch");
+    check_gl("pressure render/readback");
+    for (unsigned i = 0; i < BYTES; i++) {
+        if (output[i] != color[i % 4]) {
+            fprintf(stderr, "pressure texture=%u byte=%u expected=%u actual=%u\n",
+                    index, i, color[i % 4], output[i]);
+            fail("pressure texture mismatch");
+        }
+    }
 }
 int main(int argc, char **argv)
 {
@@ -97,7 +109,7 @@ int main(int argc, char **argv)
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 512, 512, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-            if (glGetError() != GL_NO_ERROR) fail("pressure texture upload");
+            check_gl("pressure texture upload");
             pressure_verify(pool[t], t, output);
         }
         free(data);
@@ -112,7 +124,7 @@ int main(int argc, char **argv)
          * Keep the surface/context/texture alive; do not upload or redraw. */
         if (frame % 10 == 9) usleep(250000);
         glReadPixels(0, 0, W, W, GL_RGBA, GL_UNSIGNED_BYTE, output);
-        if (glGetError() != GL_NO_ERROR) fail("render/readback");
+        check_gl("render/readback");
         if (memcmp(input, output, BYTES)) { fprintf(stderr, "pixel mismatch frame=%u\n", frame); return 1; }
     }
     printf("PASS frames=100 compared_bytes=%u mismatches=0\n", 100 * BYTES);

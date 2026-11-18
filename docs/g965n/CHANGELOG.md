@@ -495,3 +495,31 @@ upstream GPU_QUIRK_FORCE_AARCH64_PGTABLE. Other GPU compatibles are unaffected.
 Added a once-per-device log of the actual page-table mode. No vendor binary or
 implementation was copied. This candidate has NOT yet been built/boot-tested;
 keep the low-RAM policy and nocrc mitigation until hardware evidence says more.
+
+## 2026-11-19 — AArch64 boot, high-bank pressure pass and microphone report
+
+Kernel#9 BOOT93c36f5dbfa05ebf7a986374a31162cc77431f9bc813defe3d7e9001315c3150
+(27,088,912bytes) passed a fresh nine-partition backup, guarded BOOT readback and
+native boot. Kernel log confirms AARCH64_4K page tables. With lowmem=N and nocrc,
+the same768MiB retained-texture workload that corrupted output on#8 now passes:
+100 exact frames, all retained textures checked again, no matching kernel error.
+CRC-enabled full33 scenes still fail, so the MMU fix does NOT replace nocrc.
+Full33 scenes plus readback with nocrc and unrestricted allocations pass cleanly.
+
+Prepared a safe kernel default: unrestricted BOs only for the Exynos9810 match
+using AArch64 tables; legacy/other matches retain the prior low-address policy.
+The diagnostic lowmem flag can force the old allocation policy. No userspace
+startup write is used, so BOOT rollback cannot accidentally enable high addresses
+on legacy#8. This default still needs its own boot/persistence qualification.
+
+Owner reports a voice application cannot hear speech. Pulse input is unmuted
+and the actual Chromium RecordStream is linked to the microphone. Numeric-only
+capture reports low levels; no audio file saved. Changed runtime mic_gain0 to40
+(+20dB, the driver's original speech default) and reopened capture. Levels rose
+but owner still reports no recognition. L/R correlation near1 rules out strong
+opposing-channel cancellation in that sample; this does not prove intelligible
+speech. Gain change is a diagnostic trial, not an installed microphone fix.
+GPU#9 tests proceeded while microphone routing was inspected. Stock IN3L/IN3R,
+AIF1 registers and ABOX UAIF format/polarity match the reviewed source. Stock
+media-mic additionally routes IN3L through LHPF/ASRC; direct prototype path remains
+under investigation. Do not label voice recognition or full microphone support working.

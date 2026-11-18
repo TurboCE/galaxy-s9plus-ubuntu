@@ -233,6 +233,26 @@ if "S9P_LOWMEM_BO" not in g:
                   + TAB + anchor, 1)
     g_path.write_text(g)
 
+# Hardware-qualified on G965N with AArch64 tables: use the full GPU-addressable
+# RAM, while retaining the low-address compatibility policy on legacy/other
+# boards. This is a kernel default, so rolling back BOOT cannot leave a new
+# userspace service enabling unsafe high addresses on an old legacy kernel.
+g = g_path.read_text()
+if 'S9P_LOWMEM_SAFE_DEFAULT' not in g:
+    anchor = '#include <linux/moduleparam.h> /* S9P_LOWMEM_BO */\n'
+    assert g.count(anchor) == 1
+    g = g.replace(anchor, anchor + '#include <linux/of.h> /* S9P_LOWMEM_SAFE_DEFAULT */\n', 1)
+    anchor = 'static bool s9p_lowmem_bos = true;'
+    assert g.count(anchor) == 1
+    g = g.replace(anchor, 'static bool s9p_lowmem_bos; /* default permits qualified AArch64 board */', 1)
+    anchor = '\tif (READ_ONCE(s9p_lowmem_bos)) /* S9P_LOWMEM_BO */\n'
+    assert g.count(anchor) == 1
+    g = g.replace(anchor,
+        '\tif (READ_ONCE(s9p_lowmem_bos) || /* S9P_LOWMEM_SAFE_DEFAULT */\n'
+        '\t    !of_device_is_compatible(dev->dev->of_node, "samsung,exynos9810-mali") ||\n'
+        '\t    !(to_panfrost_device(dev)->comp->gpu_quirks & BIT(GPU_QUIRK_FORCE_AARCH64_PGTABLE)))\n', 1)
+    g_path.write_text(g)
+
 # --- Panfrost: make the job-slot flush reduction switchable at run time ------
 # Mali-G72 r0p1 on this SoC throws sporadic DATA_INVALID_FAULT / page faults at
 # VA 0 under allocation churn, which vanish with PAN_MESA_DEBUG=sync. Flush
