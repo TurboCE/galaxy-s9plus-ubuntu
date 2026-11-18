@@ -18,3 +18,8 @@ They are NOT distributed here. Users stage their own local inputs for WLAN=1 bui
 The optional experiments/audio/snd-zrn-abox.c is the explicitly GPL-2.0 audio file
 from Zerone-Laboratories/ztOS, pinned in experiments/audio/SOURCE.json. Original
 notices are retained. Other unlabelled GPL-3.0 project files were not copied.
+
+The optional experiments/modem/ sources retain Samsung/Lineage GPL notices.
+SOURCES.json identifies the GPL-backed vendor copies and pinned adaptations;
+COPYING.vendor preserves the vendor-kernel licence context. New compatibility
+and verification code is GPL-2.0-only. No radio firmware or EFS data is included.

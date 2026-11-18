@@ -134,3 +134,13 @@ Full g965n-modem.ko linking passed without unresolved-symbol suppression.
 The board overlay is deliberately empty, so hardware initialization is blocked
 even if opted in. No device module load, SIM registration or LTE test occurred.
 Owner can insert an active SIM later; that does not block core Ubuntu installation.
+
+## 2026-11-18 — G965N modem hardware-node comparison
+
+Mailbox/shared-memory nodes match the stock handset byte-for-byte apart from
+local phandle declarations. The modem node differed only in revision GPIO
+phandle numbers. These are invalid outside their original tree, so the candidate
+overlay drops them and declares the observed revision explicitly for the adapted
+get_system_rev. Verification compares remaining properties and all 23 modem
+subnodes against private stock BOOT and checks revision 26. All checks pass.
+The active module blob remains deliberately empty: no hardware probe yet.

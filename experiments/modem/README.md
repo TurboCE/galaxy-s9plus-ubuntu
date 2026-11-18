@@ -42,3 +42,16 @@ support, verify IRQ/shared memory, then controlled manual load after USB SSH is
 reliable. Boot the modem using own-device firmware and private NV working files,
 then test status/control. An active SIM can be inserted later for LTE data tests.
 There is no ready-to-load modem package or successful on-device result yet.
+
+## G965N overlay review
+
+The candidate overlay comes from the GPL LineageOS star2lte revision-26 device
+tree, not an unlabelled third-party overlay. Byte-level comparison against this
+G965N's stock BOOT passes for mailbox, shared-memory and all modem IO properties
+after deliberately replacing legacy GPIO revision straps with the verified
+samsung,hw-revision property. GPIO phandle numbers are local to the stock tree
+and must never be copied blindly into mainline. verify-overlay.py checks the
+migration and all remaining bytes; it does not touch the device.
+
+The candidate is NOT embedded into zrn_overlay_blob.c yet; that remains empty
+and hardware probing is still blocked pending native kernel/IRQ review.
