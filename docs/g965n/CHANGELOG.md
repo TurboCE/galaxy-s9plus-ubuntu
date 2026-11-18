@@ -1412,3 +1412,17 @@ Attribution audit of pinned Lineage revision26 DTS found no original copyright
 or license header to restore; its repository COPYING specifies GPLv2, matching
 the existing GPL-2.0-only overlay declaration. Original source/commit attribution
 is retained; no invented notice or proprietary data was added.
+
+
+## 2026-11-19 — Publish the actual bounded GPU reproduction harness
+
+Public gpu-validate.py now includes the exact three8s targeted scenes plus
+optional private line-time capture; default full-profile commands/deadlines
+remain unchanged. Targeted completion checks actual scene order/options and
+positive finite FPS, distinguishes its three scenes from full33 qualification
+and records requested/reported surface size. Existing captured#19 real output
+passes that parser; raw evidence stays private.12 regressions cover missing/
+duplicate/partial/malformed or zero-FPS rows and silent/partial-output/descendant
+process timeout cleanup. Timing is received-line completion, not proof of GPU
+job start/end or causation. No workload flag is installed globally.
+New profile's first#21 hardware run remains pending at this entry.

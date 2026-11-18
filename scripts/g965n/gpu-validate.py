@@ -7,16 +7,68 @@ A benchmark score alone is not a pass. Reboot testing is separate.
 """
 import argparse
 from contextlib import contextmanager
+from datetime import datetime, timezone
 import fcntl
 import glob
 import json
+import math
 import os
 from pathlib import Path
 import re
+import selectors
+import signal
 import subprocess
 import time
 
 FAULT = re.compile(r'panfrost.*(?:timeout|fault|failed|error|WARNING)|WARNING:.*panfrost|flip did not latch|shadow update stuck|swiotlb buffer is full|vblank wait timed out|flip_done timed out', re.I)
+TARGETED = (
+    ('buffer', 'columns=200:interleave=true:update-dispersion=0.9:update-fraction=0.5:update-method=map:duration=8'),
+    ('function', 'fragment-complexity=low:fragment-steps=5:duration=8'),
+    ('loop', 'fragment-loop=false:fragment-steps=5:vertex-steps=5:duration=8'),
+)
+
+
+def scene_result(output, profile):
+    if profile == 'full':
+        count = len(re.findall(r'^\[[^\]]+\]', output, re.M))
+        return {'complete': 'glmark2 Score:' in output and count == 33,
+                'expected_scene_count': 33, 'observed_scene_count': count}
+    if profile != 'targeted':
+        raise ValueError('Unknown GPU profile')
+    rows = re.findall(r'^\[([^\]]+)\][ \t]*(.*):[ \t]*FPS:[ \t]*([0-9.]+)'
+                      r'[ \t]+FrameTime:[ \t]*[0-9.]+[ \t]+ms[ \t]*$', output, re.M)
+    announced = len(re.findall(r'^\[[^\]]+\]', output, re.M))
+    complete = len(rows) == announced == len(TARGETED) and 'glmark2 Score:' in output
+    for (name, options), row in zip(TARGETED, rows):
+        actual = dict(part.split('=', 1) for part in row[1].split(':') if '=' in part)
+        expected = dict(part.split('=', 1) for part in options.split(':'))
+        try:
+            fps = float(row[2])
+            positive_fps = math.isfinite(fps) and fps > 0
+        except ValueError:
+            positive_fps = False
+        complete = complete and positive_fps and row[0] == name and all(actual.get(k) == v for k, v in expected.items())
+    return {'complete': bool(complete), 'expected_scene_count': len(TARGETED),
+            'expected_scenes': [name + ':' + options for name, options in TARGETED],
+            'observed_scene_count': announced, 'completed_scene_count': len(rows),
+            'observed_scenes': [row[0] for row in rows]}
+
+
+def commands_for(profile, readback, size, fifo=False):
+    if profile == 'full':
+        commands = [('readback', [str(readback.resolve())], 30),
+                    ('scenes', ['glmark2-es2-wayland', '--size', size, '--benchmark', ':duration=1'], 90)]
+    elif profile == 'targeted':
+        command = ['glmark2-es2-wayland', '--size', size]
+        for name, options in TARGETED:
+            command += ['-b', name + ':' + options]
+        commands = [('targeted', command, 45)]
+    else:
+        raise ValueError('Unknown GPU profile')
+    if fifo:
+        commands.append(('fifo', ['glmark2-es2-wayland', '--size', size, '--swap-mode', 'fifo',
+            '-b', 'build:duration=4', '-b', 'texture:duration=4', '-b', 'ideas:duration=4'], 30))
+    return commands
 
 
 def fifo_result(output):
@@ -77,7 +129,75 @@ def journal(*args):
     return subprocess.check_output(['journalctl', '-k', '-b', '--no-pager', *args], text=True, stderr=subprocess.STDOUT)
 
 
-def run(command, environment, timeout):
+def run_timed(command, environment, timeout, timeline, name):
+    """Nonblocking line capture with one deadline, including silent/partial output.
+
+    A fresh process group lets cleanup also reap the direct child when a
+    descendant retains stdout. No reader thread can survive a timed-out command.
+    """
+    output, pending = bytearray(), bytearray()
+    process = None
+    finished = False
+    code = 124
+    deadline = time.monotonic() + timeout
+    with timeline.open('a', encoding='utf-8') as stream:
+        def record(event, **fields):
+            row = {'command': name, 'event': event,
+                   'utc': datetime.now(timezone.utc).isoformat(),
+                   'monotonic_ns': time.monotonic_ns(), **fields}
+            stream.write(json.dumps(row) + '\n'); stream.flush()
+
+        try:
+            record('start')
+            process = subprocess.Popen(command, env=environment, stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
+            os.set_blocking(process.stdout.fileno(), False)
+            with selectors.DefaultSelector() as selector:
+                selector.register(process.stdout, selectors.EVENT_READ)
+                while selector.get_map():
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise subprocess.TimeoutExpired(command, timeout)
+                    events = selector.select(remaining)
+                    if not events:
+                        raise subprocess.TimeoutExpired(command, timeout)
+                    for key, _ in events:
+                        data = os.read(key.fd, 65536)
+                        if not data:
+                            selector.unregister(key.fileobj)
+                            continue
+                        output.extend(data); pending.extend(data)
+                        while b'\n' in pending:
+                            if time.monotonic() >= deadline:
+                                raise subprocess.TimeoutExpired(command, timeout)
+                            line, _, rest = pending.partition(b'\n')
+                            pending[:] = rest
+                            record('line', line=line.decode(errors='replace'), partial=False)
+                code = process.wait(timeout=max(0, deadline - time.monotonic()))
+                finished = True
+        except subprocess.TimeoutExpired:
+            code = 124
+        finally:
+            if process is not None:
+                if not finished:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                process.wait()
+                process.stdout.close()
+        if pending:
+            record('line', line=pending.decode(errors='replace'), partial=True)
+        record('finish', exit=code, timed_out=not finished)
+    return code, output.decode(errors='replace') + ('' if finished else '\nQUALIFICATION_TIMEOUT\n')
+
+
+def run(command, environment, timeout, timeline=None, name=None):
+    if timeline is not None:
+        # glmark2 uses stdio; line buffering makes receipt times meaningful.
+        if Path(command[0]).name == 'glmark2-es2-wayland':
+            command = ['stdbuf', '-oL', '-eL', *command]
+        return run_timed(command, environment, timeout, timeline, name or Path(command[0]).name)
     try:
         result = subprocess.run(command, env=environment, text=True,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout)
@@ -108,7 +228,10 @@ def snapshot():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True, help='New private directory outside published artifacts')
-    parser.add_argument('--readback', type=Path, required=True, help='Compiled gpu-readback.c')
+    parser.add_argument('--readback', type=Path, help='Compiled gpu-readback.c; required for the full profile')
+    parser.add_argument('--profile', choices=['full', 'targeted'], default='full',
+                        help='Full qualification or the three bounded native-size timeout reproductions')
+    parser.add_argument('--timeline', action='store_true', help='Write private per-command line timing to timeline.jsonl')
     parser.add_argument('--mesa-debug', choices=['normal', 'noafbc', 'nocrc', 'nocrc,noafbc', 'sync'], default='normal')
     parser.add_argument('--fifo', action='store_true', help='Also require near-60Hz FIFO presentation in three bounded scenes')
     parser.add_argument('--size', choices=['512x512', '720x1480', '1440x2960'], default='512x512',
@@ -117,7 +240,7 @@ def main():
     args = parser.parse_args()
     if b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):
         raise SystemExit('Expected the native star2lte handset')
-    if not args.readback.is_file():
+    if args.profile == 'full' and (args.readback is None or not args.readback.is_file()):
         raise SystemExit('Compile gpu-readback.c first')
     runtime = Path('/run/user') / str(os.getuid())
     if not (runtime / 'wayland-0').exists():
@@ -140,18 +263,16 @@ def main():
                 env['PAN_MESA_DEBUG'] = args.mesa_debug
             settings = snapshot()
             results = {}
-            commands = [('readback', [str(args.readback.resolve())], 30),
-                        ('scenes', ['glmark2-es2-wayland', '--size', args.size, '--benchmark', ':duration=1'], 90)]
-            if args.fifo:
-                commands.append(('fifo', ['glmark2-es2-wayland', '--size', args.size, '--swap-mode', 'fifo',
-                    '-b', 'build:duration=4', '-b', 'texture:duration=4', '-b', 'ideas:duration=4'], 30))
+            commands = commands_for(args.profile, args.readback, args.size, args.fifo)
             for name, command, timeout in commands:
-                code, output = run(command, env, timeout)
+                timeline = args.output / 'timeline.jsonl' if args.timeline else None
+                code, output = run(command, env, timeout, timeline, name)
                 (args.output / (name + '.log')).write_text(output)
                 hardware = bool(re.search(r'(?:renderer=|GL_RENDERER:).*Mali', output))
-                complete = ('PASS frames=100' in output if name == 'readback' else
-                            'glmark2 Score:' in output and len(re.findall(r'^\[[^\]]+\]', output, re.M)) == 33)
+                complete = 'PASS frames=100' in output if name == 'readback' else False
                 results[name] = {'exit': code, 'physical_mali': hardware, 'complete': complete}
+                if name in ('scenes', 'targeted'):
+                    results[name].update(scene_result(output, args.profile))
                 surface = re.search(r'^\s*Surface Size:\s*(.+)$', output, re.M)
                 if surface:
                     results[name]['reported_surface'] = surface[1].strip()
@@ -165,6 +286,7 @@ def main():
             unlocked = screen_unlocked(desktop_bus)
             passed = awake and unlocked and all(r['exit'] == 0 and r['physical_mali'] and r['complete'] and r.get('cadence_pass', True) for r in results.values()) and not faults
             receipt = {'kernel': os.uname().release, 'kernel_version': os.uname().version,
+                       'profile': args.profile, 'line_timeline': args.timeline,
                        'mesa_debug': args.mesa_debug, 'requested_surface': args.size, 'display_awake_after': awake,
                        'desktop_unlocked_after': unlocked,
                        'temporary_idle_inhibitor': True, 'settings_before': settings,
