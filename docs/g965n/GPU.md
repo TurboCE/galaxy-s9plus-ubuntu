@@ -88,3 +88,9 @@ build tree; #11's installed BOOT still defaultsN until replaced, so reboot
 persistence is not repaired by this source change alone. The next approach must
 keep display-exportable BOs low while permitting verified private GPU BOs high.
 Do not infer exportability from BO size or indiscriminately enable high RAM.
+
+Kernel#12 deployed with fresh backup/readback and native boot: lowmemY persists,
+full33 scenes plus100 exact frames pass with0 matching interval errors. Owner
+reports the physical black shapes gone. Reboot/default changed together; the
+artifact's precise cause remains unisolated. Whole-boot optional regulator/probe
+messages and desktop frame pacing remain separate open checks.

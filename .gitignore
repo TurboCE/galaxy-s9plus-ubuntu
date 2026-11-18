@@ -21,3 +21,6 @@ __pycache__/
 Module.symvers
 modules.order
 *.o.d
+
+# Chat attachments can include private device screenshots
+/.codex-attachments/

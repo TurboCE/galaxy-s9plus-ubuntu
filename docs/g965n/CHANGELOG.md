@@ -599,3 +599,50 @@ it does not enable the optional driver. Added optional quiet cue/start delay and
 exclusive recording lock to the helper to avoid ambiguous instructions/overlap.
 Application speech recognition is being tested separately. No app installation
 or personal configuration is published.
+
+## 2026-11-19 — Voice recognition confirmation and GPU#12 guarded deployment
+
+After the timing rule, owner confirms the voice application recognizes speech
+and responds. This is an actual bounded application test, not all audio/mic
+functions or telephony parity. Removed only our four private runtime recording
+pairs after comparison. Installed the exact source rule under its canonical name,
+retaining the previous trial text privately; did not leave two active rules.
+
+Owner reports black shapes at the top/bottom across desktop applications. A local
+GNOME screenshot does not contain them; owner photo does. Owner reports they are
+not visible in TWRP. This narrows investigation but does not by itself exclude
+panel damage (different backgrounds/output configuration). No fresh GPU fault
+lines in the inspected interval. Added a screenshot utility for diagnosis; all
+screenshots/logs remain private. Initial direct screenshot API was denied; the
+normal screenshot utility succeeded.
+
+Kernel#12 built from63f8768, BOOT
+2b1dffe3aab8e968f41baa428d88e66b6397e2893ab68b20ac7862d866f87dd4
+(27,088,912bytes), restores conservative low BO allocation at boot. Passed a fresh
+nine-partition backup and guarded BOOT-only write/readback. Exact-BOOT audio/BT
+startup staged before reboot. Native boot and physical artifact check are still
+pending; build/readback is not device success. No protected partition was flashed.
+
+Kernel#12 native boot confirmed exact UTS and conservative lowmemY without a
+runtime override. Exact-BOOT audio/BT services active; both UCM nodes and timing
+rule persisted. Owner reports black top/bottom shapes gone. The reboot and
+allocation default changed together, so the precise cause is not isolated.
+Full33 GLES scenes plus100 exact readback frames pass on physical Mali with
+nocrc and default PM/DVFS; new kernel fault signatures, including swiotlb, count0
+in that cursor-bounded interval. Whole-boot logs still contain optional regulator,
+other driver probe/P2P and initramfs warnings; a clean test interval is not a
+clean whole boot. Desktop animation smoothness is explicitly not yet qualified.
+Added an ignore for private chat attachments; no photo is committed.
+
+## 2026-11-19 — Optional GPU regulator mismatch candidate
+
+Whole-boot audit found `_opp_set_regulators: no regulator (mali) found`, even
+though later DVFS/render tests ran. Source confirms Panfrost treats ENODEV here
+as optional and continues. The Exynos board match had copied the generic Linux
+regulator list, but this port's s9p-g3d clock provider actually programs BUCK6
+through ACPM before publishing the clock, and refuses publication on failure.
+Prepared board data with no Linux regulator supply and skip OPP regulator setup
+only when num_supplies is zero. Frequency OPPs/devfreq and real ACPM failures
+remain active; other boards with supplies keep their original validation.
+This models existing rail ownership; it does not mask a failing voltage command
+or prove animation performance. Candidate build/boot qualification pending.

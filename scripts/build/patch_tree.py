@@ -344,14 +344,37 @@ if "S9P_SGT_ERROR" not in mmu:
 # Reuse mainline's existing AARCH64 support; do not alter other Bifrost devices.
 insert_before('drivers/gpu/drm/panfrost/panfrost_drv.c',
     'static const struct panfrost_compatible default_pm_rt_data = {',
-    '/* S9P_AARCH64_MMU: same supplies/PM contract as default_data. */\n'
+    '/* S9P_AARCH64_MMU: the clock provider owns the ACPM rail. */\n'
     'static const struct panfrost_compatible exynos9810_data = {\n'
-    '\t.num_supplies = ARRAY_SIZE(default_supplies) - 1,\n'
-    '\t.supply_names = default_supplies,\n'
+    '\t.num_supplies = 0,\n'
+    '\t.supply_names = NULL,\n'
     '\t.num_pm_domains = 1,\n'
     '\t.pm_domain_names = NULL,\n'
     '\t.gpu_quirks = BIT(GPU_QUIRK_FORCE_AARCH64_PGTABLE),\n'
     '};\n\n', 'S9P_AARCH64_MMU')
+# Reconcile trees patched before the board's rail ownership was explicit.
+pf_drv = src / 'drivers/gpu/drm/panfrost/panfrost_drv.c'
+pf_text = pf_drv.read_text()
+old_board = ('static const struct panfrost_compatible exynos9810_data = {\n'
+             '\t.num_supplies = ARRAY_SIZE(default_supplies) - 1,\n'
+             '\t.supply_names = default_supplies,\n')
+new_board = ('static const struct panfrost_compatible exynos9810_data = {\n'
+             '\t.num_supplies = 0,\n'
+             '\t.supply_names = NULL,\n')
+assert old_board in pf_text or new_board in pf_text
+pf_drv.write_text(pf_text.replace(old_board, new_board, 1))
+pf_dvfs = src / 'drivers/gpu/drm/panfrost/panfrost_devfreq.c'
+pf_text = pf_dvfs.read_text()
+if 'S9P_OPTIONAL_OPP_SUPPLIES' not in pf_text:
+    anchor = '\tret = devm_pm_opp_set_regulators(dev, pfdev->comp->supply_names);\n'
+    assert pf_text.count(anchor) == 1
+    pf_text = pf_text.replace(anchor,
+        '\t/* S9P_OPTIONAL_OPP_SUPPLIES: no Linux regulator for ACPM-owned rails. */\n'
+        '\tret = 0;\n'
+        '\tif (pfdev->comp->num_supplies)\n'
+        '\t\tret = devm_pm_opp_set_regulators(dev, pfdev->comp->supply_names);\n', 1)
+    pf_dvfs.write_text(pf_text)
+
 insert_after('drivers/gpu/drm/panfrost/panfrost_drv.c',
     '\t/* Set first to probe before the generic compatibles */\n',
     '\t{ .compatible = "samsung,exynos9810-mali", /* S9P_AARCH64_MATCH */\n'
