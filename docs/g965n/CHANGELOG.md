@@ -11,7 +11,7 @@ Original paths/hashes are in source-provenance.json; original README is retained
 Added Docker environment, fixed Ubuntu Base/TWRP hashes, kernel tag+commit guards,
 read-only firmware extraction, verified backups and explicit-consent installation wrapper.
 New Dockerfile built successfully. New backup and firmware tools ran successfully on G965N.
-Six automated guard/integrity tests passed. Full new kernel/rootfs recipe still needs qualification.
+Seven automated guard/integrity tests passed. Full new kernel/rootfs recipe still needs qualification.
 Original local ARM64 rootfs build completed: 3200MiB, e2fsck successful, exit 0.
 No Ubuntu BOOT/USERDATA writes or G965N Linux first boot have occurred.
 
@@ -43,3 +43,11 @@ Regression test rejects appended/corrupted data. Invalid early exports must neve
 Complete the new full build; extract/compare stock G965N BOOT device trees; review rootfs;
 then perform an explicitly authorized experimental install. Record first boot, USB console/SSH,
 Wi-Fi, graphics, charging, temperature and repeated reboot separately. LTE/audio are separate work.
+
+## 2026-11-18 — Firmware publication filter
+
+A dry-run file audit found that stock NVRAM names end with txt_r02a_b2, not txt.
+Replaced extension-based ignores with deny-all firmware/* and an allowlist for Markdown.
+The public source repository was created with a clean root commit and no proprietary files
+in reachable history. An earlier draft was made private and archived; it is not the public source.
+Added a Git-ignore regression test covering NVRAM suffixes, firmware, regulatory data and credentials.

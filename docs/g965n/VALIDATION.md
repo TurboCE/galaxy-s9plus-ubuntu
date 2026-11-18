@@ -10,7 +10,7 @@ stock Android 10 G965NKSU5FVA2 before recovery installation.
 | Repository backup tool | device.py ran on hardware, nine byte counts and SHA256 matches | Verified |
 | Repository firmware extraction | VENDOR ro,noload; three files transferred and device hashes matched | Verified |
 | Docker preparation | build.sh prepare built the new Dockerfile, including regulatory data | Verified |
-| Automated guards | Six integrity/model/recovery/consent/firmware-conflict tests | Passed |
+| Automated guards | Seven integrity/model/recovery/consent/firmware-conflict tests | Passed |
 | Original G965F kernel + uniLoader | Local build and header checks succeeded | Build only |
 | Ubuntu ARM64 userspace | Original local recipe produced 3200MiB ext4, e2fsck clean, build exit 0 | Built |
 | Source-only recipe, complete kernel/rootfs run | New complete run still pending | Not qualified end to end |

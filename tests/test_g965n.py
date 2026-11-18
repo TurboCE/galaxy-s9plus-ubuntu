@@ -92,6 +92,16 @@ class RecoveryTests(unittest.TestCase):
 
 
 class FirmwareTests(unittest.TestCase):
+    def test_git_excludes_stock_filenames_including_nvram_suffix(self):
+        root = SCRIPTS.parents[1]
+        paths = ['firmware/' + name for name in FILES]
+        paths += ['firmware/regulatory.db', 'firmware/regulatory.db.p7s',
+                  'device/base/lib/firmware/brcm/brcmfmac4361-pcie.bin',
+                  '.local/image.env', '.local/stock-firmware/bcmdhd_sta.bin_b2']
+        for path in paths:
+            result = subprocess.run(['git', 'check-ignore', '--no-index', '--quiet', path], cwd=root)
+            self.assertEqual(result.returncode, 0, path)
+
     def test_original_bytes_preserved_and_conflicts_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
