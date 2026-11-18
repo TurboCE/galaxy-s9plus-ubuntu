@@ -45,6 +45,11 @@ if [[ "${S9_EXPERIMENTAL_AUDIO:-0}${S9_EXPERIMENTAL_BLUETOOTH:-0}${S9_EXPERIMENT
       "M=/src/experiments/$feature" modules
     mkdir -p "dist/experimental/$feature"
     cp experiments/"$feature"/*.ko "dist/experimental/$feature/"
+    if [[ "$feature" = modem ]]; then
+      # Build the tracked GPL hardware overlay; never copy it onto a device.
+      dtc -@ -I dts -O dtb -o dist/experimental/modem/modem.dtbo \
+        experiments/modem/g965n-modem-overlay.dts
+    fi
   done
 fi
 out=$(find dist -maxdepth 1 -type d -name 'm71-*' | sort | tail -1)
@@ -64,8 +69,15 @@ for feature in audio bluetooth sensors modem; do
   [[ "${!option:-0}" != 1 ]] || features+=("$feature")
 done
 if (( ${#features[@]} )); then
+  qualification=()
+  # Only the explicit read-only owner input from build.sh qualifies comparison.
+  # Never adopt an old cached stock image from the build volume.
+  if [[ "${S9_EXPERIMENTAL_MODEM:-0}" = 1 && -f /run/g965n-stock-boot.img ]]; then
+    qualification+=(--stock-boot /run/g965n-stock-boot.img)
+  fi
   python3 scripts/g965n/package-experiments.py --kernel-out /build/src/mainline/out \
     --boot "dist/uniloader/$name" --output dist/experimental \
-    --source-commit "$(cat dist/g965n/project-commit.txt)" --features "${features[@]}"
+    --source-commit "$(cat dist/g965n/project-commit.txt)" --features "${features[@]}" \
+    "${qualification[@]}"
 fi
 echo "BUILD_ONLY_COMPLETE: dist/uniloader/$name; SM-G965N hardware boot still requires qualification."

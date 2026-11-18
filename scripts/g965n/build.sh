@@ -40,6 +40,28 @@ for feature in AUDIO BLUETOOTH SENSORS MODEM; do
   option="S9_EXPERIMENTAL_$feature"
   if [[ "${!option:-0}" = 1 ]]; then RUN+=(-e "$option=1"); fi
 done
+if [[ -n "${S9_MODEM_STOCK_BOOT:-}" ]]; then
+  [[ "${S9_EXPERIMENTAL_MODEM:-0}" = 1 && ( "$ACTION" = kernel || "$ACTION" = all ) ]] || {
+    echo 'S9_MODEM_STOCK_BOOT requires an explicit experimental modem kernel build.'; exit 1; }
+  stock_boot=$(python3 - "$S9_MODEM_STOCK_BOOT" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1]).expanduser()
+if p.is_symlink() or not p.is_file():
+    raise SystemExit('Stock BOOT must be a regular file, not a symlink.')
+if not 8 <= p.stat().st_size <= 57671680:
+    raise SystemExit('Invalid stock BOOT size.')
+with p.open('rb') as stream:
+    if stream.read(8) != b'ANDROID!':
+        raise SystemExit('Invalid stock BOOT header.')
+p = p.resolve()
+if ':' in str(p):
+    raise SystemExit('Stock BOOT bind path cannot contain a colon.')
+print(p)
+PY
+  )
+  RUN+=(-v "$stock_boot:/run/g965n-stock-boot.img:ro")
+fi
 if [[ "$ACTION" = kernel || "$ACTION" = all ]]; then
   "${RUN[@]}" "$IMAGE" bash scripts/g965n/container-kernel.sh \
     2>&1 | tee "$STATE/logs/kernel.log"

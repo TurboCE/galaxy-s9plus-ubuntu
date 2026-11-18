@@ -1342,3 +1342,20 @@ hardware qualification. Fresh-module seq5 alone cannot reconstruct a previous
 failed physical session, so automatic reload/retry remains prohibited and no
 new CP trial is authorized on the post-panic unknown physical state. Native
 Ubuntu baseline is restored with modem autoload disabled.
+
+
+## 2026-11-19 — Build the modem overlay from tracked source
+
+Closed a reproducibility gap: experimental modem kernel builds now compile
+the tracked GPL device-tree overlay into the module package, with path/size/
+SHA and source/Lineage attribution in the receipt. Optional explicit owner
+stock BOOT input is validated and bound read-only; a cached image is never
+silently adopted. Without that input the receipt says comparison not performed,
+not hardware qualified. Existing audio/BT module shape remains compatible.
+
+DTC output and full three-subtree comparison against the owner's manifest-
+verified original stock BOOT/revision26 passed.6 package regressions and shell/
+Python checks pass. Source-to-artifact-to-manual-guarded-stage instructions are
+in MODEM_OVERLAY_BUILD.md. Build never stages, flashes or autoloads anything;
+firmware/image publishing in CI remains disabled. No private stock BOOT or
+firmware content is included in Git.
