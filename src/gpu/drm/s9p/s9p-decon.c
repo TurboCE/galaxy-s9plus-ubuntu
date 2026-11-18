@@ -542,13 +542,14 @@ static void s9p_panel_up(struct s9p_decon *priv)
 
 /* ----------------------------------------------------------------- pipe */
 
+static void s9p_decon_pipe_update(struct drm_simple_display_pipe *pipe,
+				  struct drm_plane_state *old_state);
+
 static void s9p_decon_pipe_enable(struct drm_simple_display_pipe *pipe,
 				  struct drm_crtc_state *crtc_state,
 				  struct drm_plane_state *plane_state)
 {
 	struct s9p_decon *priv = container_of(pipe, struct s9p_decon, pipe);
-	struct drm_gem_dma_object *obj;
-
 	/*
 	 * DECON and DSIM have been running since the bootloader; "enabling"
 	 * the pipeline means pointing the inherited fetch channel at our
@@ -556,12 +557,14 @@ static void s9p_decon_pipe_enable(struct drm_simple_display_pipe *pipe,
 	 * configuration itself is never touched.
 	 */
 	s9p_panel_up(priv);
-	obj = to_drm_gem_dma_obj(plane_state->fb->obj[0]);
-	s9p_wait_shadow_idle(priv);
-	s9p_decon_program_address(priv, obj->dma_addr);
 	s9p_frame_start_irq_set(priv, true);
 	priv->enabled = true;
 	drm_crtc_vblank_on(&pipe->crtc);
+	/* The planes phase precedes enables in the standard atomic tail.
+	 * Reuse the normal latch/completion path now that IRQ accounting is on;
+	 * it retained the initial event rather than reporting an unshown frame.
+	 */
+	s9p_decon_pipe_update(pipe, NULL);
 }
 
 
@@ -629,9 +632,16 @@ static void s9p_decon_pipe_update(struct drm_simple_display_pipe *pipe,
 	struct drm_gem_dma_object *obj;
 	struct drm_framebuffer *fb = pipe->plane.state->fb;
 	bool latched = false;
-	bool vblank_held = crtc->state->event && crtc->state->active &&
-		drm_crtc_vblank_get(crtc) == 0;
+	bool vblank_held;
 	u64 generation = 0;
+
+	/* Preserve the initial/re-enable event for pipe_enable without taking
+	 * a vblank reference. Inactive disables still complete normally.
+	 */
+	if (crtc->state->active && !priv->enabled)
+		return;
+	vblank_held = crtc->state->event && crtc->state->active &&
+		drm_crtc_vblank_get(crtc) == 0;
 
 	if (fb && priv->enabled) {
 		if (s9p_wait_shadow_idle(priv)) {

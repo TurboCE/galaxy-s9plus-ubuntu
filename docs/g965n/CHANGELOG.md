@@ -997,9 +997,19 @@ runtime migration while new RIL/CBD clients hold the runtime; old clients must
 be stopped. Pre-CP launchers check provenance and actual private bindings,
 including read-only ordinary RADIO, before modem-off or vendor execution.
 
-Host checks passed22 runtime,2 preflight and4 reference PDP tests. Original
+Host checks passed22 runtime,3 preflight and4 reference PDP tests. Original
 reference protocol encoders/parsers describe127/103/27/4-byte legacy layouts;
 these do not qualify S9's proposed105/257-byte messages. Live activation stays
 blocked instead of guessing offsets. Registration or candidate IP is not data
 connectivity. Migration/resume remains hardware-unqualified at this checkpoint.
 Full instructions and partial-failure limits are in PRIVATE-MODEM-RUNTIME.md.
+
+
+Peer review identified an existing initial/re-enable event accuracy problem:
+the default planes phase invokes update before enable, so the old path could
+complete an event before programming the first frame. Kernel#17 was therefore
+not flashed. The next candidate retains that active-but-disabled event without
+taking a vblank reference, then enable starts IRQ accounting and reuses the
+normal generation/latch update path. Inactive disable commits retain immediate
+event completion. This protects the completion-tail contract across initial
+enable, re-enable and modesets; hardware validation is still pending.
