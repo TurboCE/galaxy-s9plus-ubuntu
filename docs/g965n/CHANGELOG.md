@@ -646,3 +646,19 @@ only when num_supplies is zero. Frequency OPPs/devfreq and real ACPM failures
 remain active; other boards with supplies keep their original validation.
 This models existing rail ownership; it does not mask a failing voltage command
 or prove animation performance. Candidate build/boot qualification pending.
+
+## 2026-11-19 — Actual animation latency captured
+
+Installed the distribution Sysprof capture development package for diagnosis.
+Its library/header notices remain external; none are copied into the project.
+GNOME denied automatic ShowApplications; stopped that attempt and restored the
+prior overview state. Did not bypass that access restriction. Captured25s via
+the normal Sysprof FD API while the owner exercised the UI.257 FrameClock marks
+have p95=34.74ms/max240.52ms; paint-view p95=29.34ms, swap max157.92ms and queued
+input processing max229.25ms. This confirms latency spikes but not their cause;
+mark durations are not presented FPS. Raw capture stays private. Added source
+capture/API analysis helpers and repeat instructions; no raw trace committed.
+
+Kernel#13 candidate with corrected rail ownership built successfully from08e6464,
+BOOT e86e3b48b3765b60c1eb5a7b85929a7e983684597253a8e8fc4784c89d5662ac.
+It is not installed/boot-qualified yet; running device remains#12.

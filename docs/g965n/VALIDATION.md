@@ -13,7 +13,7 @@ A build or a driver node is not sufficient evidence of a working function.
 | Native builds / Git | Git clone+pull; real fixdep C source compiled on each CPU, 8 identical object hashes | Short test passed |
 | Storage | USERDATA mounted as root and grew to 230GiB | Verified |
 | Display / touch | Owner confirmed desktop/touch; 2x desktop scaling persisted at 720x1480 logical pixels | Basic interaction verified; apps wider than 720 minimum still need adaptations |
-| GPU | #9/#11 AARCH64_4K: 768/1024MiB retained textures and exact readback pass with nocrc; #11 desktop also exposes DECON swiotlb failures with unrestricted allocations | CRC mitigation remains required. Kernel#12 boot defaultsY; owner reports black shapes gone; full33 scenes/readback pass with0 matching errors. Shared-display allocation repair and long stability pending; GPU-only pressure pass is not a desktop pass |
+| GPU | #9/#11 AARCH64_4K: 768/1024MiB retained textures and exact readback pass with nocrc; #11 desktop also exposes DECON swiotlb failures with unrestricted allocations | CRC mitigation remains required. Kernel#12 boot defaultsY; owner reports black shapes gone; full33 scenes/readback pass with0 matching errors. Shared-display allocation repair and long stability pending; real compositor dispatch p95=34.74ms/max240.52ms confirms animation latency remains open; GPU-only pressure pass is not a desktop pass |
 | Wi-Fi | Connected; HTTPS200 explicitly bound to Wi-Fi; NTP synchronized | Data path verified; long reconnect tests pending |
 | USB networking / SSH | Mac received address automatically; key-only SSH works | Verified |
 | Manual wired disconnect recovery | Console identified Wi-Fi path; privileged reconnection + gadget rebind restored USB SSH | Verified |

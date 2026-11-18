@@ -94,3 +94,26 @@ full33 scenes plus100 exact frames pass with0 matching interval errors. Owner
 reports the physical black shapes gone. Reboot/default changed together; the
 artifact's precise cause remains unisolated. Whole-boot optional regulator/probe
 messages and desktop frame pacing remain separate open checks.
+
+## Real desktop animation profiling
+
+A kernel log without faults does not establish smooth presentation. GNOME46
+exposes org.gnome.Sysprof3.Profiler at /org/gnome/Sysprof3/Profiler on its own bus.
+Use `shell-profile.py --output PRIVATE.syscap --seconds 25` as the desktop user
+with its session bus while the owner opens/closes the overview. This uses the
+normal profiling API; it does not bypass ShowApplications access restrictions.
+The initial automatic exercise was denied, so actual profiling used owner input.
+Install distribution python3-gi and libsysprof-capture-4-dev to capture/analyze.
+Compile `shell-profile-marks.c` with the pkg-config flags in its header, then pipe
+its output into `shell-frame-summary.py`. Upstream library/headers are supplied
+by the OS package under their own notices, not vendored/relicensed/published here.
+All raw captures stay private. No frame messages/window titles are printed by
+the marks helper. Mark durations measure particular compositor operations,
+**not FPS**; idle gaps must not be counted as dropped animation frames.
+
+On#12, an owner-driven25s capture recorded257 FrameClock dispatches: median0.2ms,
+p95=34.74ms, max240.52ms. Paint-view p95=29.34ms, framebuffer-swap max157.92ms,
+and an input-event path max229.25ms. These exceed a60Hz16.7ms budget at times;
+the owner's rough-animation report is therefore an open performance issue,
+not dismissed as normal or proved fixed by a high glmark score. This first trace
+does not isolate cold caches, memory pressure, scheduling and driver latency.
