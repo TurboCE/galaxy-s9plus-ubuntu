@@ -56,6 +56,7 @@ gnome-tweaks
 gnome-shell-extension-prefs
 gnome-shell-extension-ubuntu-dock
 gnome-shell-extension-appindicator
+gir1.2-dbusmenu-gtk3-0.4
 xdg-desktop-portal-gnome
 xwayland
 yaru-theme-gnome-shell

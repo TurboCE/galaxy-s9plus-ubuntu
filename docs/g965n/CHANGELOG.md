@@ -717,3 +717,63 @@ for the SO_PASSSEC socket option requested by journald; the kernel socket source
 explicitly returned EOPNOTSUPP when this configuration was absent. This does not
 claim an enforcing LSM or fix by suppressing logs. All candidates await build,
 guarded boot and hardware validation.
+
+GNOME shell also logged missing Dbusmenu introspection support. Installed the
+distribution gir1.2-dbusmenu-gtk3-0.4 dependency on the handset; a fresh gjs process
+successfully imports Dbusmenu. Added that dependency to the existing desktop
+AppIndicator package list. Existing GNOME process caches imports, so absence of
+the startup error still needs the upcoming session restart. No personal app
+installation, account or setting is part of this source change.
+
+Added optional FIFO acceptance to gpu-validate.py and two guard regressions:
+31fps cannot qualify even alongside a high score; missing/duplicated scene labels
+cannot qualify.26 host regressions pass. Current kernel build still uses the
+committed228d4bd driver inputs; later diagnostic/package-only edits do not alter
+its BOOT receipt. No candidate has been published as hardware-qualified yet.
+
+Checked installed package/kernel-hook inventory: no distribution linux-image
+package or kernel-postinst hook manages this handset's BOOT. Documented ordinary
+userspace updates versus explicit custom-kernel/module replacement and major
+userspace format compatibility. Added no blanket package holds or automatic
+flash/update hook. Current source-only recipes retain exact-BOOT module guards.
+
+Kernel#14 built from228d4bd: BOOT
+11e29751187be847f4e856e346c9e6cc570390a62950eb304586fff8f0cd8122,
+27,088,912bytes, UTS Nov18T17:42:33UTC. Build succeeded; native boot remains
+pending. Staged matching audio/BT startup and requested recovery for a fresh
+backup and BOOT-only deployment. New diagnostic helpers are userspace-only.
+The full SECURITY_NETWORK rebuild used the existing isolated build container;
+its CPU quota was raised from2 to3 then4 while other containers were idle.
+No unrelated container was changed. Owner prioritizes GPU over the newly
+requested short-power-key screen-only mode; that feature is queued, not installed.
+
+Kernel#14 fresh nine-partition backup and guarded BOOT-only write/readback passed;
+native exact UTS and owner boot confirmation obtained. Audio/BT startup remains
+active. Touch binds after one LDO cycle with no initial I2C timeout/probe-110;
+its separate upstream non-MT axis warning remains under investigation. AF_UNIX
+SO_PASSSEC set/get now returns1 (old#13 returned errno95); journald's missing-option
+message is absent from the inspected boot. GNOME missing-Dbusmenu import messages
+count0 after restart. No failed system units in this check. FIFO old/new-policy
+comparison is in progress; animation repair is not claimed yet.
+
+On the SAME#14 kernel, old-policyN FIFO build/texture/ideas measured31/31/31fps;
+latch-policyY measured60/61/61fps. Both processes exited0 on physical Mali-G72.
+Counters show1310 latch completions and415 deferred completions after comparison;
+the latter includes the intentional old-policy interval. RestoredY in finally.
+Owner reports improvement but remaining animation stutter: full smoothness is
+NOT claimed. The following25s manual profiler capture contained only its256byte
+header, and the numeric touch window saw no events; these are not valid frame/
+physical-touch evidence. Summary correctly rejected the empty capture; a follow-up
+JSON read of the empty output failed and must not be treated as a result. Need
+capture/UI overlap validation and a repeat with actual frames. FullGPU+FIFO
+acceptance is now running, not overlapping the manual profile.
+
+Full#14 acceptance now passes:33 complete scenes,100 exact readback frames and
+all three FIFO scenes at61fps,0 matching GPU/display errors,16 additional G3D
+power cycles. Default runtime PM/DVFS/CRC mitigation and conservative low-memory
+policy retained. No forced frequency or disabled animation workaround installed.
+This qualifies the one-frame completion repair for these bounded tests; owner
+still observes residual desktop stutter. MemAvailable~4.6GiB and boot-to-check
+pgscan_direct/allocstall/compact_stall counters0 do not support current direct
+reclaim as the explanation in that sampled interval. The separate high-memory
+allocation/export limitation remains an open pressure issue.

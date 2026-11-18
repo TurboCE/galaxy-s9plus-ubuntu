@@ -18,6 +18,17 @@ import time
 FAULT = re.compile(r'panfrost.*(?:timeout|fault|failed|error|WARNING)|WARNING:.*panfrost|flip did not latch|shadow update stuck|swiotlb buffer is full', re.I)
 
 
+def fifo_result(output):
+    frames = re.findall(r'^\[(build|texture|ideas)\].*FPS:\s*([0-9.]+)', output, re.M)
+    complete = (len(frames) == 3 and {name for name, _ in frames} == {'build', 'texture', 'ideas'}
+                and 'glmark2 Score:' in output)
+    fps = {name: float(value) for name, value in frames}
+    # This port currently exposes a single fixed 60Hz mode. A 31fps FIFO
+    # result must not pass just because an unconstrained score is high.
+    return {'complete': complete, 'fps': fps,
+            'cadence_pass': complete and all(value >= 54.0 for value in fps.values())}
+
+
 def journal(*args):
     return subprocess.check_output(['journalctl', '-k', '-b', '--no-pager', *args], text=True, stderr=subprocess.STDOUT)
 
@@ -54,6 +65,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True, help='New private directory outside published artifacts')
     parser.add_argument('--readback', type=Path, required=True, help='Compiled gpu-readback.c')
     parser.add_argument('--mesa-debug', choices=['normal', 'noafbc', 'nocrc', 'sync'], default='normal')
+    parser.add_argument('--fifo', action='store_true', help='Also require near-60Hz FIFO presentation in three bounded scenes')
     parser.add_argument('--cooldown', type=int, choices=range(0, 31), default=5)
     args = parser.parse_args()
     if b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):
@@ -82,6 +94,9 @@ def main():
         results = {}
         commands = [('readback', [str(args.readback.resolve())], 30),
                     ('scenes', ['glmark2-es2-wayland', '--size', '512x512', '--benchmark', ':duration=1'], 90)]
+        if args.fifo:
+            commands.append(('fifo', ['glmark2-es2-wayland', '--size', '512x512', '--swap-mode', 'fifo',
+                '-b', 'build:duration=4', '-b', 'texture:duration=4', '-b', 'ideas:duration=4'], 30))
         for name, command, timeout in commands:
             code, output = run(command, env, timeout)
             (args.output / (name + '.log')).write_text(output)
@@ -89,11 +104,13 @@ def main():
             complete = ('PASS frames=100' in output if name == 'readback' else
                         'glmark2 Score:' in output and len(re.findall(r'^\[[^\]]+\]', output, re.M)) == 33)
             results[name] = {'exit': code, 'physical_mali': hardware, 'complete': complete}
+            if name == 'fifo':
+                results[name].update(fifo_result(output))
         time.sleep(args.cooldown)
         delta = journal('--after-cursor', match[1])
         (args.output / 'kernel.log').write_text(delta)
         faults = [line for line in delta.splitlines() if FAULT.search(line)]
-        passed = all(r['exit'] == 0 and r['physical_mali'] and r['complete'] for r in results.values()) and not faults
+        passed = all(r['exit'] == 0 and r['physical_mali'] and r['complete'] and r.get('cadence_pass', True) for r in results.values()) and not faults
         receipt = {'kernel': os.uname().release, 'kernel_version': os.uname().version,
                    'mesa_debug': args.mesa_debug, 'settings_before': settings,
                    'settings_after': snapshot(), 'tests': results,

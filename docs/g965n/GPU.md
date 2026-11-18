@@ -124,3 +124,19 @@ The whole-boot missing-mali-regulator error is absent. Another full33-scene/
 572MHz with the existing950mV setting and runtime power cycling; no forced
 high-frequency or always-on default. This does not close the animation or
 private-high/shared-low allocation issues.
+
+## FIFO presentation acceptance
+
+Run gpu-validate.py with `--fifo` to add three4s512x512 FIFO/vsync scenes and
+require at least54fps in every scene on this port's fixed60Hz output. The runner
+also requires complete scene labels, physical Mali rendering, successful exact
+readback/full33 scenes and no matching interval fault. A large unconstrained
+benchmark score cannot hide a half-rate presentation path. The regression tests
+include the actual31fps failure pattern, incomplete and duplicated scene labels.
+Kernel#13 baseline was31fps in each FIFO scene. On the same#14 kernel, old-policyN
+gives31/31/31fps while latch-policyY gives60/61/61fps. The complete acceptance
+runner then passes all three at61fps, exact readback/full33 scenes and0 matching
+interval faults. Completion is sent only after shadow latch AND counted FRAME_START;
+otherwise the old armed-event fallback retains the vblank reference. The runtime
+switch/counters support reproducible diagnosis. Owner reports improvement with
+residual stutter, so full desktop animation smoothness remains unqualified.
