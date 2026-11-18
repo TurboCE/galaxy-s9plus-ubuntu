@@ -9,11 +9,9 @@ autoconnect-retries=0
 [ethernet]
 
 [ipv4]
-# DHCP if the PC shares its connection, plus a fixed address so the phone stays
-# reachable at 172.16.42.2 even when nothing answers DHCP.
-method=auto
+# The phone owns this isolated USB subnet; s9p-usb-dhcp serves the host.
+method=manual
 may-fail=true
-dhcp-timeout=15
 address1=172.16.42.2/24
 
 [ipv6]

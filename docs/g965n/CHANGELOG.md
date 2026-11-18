@@ -66,3 +66,13 @@ shows framebuffer 0xcc000000 and firmware debug reservations below loader payloa
 Details and limitations are in HARDWARE.md; inspection script reads backups only.
 Experimental Ubuntu installation and first-boot diagnostics are now explicitly
 authorized by the device owner. Preserve recovery and verified EFS/CPEFS/radio backups.
+
+## 2026-11-18 — Automatic USB host address assignment
+
+Mac host requires administrator permission for manual IPv4 setup. Added isolated
+USB-only DHCP using dnsmasq-base and a static phone address 172.16.42.2/24.
+Hosts receive 172.16.42.10–20; router and DNS DHCP options are suppressed so the
+host uplink remains independent. Only usb0 is served; no NAT or Wi-Fi DHCP server.
+Image configuration checks dnsmasq syntax before enabling the service. Hardware
+lease/SSH verification remains pending until G965N first boot.
+Reference: https://thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html

@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Unit]
+Description=Assign an address to the USB-connected host without changing its default route
+Wants=usb-gadget.service NetworkManager.service
+After=usb-gadget.service NetworkManager.service
+
+[Service]
+Type=simple
+ExecStartPre=/usr/sbin/dnsmasq --test --conf-file=/etc/dnsmasq.d/s9p-usb-only.conf
+ExecStart=/usr/sbin/dnsmasq --keep-in-foreground --conf-file=/etc/dnsmasq.d/s9p-usb-only.conf --pid-file=/run/s9p-usb-dhcp.pid
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

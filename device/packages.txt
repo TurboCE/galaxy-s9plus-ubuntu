@@ -1,2 +1,3 @@
 # Galaxy S9+: packages the hardware needs on top of image/common/packages.txt.
 # (Everything else the phone needs is built into its kernel.)
+dnsmasq-base
