@@ -18,7 +18,7 @@ SYMVERS_SHA = '11b780dda68ae6c544ceaa6fd4890bd2dc331743763ff2dcff456f02c5d839f0'
 COMPILER = 'aarch64-linux-gnu-gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0'
 VERSION = '#21 SMP PREEMPT Wed Nov 18 20:51:24 UTC 2026'
 RELEASE = '7.1.0-dirty'
-VFS = ['include/linux/fs.h','include/linux/fuse.h','include/uapi/linux/fuse.h',
+VFS = ['include/linux/fs.h','include/uapi/linux/fuse.h',
        'include/linux/uio.h','include/linux/file.h','include/linux/mount.h',
        'include/linux/namei.h','include/linux/pagemap.h']
 
