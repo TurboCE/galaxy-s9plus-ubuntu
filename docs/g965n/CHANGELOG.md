@@ -1649,3 +1649,26 @@ temperatures55/49C before and48/48C afterward. Raw logs remain private. This
 is a small offscreen correctness pass, not a native-size timeout repair or a
 desktop driver switch. The next bounded targeted modifier comparison is a
 separate pending qualification.
+
+## 2026-11-19 — Patched native-size windowed target passes, limits retained
+
+One bounded targeted run with the isolated patched libraries and nocrc,noafbc
+passed the public runner:3/3 scenes, physical Mali, exit0,0 new matching kernel
+faults,0 scheduler timeouts and0 soft-stop failures. Actual glmark process maps
+prove private EGL/Gallium/GBM load. DECON latch-check counter stayed1 and IRQ
+wait counter0. Five created buffers/all11373 attach+commit uses are explicit
+ARM U-tiled0x0810000000000001, not AFBC; no unidentified commit. Big/GPU
+temperatures51/50C before, maximum78/68C; original display-off/locked state and
+all clock/voltage/PM/driver settings restored. No system compositor switch.
+
+Initial two commits were1440x2960, but the other11371 were1440x2896. The latter
+raw32bpp color payload is16680960 bytes, below16MiB; backing BO size was not
+captured. The earlier AFBC snapshot's allocation exceeded16MiB. Thus this run
+does not separate compression from every buffer-size/layout effect, nor prove
+all GPU workloads fixed. Presented-buffer evidence also has the documented
+render/display copy limitation. Raw maps/protocols/results stay private.
+
+Added an explicit --fullscreen reproduction option after checking the installed
+glmark help. It replaces the window-size request without changing readback or
+deadlines, so actual steady full-height buffers can be measured separately.
+That new option has not yet been exercised on hardware at this entry.

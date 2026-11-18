@@ -54,19 +54,20 @@ def scene_result(output, profile):
             'observed_scenes': [row[0] for row in rows]}
 
 
-def commands_for(profile, readback, size, fifo=False):
+def commands_for(profile, readback, size, fifo=False, fullscreen=False):
+    surface = ['--fullscreen'] if fullscreen else ['--size', size]
     if profile == 'full':
         commands = [('readback', [str(readback.resolve())], 30),
-                    ('scenes', ['glmark2-es2-wayland', '--size', size, '--benchmark', ':duration=1'], 90)]
+                    ('scenes', ['glmark2-es2-wayland', *surface, '--benchmark', ':duration=1'], 90)]
     elif profile == 'targeted':
-        command = ['glmark2-es2-wayland', '--size', size]
+        command = ['glmark2-es2-wayland', *surface]
         for name, options in TARGETED:
             command += ['-b', name + ':' + options]
         commands = [('targeted', command, 45)]
     else:
         raise ValueError('Unknown GPU profile')
     if fifo:
-        commands.append(('fifo', ['glmark2-es2-wayland', '--size', size, '--swap-mode', 'fifo',
+        commands.append(('fifo', ['glmark2-es2-wayland', *surface, '--swap-mode', 'fifo',
             '-b', 'build:duration=4', '-b', 'texture:duration=4', '-b', 'ideas:duration=4'], 30))
     return commands
 
@@ -257,6 +258,8 @@ def main():
     parser.add_argument('--fifo', action='store_true', help='Also require near-60Hz FIFO presentation in three bounded scenes')
     parser.add_argument('--size', choices=['512x512', '720x1480', '1440x2960'], default='512x512',
                         help='Requested benchmark surface; readback remains its independent fixed-size check')
+    parser.add_argument('--fullscreen', action='store_true',
+                        help='Ask glmark for fullscreen instead of --size; verify actual buffer dimensions separately')
     parser.add_argument('--cooldown', type=int, choices=range(0, 31), default=5)
     args = parser.parse_args()
     if b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):
@@ -284,7 +287,7 @@ def main():
                 env['PAN_MESA_DEBUG'] = args.mesa_debug
             settings = snapshot()
             results = {}
-            commands = commands_for(args.profile, args.readback, args.size, args.fifo)
+            commands = commands_for(args.profile, args.readback, args.size, args.fifo, args.fullscreen)
             for name, command, timeout in commands:
                 timeline = args.output / 'timeline.jsonl' if args.timeline else None
                 protocol = (args.output / (name + '.wayland.log') if args.wayland_protocol
@@ -314,7 +317,9 @@ def main():
                        'profile': args.profile, 'line_timeline': args.timeline,
                        'wayland_protocol': {'requested': args.wayland_protocol,
                            'scope': 'Glmark child stderr only; presented wl_buffer modifier is not necessarily the render-target modifier; protocol tracing adds overhead'},
-                       'mesa_debug': args.mesa_debug, 'requested_surface': args.size, 'display_awake_after': awake,
+                       'mesa_debug': args.mesa_debug,
+                       'requested_surface': 'fullscreen' if args.fullscreen else args.size,
+                       'fullscreen': args.fullscreen, 'display_awake_after': awake,
                        'desktop_unlocked_after': unlocked,
                        'temporary_idle_inhibitor': True, 'settings_before': settings,
                        'settings_after': snapshot(), 'tests': results,

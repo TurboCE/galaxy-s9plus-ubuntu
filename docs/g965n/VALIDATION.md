@@ -52,4 +52,7 @@ The isolated Mesa explicit-modifier candidate has passed host selector tests
 and native configuration/compilation. Output hashes, coherent vendor paths and
 ARM64 ELF headers verified. An isolated128x128/100-frame readback then passed
 with zero pixel mismatches/new matching kernel faults and private-library load
-proof. The desktop still uses system Mesa; native-size qualification is pending.
+proof. A later patched windowed native-request targeted run passed3/3 scenes
+with0 new GPU faults/timeouts and actual U-tiled presentation/private-library
+maps. Most buffers were1440x2896; steady full-height, full-suite and desktop
+qualification remain pending. The desktop still uses system Mesa.

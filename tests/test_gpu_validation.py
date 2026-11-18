@@ -79,6 +79,17 @@ class ProfileTests(unittest.TestCase):
         self.assertFalse(gpu.scene_result(self.output(), 'full')['complete'])
 
 
+    def test_fullscreen_keeps_readback_and_deadlines_but_replaces_window_size(self):
+        full = gpu.commands_for('full', Path('/fixture/readback'), '512x512', True, True)
+        targeted = gpu.commands_for('targeted', None, '1440x2960', False, True)
+        self.assertEqual(full[0], gpu.commands_for('full', Path('/fixture/readback'), '512x512')[0])
+        self.assertEqual([item[2] for item in full], [30, 90, 30])
+        self.assertEqual(targeted[0][2], 45)
+        for _, command, _ in full[1:] + targeted:
+            self.assertIn('--fullscreen', command)
+            self.assertNotIn('--size', command)
+
+
 class TimedCaptureTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

@@ -25,7 +25,7 @@ independent readback program, and it does not substitute three scenes for the
 full profile's 33-scene qualification. `--fifo` explicitly adds the existing
 three-scene presentation check if needed.
 
-`--profile full` remains the default: the independent128x128/100-frame readback program, all 33
+`--profile full` remains the default: the independent 128x128/100-frame readback program, all 33
 one-second glmark2 scenes, and optional FIFO checks use the original deadlines.
 For example:
 
@@ -67,6 +67,14 @@ layout. `DRM_FORMAT_MOD_INVALID` does not prove linear layout. Even explicit
 linear presentation may come from an intermediate copy and need not describe
 the original render target. Setting `PAN_MESA_DEBUG=noafbc` alone likewise does
 not prove the absence of externally supplied AFBC modifiers.
+
+`--fullscreen` asks glmark to use fullscreen instead of `--size`; the receipt
+then records the request as `fullscreen`. It leaves the independent 128x128
+readback and all deadlines unchanged. Verify actual reported/protocol buffer
+dimensions rather than assuming the compositor accepted the request. A
+window requesting 1440x2960 produced mostly1440x2896 buffers after decoration
+configuration, so that window test alone does not cover steady full-height
+rendering. Fullscreen is an explicit additional experiment, never a default.
 
 `timeline.jsonl` stores command start/finish and received-line UTC/monotonic
 times. glmark2 is line-buffered through `stdbuf`. These are **output receipt
