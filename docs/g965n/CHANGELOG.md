@@ -335,3 +335,43 @@ disproved this as a complete repair. Restored always_on=N; no persistent policy
 change. Battery sensor35.6C observed; CPU thermal limiting remained active.
 Vendor and mainline both derive DMA address width from GPU MMU properties;
 stock G965N DT has no coherency override. No speculative DMA/coherency edit made.
+
+## 2026-11-19 — Private RFS replies, LTE registration and staged startup
+
+Implemented an original GPL-2.0-only bounded RFS server using public protocol
+definitions, not GPL-3.0 userspace implementation code. Reassembles fragmented
+requests; only fixed private nv_data.bin working copies can be read/written.
+Checks salted MD5 before use, rejects symlinks, validates ranges, fsyncs updates
+and replaces the working checksum. Remote filesystem paths are refused. Actual
+100286-byte and approximately20KiB NV writes received replies; a subsequent
+restart accepted the resulting working checksum. Three regressions verify
+copy-only writes, range/path rejection and checksum/symlink rejection.
+
+RootDirectory with default API mounts hid the prepared runtime; disabling API
+mounts with that launch failed203/EXEC. Explicit host chroot with MountAPIVFS=no
+works while retaining the closed device allowlist. Early AT configuration could
+time out before readiness; added bounded harmless AT readiness checks while RFS
+continues running. State-changing AT commands are not blindly retried.
+
+Owner replaced the laptop SIM with an active KT phone SIM. Packet-only service
+domain still did not provide EPS registration. With combined CS/PS domain, the
+bounded test received IPC access-technology0x21/domain3/registration2 and repeated
+AT +CEREG:0,1 (home EPS registration). This establishes LTE registration, not PDP
+activation, an address or Internet access. SIM and configuration both changed;
+do not attribute the result solely to subscription eligibility. An earlier
+registration status4 was described too strongly as rejection: the older public
+IPC definition means emergency-only, so rejection causes remain unproven.
+No SMS, calls, PIN or subscriber-identity queries were sent. RFS/cbd are bounded
+tests, not persistent services. Physical protected partitions require another
+post-test hash check before making a new unchanged-partition claim.
+
+Built source-only module receipts and an opt-in startup installer. Staged audio
+and Bluetooth services for BOOT a87cf82f9e4bb9cede1365492b8ae8ce76e934730f5f27210b04edf57c2f2415
+with built-in AES. Each service checks the running kernel, actual BOOT prefix
+and module SHA before loading. No modules loaded during staging. The handset
+still runs kernel#6; #7 and startup persistence have NOT been boot-verified.
+
+Installed glmark2-es2-wayland. Mali-G72/Panfrost GLES3.1 Mesa25.2.8 rendered three
+512x512 offscreen benchmarks with readback and no new kernel fault in that
+interval. This does not clear earlier GNOME job faults or scheduler timeouts.
+No fixed-clock or no-AFBC setting has been installed at this checkpoint.

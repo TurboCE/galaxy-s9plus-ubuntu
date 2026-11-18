@@ -43,19 +43,22 @@ def main():
     properties = [
         ('Description', GLib.Variant('s', 'Bounded G965N own-vendor modem boot test')),
         ('DevicePolicy', GLib.Variant('s', 'closed')),
+        # RootDirectory otherwise overlays API filesystems and hides the
+        # deliberately staged modem nodes/log socket from this runtime.
+        ('MountAPIVFS', GLib.Variant('b', False)),
         ('DeviceAllow', GLib.Variant('a(ss)', allow)),
         ('NoNewPrivileges', GLib.Variant('b', True)),
         ('UMask', GLib.Variant('u', 0o077)),
         ('RuntimeMaxUSec', GLib.Variant('t', args.seconds * 1000000)),
         ('Restart', GLib.Variant('s', 'no')),
     ]
+    # Use the already prepared mounts directly. A systemd RootDirectory launch
+    # also reconfigures API filesystems; this runtime deliberately stages /dev.
+    command = ['/usr/sbin/chroot', str(ROOT)] + command
     if args.trace:
         command = ['/usr/bin/strace', '-f', '-s', '100', '-o',
-                   '/var/lib/g965n-vendor-runtime/cbd-start.strace',
-                   '/usr/sbin/chroot', str(ROOT)] + command
-        executable = command[0]
-    else:
-        properties.append(('RootDirectory', GLib.Variant('s', str(ROOT))))
+                   '/var/lib/g965n-vendor-runtime/cbd-start.strace'] + command
+    executable = command[0]
     properties.append(('ExecStart', GLib.Variant('a(sasb)', [(executable, command, False)])))
     bus = Gio.DBusProxy.new_for_bus_sync(Gio.BusType.SYSTEM, 0, None,
         'org.freedesktop.systemd1', '/org/freedesktop/systemd1', 'org.freedesktop.systemd1.Manager', None)

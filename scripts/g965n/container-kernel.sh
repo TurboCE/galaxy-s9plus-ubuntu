@@ -50,4 +50,14 @@ printf '%s\n' "${S9_PROJECT_COMMIT:-$(git rev-parse HEAD)}" > dist/g965n/project
 git -C /build/src/mainline rev-parse HEAD > dist/g965n/kernel-commit.txt
 sha256sum /build/out/busybox-arm64 > dist/g965n/busybox.sha256
 sha256sum "dist/uniloader/$name" > dist/g965n/boot.sha256
+features=()
+for feature in audio bluetooth sensors modem; do
+  option="S9_EXPERIMENTAL_${feature^^}"
+  [[ "${!option:-0}" != 1 ]] || features+=("$feature")
+done
+if (( ${#features[@]} )); then
+  python3 scripts/g965n/package-experiments.py --kernel-out /build/src/mainline/out \
+    --boot "dist/uniloader/$name" --output dist/experimental \
+    --source-commit "$(cat dist/g965n/project-commit.txt)" --features "${features[@]}"
+fi
 echo "BUILD_ONLY_COMPLETE: dist/uniloader/$name; SM-G965N hardware boot still requires qualification."
