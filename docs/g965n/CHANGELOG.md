@@ -76,3 +76,13 @@ host uplink remains independent. Only usb0 is served; no NAT or Wi-Fi DHCP serve
 Image configuration checks dnsmasq syntax before enabling the service. Hardware
 lease/SSH verification remains pending until G965N first boot.
 Reference: https://thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html
+
+## 2026-11-18 — Wi-Fi guard recovers variable interface names
+
+The inherited guard hard-coded wlp1s0 and could retry while state 40 was already
+connecting. It could also wait indefinitely on a wedged nmcli call. Replaced it
+with dynamic Wi-Fi discovery, retries only after two disconnected/failed checks,
+saved infrastructure profiles with autoconnect enabled, and bounded commands.
+Disabled radio/manual-only profiles remain untouched. Three regression tests
+cover interface naming, ongoing authentication/configuration and explicit choices.
+All ten recovery/network checks pass; actual G965N link recovery still awaits boot.
