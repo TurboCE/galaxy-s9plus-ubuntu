@@ -29,25 +29,29 @@ TARGETED = (
 
 
 def scene_result(output, profile):
+    rows = re.findall(r'^\[([^\]]+)\][ \t]*(.*):[ \t]*FPS:[ \t]*([0-9.]+)'
+                      r'[ \t]+FrameTime:[ \t]*([0-9.]+)[ \t]+ms[ \t]*$', output, re.M)
+    announced = len(re.findall(r'^\[[^\]]+\]', output, re.M))
+
+    def positive(row):
+        try:
+            values = [float(value) for value in row[2:]]
+            return all(math.isfinite(value) and value > 0 for value in values)
+        except ValueError:
+            return False
+
     if profile == 'full':
-        count = len(re.findall(r'^\[[^\]]+\]', output, re.M))
-        return {'complete': 'glmark2 Score:' in output and count == 33,
-                'expected_scene_count': 33, 'observed_scene_count': count}
+        return {'complete': 'glmark2 Score:' in output and announced == len(rows) == 33
+                            and all(positive(row) for row in rows),
+                'expected_scene_count': 33, 'observed_scene_count': announced,
+                'completed_scene_count': len(rows)}
     if profile != 'targeted':
         raise ValueError('Unknown GPU profile')
-    rows = re.findall(r'^\[([^\]]+)\][ \t]*(.*):[ \t]*FPS:[ \t]*([0-9.]+)'
-                      r'[ \t]+FrameTime:[ \t]*[0-9.]+[ \t]+ms[ \t]*$', output, re.M)
-    announced = len(re.findall(r'^\[[^\]]+\]', output, re.M))
     complete = len(rows) == announced == len(TARGETED) and 'glmark2 Score:' in output
     for (name, options), row in zip(TARGETED, rows):
         actual = dict(part.split('=', 1) for part in row[1].split(':') if '=' in part)
         expected = dict(part.split('=', 1) for part in options.split(':'))
-        try:
-            fps = float(row[2])
-            positive_fps = math.isfinite(fps) and fps > 0
-        except ValueError:
-            positive_fps = False
-        complete = complete and positive_fps and row[0] == name and all(actual.get(k) == v for k, v in expected.items())
+        complete = complete and positive(row) and row[0] == name and all(actual.get(k) == v for k, v in expected.items())
     return {'complete': bool(complete), 'expected_scene_count': len(TARGETED),
             'expected_scenes': [name + ':' + options for name, options in TARGETED],
             'observed_scene_count': announced, 'completed_scene_count': len(rows),

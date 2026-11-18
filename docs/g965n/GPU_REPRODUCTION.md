@@ -38,6 +38,11 @@ python3 scripts/g965n/gpu-validate.py --profile full \
   --output "$HOME/.local/state/g965n-gpu-full-$(date +%s)"
 ```
 
+The full profile requires33 complete FPS/FrameTime rows with finite positive
+values, as well as the final score and no matching kernel faults. Scene
+announcements or skipped/zero/malformed rows alone cannot qualify. This checks
+the expected default workload's completion, not every possible GPU operation.
+
 Keep the output directory private. `result.json` records the selected profile,
 expected and observed completeness, requested/reported surfaces, actual kernel,
 settings and new kernel faults. A high score or 61fps does not override faults.

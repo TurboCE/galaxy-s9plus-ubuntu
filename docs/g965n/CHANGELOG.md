@@ -1706,3 +1706,15 @@ External-initramfs trailing-data, UFS supply metadata and alternate-GPT fallback
 warnings also remain for separate source/backup inspection. No GPT repair,
 partition write, firmware substitution or warning suppression was performed.
 Raw boot logs and supply details stay private.
+
+## 2026-11-19 — Require completed full-suite scene results
+
+Source review found that the full-profile checker counted33 scene banners and
+a score without requiring a completed FPS/FrameTime row for each. Require33
+actual complete rows with finite positive FPS and frame time; targeted checks
+also validate both numbers. Announcements/skips/zero/malformed data now fail.
+18 host regressions pass. A peer applied the new checker read-only to an
+existing actual#18 full33 log and all33 complete rows were accepted. No raw
+fixture is published. This is workload-completion validation, not an identity
+audit of every possible benchmark scene or a substitute for GPU fault checks.
+The next hardware full-suite run remains separate from this source check.

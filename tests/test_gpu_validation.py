@@ -89,6 +89,18 @@ class ProfileTests(unittest.TestCase):
             self.assertIn('--fullscreen', command)
             self.assertNotIn('--size', command)
 
+    def test_full_profile_cannot_qualify_just_scene_announcements_or_zero_fps(self):
+        rows = [f'[scene{i}] duration=1: FPS: 60 FrameTime: 16.667 ms' for i in range(33)]
+        output = '\n'.join(rows) + '\nglmark2 Score: 60'
+        self.assertTrue(gpu.scene_result(output, 'full')['complete'])
+        for bad in (output.replace(rows[3], '[scene3] skipped'),
+                    output.replace(rows[3], rows[3].replace('FPS: 60', 'FPS: 0')),
+                    output.replace(rows[3], rows[3].replace('FPS: 60', 'FPS: ..')),
+                    output.replace(rows[3], rows[3].replace('FrameTime: 16.667 ms', 'FrameTime:')),
+                    output.replace(rows[3], rows[3].replace('FrameTime: 16.667', 'FrameTime: ..')),
+                    output.replace(rows[3], rows[3].replace('FrameTime: 16.667', 'FrameTime: 0'))):
+            self.assertFalse(gpu.scene_result(bad, 'full')['complete'])
+
 
 class TimedCaptureTests(unittest.TestCase):
     def setUp(self):
