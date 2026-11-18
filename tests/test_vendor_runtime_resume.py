@@ -311,6 +311,94 @@ class PrivateRuntimeTests(unittest.TestCase):
             vr.stage_modem(self.specs['EFS'][0],self.specs['CPEFS'][0],self.manifest)
         self.assertFalse((self.state/'efs').exists());self.assertEqual(self.commands,[])
 
+    def test_archive_opaque_symlink_and_fifo_never_read_targets(self):
+        outside = self.base/'outside-archive'
+        outside.write_bytes(b'never read target'); outside.chmod(0o640)
+        link = self.state/'efs/escape'; link.symlink_to(outside)
+        fifo = self.state/'efs/pipe'; os.mkfifo(fifo)
+        before = vr.archive_tree_inventory(self.state/'efs')
+        real_open = os.open
+        def guarded_open(path, flags, *args, **kwargs):
+            if str(path) in (str(outside), str(link), str(fifo)) or str(path) in ('escape', 'pipe'):
+                raise AssertionError('Archive must never open links/specials')
+            return real_open(path, flags, *args, **kwargs)
+        with patch.object(vr.os, 'open', side_effect=guarded_open):
+            vr.archive_modem_state(self.specs['EFS'][0], self.specs['CPEFS'][0], self.manifest, True)
+        archive = next(self.state.glob('archive-*'))
+        self.assertEqual(vr.archive_tree_inventory(archive/'efs'), before)
+        self.assertEqual(os.readlink(archive/'efs/escape'), str(outside))
+        self.assertTrue(stat.S_ISFIFO((archive/'efs/pipe').lstat().st_mode))
+        self.assertEqual(outside.read_bytes(), b'never read target')
+        self.assertEqual(stat.S_IMODE(outside.stat().st_mode), 0o640)
+        self.assert_no_binding()
+
+    def test_archive_corrupt_empty_nv_radio_preserved_never_adopted(self):
+        (self.state/'efs/nv_data.bin').write_bytes(b'corrupt')
+        (self.state/'efs/nv_data.bin.md5').write_bytes(b'wrong checksum')
+        (self.state/'RADIO').write_bytes(b'')
+        (self.state/vr.RECEIPT_NAME).write_bytes(b'')
+        vr.archive_modem_state(self.specs['EFS'][0], self.specs['CPEFS'][0], self.manifest, True)
+        archive=next(self.state.glob('archive-*'))
+        self.assertEqual((archive/'efs/nv_data.bin').read_bytes(), b'corrupt')
+        self.assertEqual((archive/'RADIO').read_bytes(), b'')
+        self.assertEqual((archive/vr.RECEIPT_NAME).read_bytes(), b'')
+        with self.assertRaisesRegex(RuntimeError, 'legacy'): vr.resume_modem()
+        self.assert_no_binding()
+
+    def test_opaque_archive_bounds(self):
+        with self.assertRaisesRegex(RuntimeError, 'byte bound'):
+            vr.archive_tree_inventory(self.state/'efs', maximum_bytes=1)
+        current=self.state/'efs'
+        for _ in range(34):
+            current=current/'deep';current.mkdir()
+        with self.assertRaisesRegex(RuntimeError, 'depth bound'):
+            vr.archive_tree_inventory(self.state/'efs')
+
+    def clear_test_clones(self):
+        for name in ('efs','cpefs'): shutil.rmtree(self.state/name)
+        (self.state/'RADIO').unlink();(self.state/vr.RECEIPT_NAME).unlink()
+
+    def test_exact_diagnostic_link_quarantined_never_bound_or_followed(self):
+        self.clear_test_clones()
+        outside=self.base/'diagnostic-target';outside.write_bytes(b'never read')
+        def extract(*args):
+            if args[0]=='debugfs':
+                raw=Path(str(args[2]).split(' ',2)[2]);self.populate(raw,raw.name)
+                if raw.name=='efs':
+                    (raw/'cpdebug').mkdir();(raw/'cpdebug/node').symlink_to(outside)
+        with patch.object(vr,'run',side_effect=extract):
+            vr.stage_modem(self.specs['EFS'][0],self.specs['CPEFS'][0],self.manifest)
+        receipt=json.loads((self.state/vr.RECEIPT_NAME).read_text())
+        self.assertEqual(len(receipt['extraction']['excluded']),1)
+        excluded=receipt['extraction']['excluded'][0]
+        self.assertEqual(excluded['path'],'cpdebug/node')
+        self.assertEqual(excluded['link_sha256'],hashlib.sha256(os.fsencode(str(outside))).hexdigest())
+        raw=Path(receipt['extraction']['quarantine'])
+        self.assertTrue((raw/'efs/cpdebug/node').is_symlink())
+        self.assertFalse((self.state/'efs/cpdebug/node').exists())
+        self.assertFalse((self.state/'efs/cpdebug/node').is_symlink())
+        self.assertEqual((raw/'efs/nv_data.bin').read_bytes(),self.nv)
+        self.assertEqual(outside.read_bytes(),b'never read')
+        # Resume still accepts ordinary clones only, with the current salted MD5.
+        vr.validate_modem_state(vr.read_provenance())
+        (self.state/'efs/unknown-link').symlink_to(outside)
+        with self.assertRaisesRegex(RuntimeError,'symlinks'):vr.validate_modem_state(receipt)
+
+    def test_unknown_extracted_link_preserved_but_no_working_clone(self):
+        self.clear_test_clones()
+        def extract(*args):
+            if args[0]=='debugfs':
+                raw=Path(str(args[2]).split(' ',2)[2]);self.populate(raw,raw.name)
+                if raw.name=='efs':(raw/'unknown-link').symlink_to('/never/read')
+        with patch.object(vr,'run',side_effect=extract):
+            with self.assertRaisesRegex(RuntimeError,'Unreviewed'):
+                vr.stage_modem(self.specs['EFS'][0],self.specs['CPEFS'][0],self.manifest)
+        quarantine=next(self.state.glob('quarantine-*'))
+        self.assertTrue((quarantine/'efs/unknown-link').is_symlink())
+        self.assertFalse((self.state/'efs').exists())
+        self.assertFalse((self.state/vr.RECEIPT_NAME).exists())
+        self.assert_no_binding()
+
     def test_archive_preserves_all_contents_metadata_and_does_not_adopt(self):
         before={name:vr.tree_inventory(self.state/name) for name in ('efs','cpefs')}
         originals={p:p.read_bytes() for p,_ in self.specs.values()}

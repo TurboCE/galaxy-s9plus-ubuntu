@@ -1024,3 +1024,84 @@ so vendor descriptor cleanup cannot silently release the lease.24 runtime,
 4 launcher and4 reference PDP checks pass; reviewer found no further immediate
 blocker. Actual CBD foreground/cgroup lifetime and hardware migration still
 need device checks. Nothing here qualifies LTE internet connectivity.
+
+
+## 2026-11-19 — Kernel#18 installed; completion validation in progress
+
+The reviewed initial-enable/commit-tail source88af955f61a79a670bdba6929beb23449bfeaab9
+built as#18 Nov18 19:22:18UTC. Fresh complete nine-partition backup verified,
+guarded BOOT-only write/readback passed and native SSH returned. BOOT SHA256
+41eee11031e8287090661658445b0c72e12a3a274cb022e4c0c2ab92dec6c0f8,27088912bytes.
+Protected partitions were preserved. Audio/BT services are active and exact
+BOOT/module manifest checks pass. One manual check first supplied the nonexistent
+audio.json filename; it stopped before verifying/loading anything. Retried using
+the actual shared manifest.json and both feature checks passed.
+
+The software regression suite now passes88 tests. New benchmark size choices
+allow bounded512x512,720x1480 and1440x2960 requested surfaces; previous61fps
+results were512x512 and must not be presented as native full-screen performance.
+Kernel#18 rendering/idle/DPMS qualification is still in progress at this entry.
+
+The first post-boot readback compile mistakenly requested the uninstalled and
+unneeded wayland-client pkg-config package. Compilation stopped before the GPU
+test ran. This diagnostic uses surfaceless EGL/GLES only; compiling against
+egl/glesv2 succeeded and the hardware suite was restarted. No package install
+or driver workaround was needed for that harness invocation error.
+
+
+Kernel#18 bounded acceptance passed100 exact frames, all33 scenes and
+FIFO61/61/61fps at requested512x512, with0 matching kernel faults and awake/
+unlocked completion. Runtime PM auto50ms, DVFS260..572MHz unchanged;15 power
+cycles. IRQ check-timeout counter was1 before this suite and remained1, so this
+is not a claim of zero since boot. During the suite generation/latched marks
+increased2795, process shadow reads5590 and IRQ shadow reads2795; no new deferred
+events or IRQ wait timeouts. Idle and DPMS qualification is a separate test.
+
+
+Kernel#18 screen transition qualification:3 cycles off229.34/254.32/270.16ms,
+on180.43/160.52/172.90ms; off idle8/2.5/2.5s and on idle2.5s each all read
+back as requested. First8s off retained16 heartbeat ticks; overall49 ticks,
+maximum504.01ms gap at500ms period. A fourth cycle off237.50/on163.08ms kept
+the display off12s and a fresh separate SSH connection read Mutter mode3.
+KMS debugfs state was unavailable in this extra observation, not asserted.
+No new vblank-wait, flip_done, latch/shadow, Panfrost fault/timeout or SWIOTLB
+error since the recorded cursor. Screen-button service active with0 restarts,
+original mode0/unlocked state restored in finally. Physical key behavior and
+long-term idle remain unverified; bounded DPMS/idle no longer reproduces the
+previous warning.
+
+Private modem migration attempts stopped before archive/stage: first legacy
+STATE root0755 failed new private0700 requirements; verified nofollow directory
+FD then tightened only STATE to0700, preserving DATA and contents. Retry prepared
+read-only runtime but rejected an existing EFS symlink under strict NV guards.
+No clone rename/deletion/freshstage/CP start occurred. Read-only diagnosis found
+the same debug-only cpdebug/node symlink in the verified original EFS backup,
+so blind retry would also fail fresh stage. A preservation-only archive plus
+explicit complete-source quarantine/ordinary working-copy transform is being
+prepared; arbitrary links remain prohibited in working NV. Private failure
+logs, uploads and inputs are retained. No LTE data success is claimed.
+
+
+## 2026-11-19 — Native-resolution stress exposes remaining GPU timeout
+
+At reported1440x2960 windowed, readback/all33 scenes and FIFO61/61/61fps
+completed, but3 actual glmark JS0 scheduler timeouts produced6 matching kernel
+fault lines. Overall acceptance FAILED despite the frame rate. nocrc, lowmemY
+and default flush reduction were retained. CPU thermal traces briefly reached
+86C and reduced allowed CPU frequency; that correlation does not establish the
+GPU timeout cause. Core-dump BO-no-sgt diagnostic was also present. A bounded
+flush-reduction comparison is planned without increasing voltage/clocks/job
+timeouts or suppressing diagnostics. GPU is not fully stable.
+
+The acceptance fault filter now includes vblank-wait and flip_done timeouts
+as well as GPU/scanout failures; tests cover the actual warning strings.
+Requested and benchmark-reported sizes are recorded separately.
+
+Independent reviews and37 host checks passed the legacy preservation update:
+opaque nofollow archive inventories preserve corrupt legacy bytes and
+symlink/special metadata without opening targets. Verified source extraction
+is fully retained in private quarantine. Only the exact stock EFS cpdebug/node
+diagnostic symlink is excluded when constructing an ordinary working clone;
+its target hash and source provenance remain in private receipts. Unreviewed
+links/specials still stop staging before clone creation. Fresh-stage live retry
+is authorized separately; no success is assumed from host tests.

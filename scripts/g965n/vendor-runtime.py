@@ -247,6 +247,127 @@ def tree_inventory(directory, maximum_bytes=128 * 1024 * 1024):
     return sorted({e['path']: e for e in entries}.values(), key=lambda e: e['path'])
 
 
+def archive_tree_inventory(directory, maximum_bytes=128 * 1024 * 1024):
+    """Opaque preservation only: never follow links or open special inodes."""
+    safe_components(directory)
+    if not stat.S_ISDIR(directory.lstat().st_mode):
+        raise RuntimeError('Archive root must be an actual directory')
+    entries = {}
+    total = 0
+    for root, dirs, files, parent_fd in os.fwalk(directory, follow_symlinks=False):
+        relative_root = Path(root).relative_to(directory)
+        if len(relative_root.parts) > 32:
+            raise RuntimeError('Legacy archive tree exceeds depth bound')
+        for name in ['.'] + sorted(dirs + files):
+            info = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            relative = relative_root if name == '.' else relative_root / name
+            row = {'path': str(relative), 'mode': info.st_mode, 'uid': info.st_uid,
+                   'gid': info.st_gid, 'mtime_ns': info.st_mtime_ns,
+                   'nlink': info.st_nlink, 'inode': info.st_ino, 'device': info.st_dev}
+            if stat.S_ISREG(info.st_mode):
+                if info.st_nlink != 1:
+                    raise RuntimeError('Legacy archive regular hardlinks require manual review')
+                total += info.st_size
+                if total > maximum_bytes:
+                    raise RuntimeError('Legacy archive tree exceeds byte bound')
+                fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent_fd)
+                with open(fd, 'rb', closefd=True) as stream:
+                    before = os.fstat(stream.fileno())
+                    if (before.st_dev, before.st_ino, before.st_mode, before.st_size) != (
+                            info.st_dev, info.st_ino, info.st_mode, info.st_size):
+                        raise RuntimeError('Legacy archive file changed before read')
+                    checksum = hashlib.sha256(); count = 0
+                    while chunk := stream.read(min(1024 * 1024, info.st_size - count + 1)):
+                        count += len(chunk)
+                        if count > info.st_size:
+                            raise RuntimeError('Legacy archive file grew during read')
+                        checksum.update(chunk)
+                    after = os.fstat(stream.fileno())
+                    if count != info.st_size or (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+                        raise RuntimeError('Legacy archive file changed during read')
+                row.update(kind='file', bytes=info.st_size, sha256=checksum.hexdigest())
+            elif stat.S_ISLNK(info.st_mode):
+                link = os.fsencode(os.readlink(name, dir_fd=parent_fd))
+                if len(link) > 4096:
+                    raise RuntimeError('Legacy archive link exceeds bound')
+                row.update(kind='symlink', bytes=len(link), link_sha256=hashlib.sha256(link).hexdigest())
+            elif stat.S_ISDIR(info.st_mode):
+                row['kind'] = 'directory'
+            else:
+                # Sockets, FIFO and device nodes are described, never opened.
+                row.update(kind='special', rdev=info.st_rdev)
+            entries[str(relative)] = row
+            if len(entries) > 20000:
+                raise RuntimeError('Legacy archive tree exceeds entry bound')
+    return sorted(entries.values(), key=lambda row: row['path'])
+
+
+def copy_ordinary_extraction(source, destination, inventory, excluded):
+    """Copy regular bytes from root-private quarantine, never dereference links."""
+    destination.mkdir(mode=0o700)
+    for row in inventory:
+        relative = row['path']
+        if relative == '.' or relative in excluded:
+            continue
+        target = destination / relative
+        if row['kind'] == 'directory':
+            target.mkdir(mode=0o700)
+        elif row['kind'] == 'file':
+            original = source / relative
+            regular_info(original, size=row['bytes'])
+            with open(os.open(original, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 'rb', closefd=True) as src, target.open('xb') as dst:
+                remaining = row['bytes']; checksum = hashlib.sha256()
+                while remaining:
+                    chunk = src.read(min(1024 * 1024, remaining))
+                    if not chunk:
+                        raise RuntimeError('Short quarantined extraction read')
+                    checksum.update(chunk); dst.write(chunk); remaining -= len(chunk)
+                if src.read(1) or checksum.hexdigest() != row['sha256']:
+                    raise RuntimeError('Quarantined extraction changed during copy')
+                dst.flush(); os.fsync(dst.fileno())
+            target.chmod(0o600)
+        else:
+            raise RuntimeError('Only ordinary working files may leave quarantine')
+
+
+def prepare_quarantined_extractions(efs, cpefs, receipt):
+    """Preserve complete verified input; exclude only the stock diagnostic link."""
+    quarantine = STATE / ('quarantine-' + str(time.time_ns()))
+    quarantine.mkdir(mode=0o700)
+    inventories = {}; excluded = []
+    for name, image in [('efs', efs), ('cpefs', cpefs)]:
+        raw = quarantine / name
+        raw.mkdir(mode=0o700)
+        with verified_backup_snapshot(image, receipt['source'][name.upper()]) as snapshot:
+            assert_modem_stopped()
+            run('debugfs', '-R', 'rdump / ' + str(raw), snapshot)
+        rows = archive_tree_inventory(raw, receipt['source'][name.upper()]['bytes'])
+        inventories[name] = rows
+    # Classify before creating either working clone. Unknown links/specials stop
+    # staging while preserving the complete extracted source for investigation.
+    for name, rows in inventories.items():
+        for row in rows:
+            if row['kind'] in ('directory', 'file'):
+                continue
+            if name == 'efs' and row['path'] == 'cpdebug/node' and row['kind'] == 'symlink':
+                excluded.append({'partition': 'EFS', 'path': row['path'],
+                                 'link_sha256': row['link_sha256'],
+                                 'source_backup_sha256': receipt['source']['EFS']['sha256']})
+            else:
+                raise RuntimeError('Unreviewed link/special inode in source extraction; preserved in quarantine')
+    provenance = {'schema': 1, 'purpose': 'complete-source-preserved-not-bound',
+                  'source': receipt['source'], 'inventory': inventories, 'excluded': excluded}
+    write_private_json(quarantine / 'extraction-inventory.json', provenance)
+    for name, rows in inventories.items():
+        copy_ordinary_extraction(quarantine / name, STATE / name, rows,
+                                 {'cpdebug/node'} if name == 'efs' and excluded else set())
+        if archive_tree_inventory(quarantine / name, receipt['source'][name.upper()]['bytes']) != rows:
+            raise RuntimeError('Quarantined source changed; preserve all copies for review')
+        tree_inventory(STATE / name, receipt['source'][name.upper()]['bytes'])
+    receipt['extraction'] = {'quarantine': str(quarantine), 'excluded': excluded,
+                             'inventory_sha256': digest(quarantine / 'extraction-inventory.json')}
+
+
 def verify_nv(directory, expected_size=None):
     data = directory / 'nv_data.bin'
     checksum = directory / 'nv_data.bin.md5'
@@ -587,13 +708,7 @@ def stage_modem(efs, cpefs, backup_manifest=None):
             raise RuntimeError('Preserve existing private state; explicit archive/migration required')
     receipt = backup_provenance(efs, cpefs, backup_manifest)
     assert_modem_stopped()
-    for name, image in [('efs', efs), ('cpefs', cpefs)]:
-        with verified_backup_snapshot(image, receipt['source'][name.upper()]) as snapshot:
-            assert_modem_stopped()
-            target = STATE / name
-            target.mkdir(mode=0o700)
-            run('debugfs', '-R', 'rdump / ' + str(target), snapshot)
-            tree_inventory(target, receipt['source'][name.upper()]['bytes'])
+    prepare_quarantined_extractions(efs, cpefs, receipt)
     radio = STATE / 'RADIO'
     with open(os.open(PARTITION_SPECS['RADIO'][0], os.O_RDONLY | os.O_NOFOLLOW), 'rb', closefd=True) as source, radio.open('xb') as output:
         shutil.copyfileobj(source, output, 1024 * 1024)
@@ -625,17 +740,18 @@ def archive_modem_state(efs, cpefs, backup_manifest, confirm=False):
     private_state()
     provenance = backup_provenance(efs, cpefs, backup_manifest)
     # Legacy copies are preserved, never adopted as trusted new provenance.
-    initial = verify_nv(STATE / 'efs')
-    snapshot = validate_modem_state(dict(provenance, initial_nv=initial))
+    snapshot = {name: archive_tree_inventory(STATE / name, PARTITION_SPECS[name.upper()][1])
+                for name in ('efs', 'cpefs')}
     radio = STATE / 'RADIO'
-    info = radio.lstat()
-    snapshot['RADIO'] = {'bytes': info.st_size, 'sha256': digest(radio, info.st_size),
-                         'mode': stat.S_IMODE(info.st_mode), 'uid': info.st_uid,
-                         'gid': info.st_gid, 'mtime_ns': info.st_mtime_ns}
+    info = regular_info(radio)
+    if info.st_size > PARTITION_SPECS['RADIO'][1]:
+        raise RuntimeError('Legacy RADIO exceeds archive size bound')
+    snapshot['RADIO'] = file_inventory(radio)
     receipt = STATE / RECEIPT_NAME
     if receipt.exists() or receipt.is_symlink():
-        regular_info(receipt, maximum=65536)
-        snapshot[RECEIPT_NAME] = file_inventory(receipt, maximum=65536)
+        if regular_info(receipt).st_size > 65536:
+            raise RuntimeError('Legacy receipt exceeds archive bound')
+        snapshot[RECEIPT_NAME] = file_inventory(receipt)
     assert_modem_stopped()
     destination = STATE / ('archive-' + str(time.time_ns()))
     destination.mkdir(mode=0o700)
@@ -646,7 +762,7 @@ def archive_modem_state(efs, cpefs, backup_manifest, confirm=False):
         source = STATE / name
         if source.exists():
             source.rename(destination / name)
-    if any(tree_inventory(destination / name) != snapshot[name] for name in ('efs', 'cpefs')):
+    if any(archive_tree_inventory(destination / name, PARTITION_SPECS[name.upper()][1]) != snapshot[name] for name in ('efs', 'cpefs')):
         raise RuntimeError('Archive verification failed; all moved data preserved for review')
     info = (destination / 'RADIO').lstat()
     archived_radio = {'bytes': info.st_size, 'sha256': digest(destination / 'RADIO', info.st_size),
@@ -654,7 +770,7 @@ def archive_modem_state(efs, cpefs, backup_manifest, confirm=False):
                       'gid': info.st_gid, 'mtime_ns': info.st_mtime_ns}
     if archived_radio != snapshot['RADIO']:
         raise RuntimeError('RADIO archive verification failed; preserved for review')
-    if RECEIPT_NAME in snapshot and file_inventory(destination / RECEIPT_NAME, maximum=65536) != snapshot[RECEIPT_NAME]:
+    if RECEIPT_NAME in snapshot and file_inventory(destination / RECEIPT_NAME) != snapshot[RECEIPT_NAME]:
         raise RuntimeError('Receipt archive verification failed; preserved for review')
     for directory in (destination, STATE):
         fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)

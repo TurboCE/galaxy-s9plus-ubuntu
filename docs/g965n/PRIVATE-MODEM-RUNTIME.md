@@ -54,7 +54,14 @@ python3 vendor-runtime.py stage-modem \
 
 Stage refuses existing `efs`, `cpefs`, `RADIO` or `modem-provenance.json` entries.
 It snapshots each no-follow verified input into a temporary root-only directory,
-checks length and SHA-256, then extracts only that snapshot. A root-private receipt
+checks length and SHA-256, then preserves the complete extraction in a unique
+root-only quarantine. The stock EFS diagnostic symlink at `cpdebug/node` is the
+only reviewed exclusion from the separate working clone: its target is never
+opened, and its original inode/link text remains in quarantine. The private
+receipt records the excluded path, link-text SHA-256, source backup SHA-256 and
+quarantine inventory SHA-256. Every other symlink or special inode aborts staging
+before either working clone is created. Working clones contain ordinary files
+and directories only. A root-private receipt
 records same-handset provenance and the initial salted NV checksum. The original
 identity filesystems are never mounted. Stage does not start CBD, RIL or radio.
 
@@ -71,11 +78,14 @@ python3 vendor-runtime.py archive-modem-state \
   --confirm-archive-existing-private-state
 ```
 
-The command currently requires complete, logically valid NV and a matching
-ordinary RADIO copy. Corrupt or incomplete legacy state fails closed for manual
-review. It renames existing clones and an optional opaque receipt into a unique
-private archive; file content hashes, owner/group, modes and timestamps are
-verified after the move. Archive content is preserved, never used as trusted
+The command preserves legacy state without adopting it: corrupt NV checksums,
+empty files and a different ordinary RADIO image can be archived. It inventories
+regular bytes by hash, symlink text by hash and special inodes by metadata only;
+it never opens special inodes or follows links. Depth, count and byte bounds
+still apply; regular hardlinks require manual review. RADIO and an optional
+opaque receipt must remain ordinary files within their size bounds. It renames
+the entire existing roots into a unique private archive and verifies content
+hashes, link hashes, inode types, owner/group, modes and timestamps after moving. Archive content is preserved, never used as trusted
 provenance. DATA is left in place. Then run the new `stage-modem` command above.
 Do not delete an existing clone or archive to work around a validation failure.
 
@@ -109,8 +119,8 @@ successful service-start request alone proves neither process lifetime nor
 cleanup.
 
 No automatic retry powers the CP or activates a PDP. A failed stage preserves
-its partial newly created files and may require explicit review because the
-normal archive path requires complete valid state. A failed bind may leave
+its complete source quarantine and any partial newly created files for explicit
+review; the archive path can preserve corrupt state but never makes it trusted. A failed bind may leave
 partial mounts; stop clients, inspect private evidence, and use `down` followed by
 `up` before reviewed recovery. `down` refuses busy mounts and does not lazily
 unmount them. Archive failures preserve moved bytes in their new location; do not
@@ -139,10 +149,26 @@ marking data working. No calls, SMS, PIN or IMEI operations are part of this lab
   archive and reboot resume; no automatic adoption, original partition mounts,
   daemon autostart or live PDP activation.
 - Fixed mutable backup extraction input and opaque receipt preservation; added
+  no-follow archival of legacy links/special inodes without executing them and
+  complete extraction quarantine with the sole `cpdebug/node` working-copy
+  exclusion. Working stage/resume still rejects all other links/specials. Added
   no-follow permission walks, lifetime migration/client locks, and child state
   revalidation after the asynchronous service-start handoff.
 - Added pre-CP launcher provenance/private-bind/read-only RADIO checks and a
   source-qualified reference-only PDP planner; S9 wire-layout gaps fail closed.
-- Host verification: 24 runtime tests, 4 launcher preflight tests, 4 reference PDP
+- Host verification: 29 runtime tests, 4 launcher preflight tests, 4 reference PDP
   tests, Python compile and diff whitespace checks passed. Device archive/stage/
   resume and data connectivity still require separate recorded hardware evidence.
+
+## Kernel 18 migration observations pending integration
+
+The first device attempt stopped before archive/stage because the legacy STATE
+parent was root-owned mode 0755. After no-follow FD/owner/type checks, only that
+parent was tightened to 0700; DATA and existing clone ownership were preserved.
+The next attempt prepared read-only runtime mounts, then stopped before any clone
+rename because EFS contained a symlink. A read-only check of the verified raw
+backup confirmed the same stock `cpdebug/node` symlink. Those failures motivated
+the preservation-only archive inventory and the exact diagnostic-link quarantine
+transform described above. At this documentation checkpoint the transformed
+archive/stage path has host evidence only; a fresh hardware retry remains pending.
+No CP, CBD, RIL or PDP was started during those failed migration attempts.

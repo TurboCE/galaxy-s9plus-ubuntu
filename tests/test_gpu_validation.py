@@ -13,6 +13,8 @@ class GPUAcceptanceTests(unittest.TestCase):
     def test_display_dma_failure_fails_even_without_panfrost_fault(self):
         self.assertRegex('s9p-decon 16030000.decon: swiotlb buffer is full (sz: 2097152 bytes)', gpu.FAULT)
         self.assertRegex('panfrost 17500000.gpu: js0 timeout', gpu.FAULT)
+        self.assertRegex('[CRTC:38:crtc-0] vblank wait timed out', gpu.FAULT)
+        self.assertRegex('[CRTC:38:crtc-0] flip_done timed out', gpu.FAULT)
         self.assertIsNone(gpu.FAULT.search('panfrost 17500000.gpu: AARCH64_4K page tables'))
 
 
