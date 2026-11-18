@@ -279,3 +279,24 @@ emoji, explicit ko->KR fallback and font-cache refresh. fc-match selects Noto
 Sans CJK KR; Pango's Korean sample has zero missing glyphs. Existing app caches
 may need reopening. GPU acceleration remains active but additional GNOME job
 faults were observed on #6, including JOB_BUS_FAULT; not marked stable.
+
+## 2026-11-18 — SSP write contract, bounds and first motion readings
+
+An original GPL-2.0 diagnostic client based on Lineage protocol definitions
+rejected the first command's write result. The board character driver returned
+the BBD transport count (user size plus2), violating write(2)'s byte contract.
+Review also found a1024-byte accepted user packet could overflow the internal
+1022-byte payload array. Added a bound inside bbd_send_packet and a1022-byte
+character-device limit; empty writes do nothing, accepted writes return user
+bytes, and queue exhaustion returns EAGAIN rather than false success.
+
+Rebuilt the sensor module, stopped the bounded lhd test, unloaded/reloaded the
+transport and restarted the own stock daemon/config. The fixed SSP client read
+chip0x55, firmware21031900 and the sensor mask, then19 accel and18 gyro samples.
+All axes varied during the short run; values remain raw with no claimed units
+or orientation calibration. One other frame was not decoded. Sensor removal
+commands were serialized and no AP sleep/wake commands were sent.
+On-device zero-length write returned0;1023/1024-byte writes returned EMSGSIZE
+before reaching the hub. No calibration or identity partition was written.
+Raw motion readings are verified, but IIO/automatic-rotation integration and
+longer power/restart tests remain open.

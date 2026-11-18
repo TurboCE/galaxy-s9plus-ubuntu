@@ -21,7 +21,8 @@ A build or a driver node is not sufficient evidence of a working function.
 | LTE / voice / SMS | Modem/mailbox/shared-memory driver bound; umts control endpoints and rmnet interfaces created | CP boot, SIM registration and data not tested; not working yet |
 | Speakers / microphone / headset | ABOX CRL0 booted; 2s silent PCM, 3s capture; two test frequencies observed in 5s capture; owner heard two quiet tones | Basic speaker/mic path passed; UCM exposes GNOME input/output; headset/call audio/quality and reboot persistence pending |
 | Bluetooth | hci0 firmware loaded at 3Mbaud; discovery found 12 peer addresses; missing AES supplied and controller power cycle passed | Discovery verified; pairing, audio and reboot persistence pending |
-| Accelerometer / gyroscope / compass / light / proximity | Hub transport loaded; own vendor lhd reached hub-ready with stock config | No sensor samples/integration yet; not normal |
+| Accelerometer / gyroscope | Own SSP probe: chip0x55, firmware21031900; 19 accel and18 gyro samples with varying raw values | Raw readings verified; axes/calibration/automatic rotation and persistence pending |
+| Compass / light / proximity / other hub sensors | Hub enumerated a sensor mask; no individual sample validation yet | Not normal yet |
 | Korean text | Noto CJK/emoji installed; ko fallback selects KR; Pango Korean sample has 0 missing glyphs | Font coverage verified; live app refresh may be needed |
 | Cameras / flash / hardware video codecs | No full pipeline tested | Pending port/validation |
 | GPS / NFC / fingerprint / other Lineage-supported sensors | No end-to-end test yet | Pending port/validation |

@@ -24,7 +24,11 @@ the reference Android10 patch. Keep the output private and install locally at
 
 Manual load on kernel #6 created the transport devices. The owner's lhd ran in
 the restricted vendor runtime and reached hub-ready when given its actual stock
-/vendor/etc/sensor/lhd.conf argument. A 30s test timeout intentionally stopped
-it afterwards. This is not end-to-end sensor support: SSP decoding, coordinate
-transforms and Linux integration still need validation. No accel/gyro data measured.
+/vendor/etc/sensor/lhd.conf argument. Fixed the POSIX write count and a1022-byte
+payload bound (oversized writes were previously accepted into a smaller buffer).
+ssp-probe.py read chip0x55/firmware21031900 and19 accel/18 gyro raw samples.
+Zero-size and oversized-write guards were verified on the handset. This is not
+end-to-end support: coordinate transforms, calibration, Linux integration and
+restart/power behavior still need validation. Bounded test-service timeouts
+intentionally stop the hub; do not label their teardown notices spontaneous crashes.
 Do not automatically load this transport or start the closed daemon at boot.

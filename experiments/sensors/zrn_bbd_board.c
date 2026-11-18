@@ -582,12 +582,20 @@ static ssize_t ssp_read(struct file *file, char __user *buf, size_t size, loff_t
 static ssize_t ssp_write(struct file *file, const char __user *buf, size_t size, loff_t *pos)
 {
 	unsigned char pkt[1024];
+	ssize_t ret;
 
-	if (size > sizeof(pkt))
+	if (!size)
+		return 0;
+	/* bbd_send_packet prepends its own two-byte transport header. */
+	if (size > 1022)
 		return -EMSGSIZE;
 	if (copy_from_user(pkt, buf, size))
 		return -EFAULT;
-	return bbd_send_packet(pkt, size);
+	ret = bbd_send_packet(pkt, size);
+	if (ret < 0)
+		return ret;
+	/* write(2) must report user bytes, not user bytes plus the header. */
+	return ret == size + 2 ? size : -EAGAIN;
 }
 
 static __poll_t ssp_poll(struct file *file, poll_table *wait)

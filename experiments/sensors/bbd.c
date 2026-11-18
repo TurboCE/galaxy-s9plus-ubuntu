@@ -352,6 +352,8 @@ ssize_t bbd_send_packet(unsigned char *buf, size_t size)
 		unsigned char buf[1022];	/*We assume max SSP packet less than 1KB */
 	} __attribute__((__packed__)) pkt;
 
+	if (size > sizeof(pkt.buf))
+		return -EMSGSIZE;
 	pkt.size = (unsigned short)size;
 	memcpy(pkt.buf, buf, size);
 
