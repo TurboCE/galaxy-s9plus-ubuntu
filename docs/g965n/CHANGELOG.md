@@ -523,3 +523,18 @@ GPU#9 tests proceeded while microphone routing was inspected. Stock IN3L/IN3R,
 AIF1 registers and ABOX UAIF format/polarity match the reviewed source. Stock
 media-mic additionally routes IN3L through LHPF/ASRC; direct prototype path remains
 under investigation. Do not label voice recognition or full microphone support working.
+
+## 2026-11-19 — Microphone supply bypass defect found in source/readback
+
+Codec readback after capture showed MICBIAS1=0x8066. Its reset BYPASS bit1 remained
+set: codec_start updated mask0x81e1, which changes the1.8V selector but never clears
+bypass. The stock G965N DT requires a regulated1.8V MICBIAS1; the Lineage Madera
+supply/bypass path clears this bit for regulated operation. Changed mask to0x81e3
+and added a readback check, disabling the bias and returning EIO if it does not
+latch. Child active-discharge settings remain as the stock DT specifies. This is
+register-configuration evidence, not a physical voltage measurement or speech pass.
+
+Prepared speech-default mic_gain40 in the opt-in startup package (speaker gain
+unchanged). The previous gain40-only trial failed user recognition; do not call
+this a gain-only solution. Kernel#10 with safe GPU allocation default was built
+but never flashed; next build includes the microphone supply correction as well.

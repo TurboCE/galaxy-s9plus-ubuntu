@@ -2167,7 +2167,18 @@ static int codec_start(void)
 	usleep_range(3000, 4000);
 	/* MICBIAS1 1.8 V, external capacitor (stock DT MICBIAS1); 1A for DMIC1
 	 * (IN3L), 1C for DMIC3 (IN3R) (stock samsung,routing) */
-	codec_update(CODEC_MIC_BIAS_CTRL_1, 0x81e1, 0x8000 | (3 << 5) | 0x0001);
+	/* Reset leaves MICB1_BYPASS set. Clear it explicitly: otherwise the
+	 * 1.8V selector is bypassed, unlike the stock MICBIAS1 regulator path. */
+	codec_update(CODEC_MIC_BIAS_CTRL_1, 0x81e3, 0x8000 | (3 << 5) | 0x0001);
+	if ((codec_read(CODEC_MIC_BIAS_CTRL_1) & 0x81e3) !=
+	    (0x8000 | (3 << 5) | 0x0001)) {
+		pr_err("snd-zrn-abox: MICBIAS1 regulated setting did not latch\n");
+		codec_update(CODEC_MIC_BIAS_CTRL_1, 0x0001, 0);
+		codec_fll_off();
+		codec_errors++;
+		ret = -EIO;
+		goto out;
+	}
 	codec_update(CODEC_MIC_BIAS_CTRL_5, 0x0101, 0x0101);
 	/* IN3: digital, clocked at 3.072 MHz (stock "IN3 OSR"), supplied from
 	 * MICBIAS1 (stock cirrus,dmic-ref), high-pass on (stock "IN3L HPF") */

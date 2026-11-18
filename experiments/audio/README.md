@@ -13,7 +13,9 @@ The #6 experimental kernel booted on G965N and the module ran Calliope CRL0.
 Short silent playback, microphone capture and two-tone correlation passed;
 the owner heard both quiet tones. UCM now exposes speaker/microphone to GNOME.
 This is basic path evidence, not full audio/speech/headset/call qualification.
-No module autoload or reboot persistence has been validated yet.
+Exact-BOOT guarded driver startup and GNOME devices persisted on#8/#9.
+The owner reports speech is not recognized. Gain alone did not repair it;
+regulated MICBIAS1 configuration is under test. Microphone speech is not qualified.
 
 Object compilation and full module linking against the Linux 7.1 port passed
 after enabling ALSA PCM and preparing module link scripts/symbols. The first
@@ -33,7 +35,7 @@ sequence, DMA/shared-memory reservations and corresponding firmware. Start with
 speaker playback at low volume, then capture separately. Hardware probing is
 blocked unless both star2lte compatibility and enable_g965n=1 are present.
 Modem voice shared memory defaults off (cp_vss=0), capture stays off, and the
-amplifier defaults to its minimum digital setting. Do not add a boot autoload.
+amplifier defaults to its minimum digital setting. Use only the opt-in exact-BOOT guarded startup installer; arbitrary autoload is not qualified.
 
 Do not enable microphone capture, call audio, speaker calibration or DSM until
 their routes and firmware match. Preserve original EFS calibration; do not run

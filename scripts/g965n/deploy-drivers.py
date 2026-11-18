@@ -107,7 +107,7 @@ Before=display-manager.service
 [Service]
 Type=oneshot
 ExecStartPre={verify}
-ExecStart=/usr/sbin/insmod {module} enable_g965n=1 capture=1 cp_vss=0 mic_gain=0
+ExecStart=/usr/sbin/insmod {module} enable_g965n=1 capture=1 cp_vss=0 mic_gain=40
 RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target
