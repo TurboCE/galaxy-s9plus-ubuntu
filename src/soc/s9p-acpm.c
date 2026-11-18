@@ -297,6 +297,16 @@ EXPORT_SYMBOL_GPL(s9p_acpm_is_ready);
 #define TOUCH_PROBES_PER_CYCLE	12	/* every 2 s: 24 s per LDO cycle */
 #define TOUCH_MAX_CYCLES	3
 
+static bool touch_rails_cycled;
+static unsigned long touch_probe_after;
+
+bool s9p_acpm_touch_ready(void)
+{
+	return smp_load_acquire(&touch_rails_cycled) &&
+		time_after_eq(jiffies, READ_ONCE(touch_probe_after));
+}
+EXPORT_SYMBOL_GPL(s9p_acpm_touch_ready);
+
 static void s9p_touch_work(struct work_struct *work);
 static DECLARE_DELAYED_WORK(s9p_touch_dwork, s9p_touch_work);
 
@@ -305,6 +315,7 @@ static int s9p_touch_ldo_power_cycle(void)
 	u8 v = 0;
 	int ret;
 
+	smp_store_release(&touch_rails_cycled, false);
 	ret = s9p_acpm_pmic_update(S2MPS18_L35CTRL, 0, LDO_ON_MODE);
 	if (ret)
 		return ret;
@@ -319,6 +330,8 @@ static int s9p_touch_ldo_power_cycle(void)
 	if (ret)
 		return ret;
 	s9p_acpm_pmic_read(S2MPS18_L35CTRL, &v);
+	WRITE_ONCE(touch_probe_after, jiffies + HZ);
+	smp_store_release(&touch_rails_cycled, true);
 	pr_info("s9p-acpm: touch LDOs power-cycled (L35=%02x)\n", v);
 	return 0;
 }

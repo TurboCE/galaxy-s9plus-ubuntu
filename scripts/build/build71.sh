@@ -120,6 +120,10 @@ done
 # build before.
 make -s O=out olddefconfig
 
+# journald requests SO_PASSSEC on its AF_UNIX sockets. Keep the supported
+# socket option even though no optional enforcing LSM is selected here.
+cfg --enable SECURITY
+cfg --enable SECURITY_NETWORK
 cfg --enable BLK_DEV_INITRD
 cfg --set-str INITRAMFS_SOURCE "$RAMFS"
 cfg --set-val INITRAMFS_ROOT_UID 0

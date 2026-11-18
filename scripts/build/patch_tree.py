@@ -878,3 +878,22 @@ else:
     print("arch/arm64/kernel/psci.c: M3 defaults call added")
 
 print("PATCH_TREE_OK")
+
+# The G965N handover requires the ACPM LDO reset before the first touch I/O.
+# Defer only this board's probe; real I2C errors after readiness still propagate.
+touch_path = src / 'drivers/input/touchscreen/s6sy761.c'
+touch = touch_path.read_text()
+if 'S9P_TOUCH_RAIL_READY' not in touch:
+    pos = touch.index('#include')
+    touch = (touch[:pos] + '#include <linux/of.h>\n'
+             '#include <linux/soc/samsung/s9p-acpm.h> /* S9P_TOUCH_RAIL_READY */\n'
+             + touch[pos:])
+    anchor = '\tif (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C |'
+    assert touch.count(anchor) == 1
+    touch = touch.replace(anchor,
+        '\tif (IS_ENABLED(CONFIG_S9P_ACPM) &&\n'
+        '\t    of_machine_is_compatible("samsung,star2lte") &&\n'
+        '\t    !s9p_acpm_touch_ready())\n'
+        '\t\treturn dev_err_probe(&client->dev, -EPROBE_DEFER,\n'
+        '\t\t\t\t     "waiting for touch rail reset\\n");\n\n' + anchor, 1)
+    touch_path.write_text(touch)

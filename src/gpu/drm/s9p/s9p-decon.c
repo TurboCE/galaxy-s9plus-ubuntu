@@ -170,6 +170,15 @@ static bool s9p_panel_sleep = true;
 module_param_named(panel_sleep, s9p_panel_sleep, bool, 0644);
 MODULE_PARM_DESC(panel_sleep, "also put the panel into sleep mode when blanking");
 
+/* The synchronous shadow wait already covers the presenting TE edge. Do not
+ * queue completion for another vblank when that edge has been counted. */
+static bool s9p_latched_flip_events = true;
+module_param_named(latched_flip_events, s9p_latched_flip_events, bool, 0644);
+MODULE_PARM_DESC(latched_flip_events, "complete flips on the counted latch edge instead of the following frame");
+static unsigned long s9p_latched_events, s9p_deferred_events;
+module_param_named(latched_events, s9p_latched_events, ulong, 0444);
+module_param_named(deferred_events, s9p_deferred_events, ulong, 0444);
+
 #define PANEL_W				1440
 #define PANEL_H				2960
 
@@ -473,6 +482,10 @@ static void s9p_decon_pipe_update(struct drm_simple_display_pipe *pipe,
 	struct drm_crtc *crtc = &pipe->crtc;
 	struct drm_gem_dma_object *obj;
 	struct drm_framebuffer *fb = pipe->plane.state->fb;
+	bool latched = false;
+	bool vblank_held = crtc->state->event && crtc->state->active &&
+		drm_crtc_vblank_get(crtc) == 0;
+	u64 before_latch = 0;
 
 	if (fb && priv->enabled) {
 		if (s9p_wait_shadow_idle(priv)) {
@@ -480,6 +493,7 @@ static void s9p_decon_pipe_update(struct drm_simple_display_pipe *pipe,
 				"previous shadow update stuck, skipping flip\n");
 		} else {
 			obj = to_drm_gem_dma_obj(fb->obj[0]);
+			before_latch = drm_crtc_vblank_count(crtc);
 			s9p_decon_program_address(priv, obj->dma_addr);
 			/*
 			 * The vendor's wait_update_done_and_mask half of the
@@ -498,6 +512,8 @@ static void s9p_decon_pipe_update(struct drm_simple_display_pipe *pipe,
 			if (s9p_wait_shadow_idle(priv))
 				drm_err_ratelimited(&priv->drm,
 					"flip did not latch within 50 ms\n");
+			else
+				latched = true;
 		}
 	}
 
@@ -505,11 +521,23 @@ static void s9p_decon_pipe_update(struct drm_simple_display_pipe *pipe,
 		unsigned long flags;
 
 		spin_lock_irqsave(&crtc->dev->event_lock, flags);
-		if (crtc->state->active &&
-		    drm_crtc_vblank_get(crtc) == 0)
-			drm_crtc_arm_vblank_event(crtc, crtc->state->event);
-		else
+		if (vblank_held && READ_ONCE(s9p_latched_flip_events) && latched &&
+		    drm_crtc_vblank_count(crtc) != before_latch) {
+			/* Shadow has latched AND FRAME_START has been counted. Send
+			 * the actual presenting edge's sequence/timestamp now. Sending
+			 * before the latch would tear; arming here delays by one frame.
+			 */
 			drm_crtc_send_vblank_event(crtc, crtc->state->event);
+			drm_crtc_vblank_put(crtc);
+			s9p_latched_events++;
+		} else if (vblank_held) {
+			/* IRQ not observed yet (or diagnostic old policy): let the
+			 * core deliver and release our reference at the next edge. */
+			drm_crtc_arm_vblank_event(crtc, crtc->state->event);
+			s9p_deferred_events++;
+		} else {
+			drm_crtc_send_vblank_event(crtc, crtc->state->event);
+		}
 		crtc->state->event = NULL;
 		spin_unlock_irqrestore(&crtc->dev->event_lock, flags);
 	}

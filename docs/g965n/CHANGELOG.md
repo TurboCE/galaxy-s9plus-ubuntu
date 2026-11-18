@@ -695,3 +695,25 @@ Both CPU policies also changed frequencies (little350..1499MHz, big1066..2327MHz
 during this bounded test. This establishes functioning observed DVFS, not a
 physical rail-voltage measurement or animation smoothness. No fixed-frequency
 or always-on performance workaround was installed.24 host guard tests passed.
+
+## 2026-11-19 — FIFO pacing baseline and sequencing candidates
+
+On native#13, three512x512 Wayland FIFO/vsync scenes (build/texture/ideas,4s each)
+all measured31fps /32.4..32.9ms, despite the much higher unconstrained score.
+Source audit found DECON waits for shadow latch then arms the event for the
+FOLLOWING vblank. Prepared completion on the already-counted presenting edge,
+only if both shadow latch and FRAME_START sequence advance are observed.
+Otherwise retain the core's armed-event fallback. Vblank references are obtained
+before programming the flip and transferred/released on exactly one path. Added
+a runtime diagnostic old-policy switch and completion counters; no fixed clocks,
+animation-disable setting, IRQ/TE timing or framebuffer reuse protection removed.
+This candidate is not hardware-qualified yet.
+
+Boot logs show touch I2C timeout BEFORE ACPM's successful touch rail reset, then
+successful rebind. Prepared a board-only readiness/defer guard until the existing
+reset and one-second startup delay complete. Actual post-ready I2C failures still
+propagate. Rail reset limits/retry logic preserved. Added SECURITY_NETWORK support
+for the SO_PASSSEC socket option requested by journald; the kernel socket source
+explicitly returned EOPNOTSUPP when this configuration was absent. This does not
+claim an enforcing LSM or fix by suppressing logs. All candidates await build,
+guarded boot and hardware validation.
