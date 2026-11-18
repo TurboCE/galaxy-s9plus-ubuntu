@@ -1786,3 +1786,40 @@ atomic-state failure, rollback/accept races, active JSON tamper and runtime-link
 escape checks. Test lifecycle operations are mocked; their printed restart
 messages are not device evidence. No profile application or GDM restart has
 occurred at this source-review checkpoint.
+
+## 2026-11-19 — First desktop trial exposes incomplete graphical rollback
+
+Rehashed all nine host backup images, then actual trial preflight verified
+selected#21 BOOT and current EFS/CPEFS/RADIO provenance. The first user-only
+profile loaded a real Shell with private EGL/Gallium/GBM/dri_gbm; fresh SSH,
+system service health and GPU journal boundary passed. No extra GPU load ran.
+The independent timer fired naturally at304s and removed all four owned files,
+restoring the original user-manager PAN_MESA_DEBUG=nocrc without changed-file
+conflicts. That file/environment result was not a successful graphical return.
+
+GDM remained running but Wayland Shells failed EGL initialization; no Shell
+survived. Xorg fallback also failed because Xorg is not installed. Systemd
+failed-unit count0 alone was misleading. No new GPU kernel fault or retained
+DRM client was found. No changed system/GDM GPU environment was demonstrated;
+stale session-bus state was a hypothesis, not an established single cause.
+
+One controlled normal-admin recovery stopped GDM, restarted user@1000.service,
+then started GDM with original configuration. Fresh SSH and a new Shell using
+actual system EGL/Gallium/GBM/dri_gbm proved graphical recovery. Restored the
+original screen-off/locked state, confirmed exact#21 BOOT, no new GPU faults and
+unchanged DECON2/0 counters. The compound recovery does not isolate which user
+session state caused the earlier failure. No second trial was attempted yet.
+
+Source trial helper now uses that clean user-manager sequence for both apply
+and rollback and requires three stable actual Shell/library observations,
+rather than treating GDM job success as desktop recovery. File/environment/
+desktop restoration have separate atomic state fields; failed recovery is
+reported without an automatic retry loop.21 host tests pass; the new sequence
+still needs its own natural-timer hardware trial. This restarts all user-manager
+services; it is not a promise to preserve their background work.
+
+The user document portal also fails because /dev/fuse is unavailable. Both
+private and restored stock sessions show it. Native#21 config has FUSE_FS=m
+and exactly matches the cached21 configuration byte-for-byte; the module is
+not supplied by the current image workflow. A source-only compatibility-addon
+recipe is being prepared; no FUSE module has been loaded yet.

@@ -70,13 +70,19 @@ class TrialTests(unittest.TestCase):
             if argv[0] == 'systemd-run' or argv[:2] == ['systemctl','is-active']:
                 self.assertFalse((home/'.config').exists())
             return types.SimpleNamespace(stdout='PAN_MESA_DEBUG=nocrc\n')
-        with patch.object(m, 'private_root', return_value=True), patch.object(m, 'STATE', self.root/'state'), patch.object(m, 'verify_device'), patch.object(m, 'verify_shell_command'), patch.object(m, 'verify_build', return_value=receipt), patch.object(m.pwd, 'getpwnam', return_value=types.SimpleNamespace(pw_uid=1000,pw_dir=str(home))), patch.object(m, 'run', side_effect=command), patch.object(m.os, 'chown'):
+        with patch.object(m, 'private_root', return_value=True), patch.object(m, 'STATE', self.root/'state'), patch.object(m, 'verify_device'), patch.object(m, 'verify_shell_command'), patch.object(m, 'wait_stable_shell', return_value={'desktop_recovered':True}), patch.object(m, 'verify_build', return_value=receipt), patch.object(m.pwd, 'getpwnam', return_value=types.SimpleNamespace(pw_uid=1000,pw_dir=str(home))), patch.object(m, 'run', side_effect=command), patch.object(m.os, 'chown'):
             m.apply(args)
         reserve = next(i for i,v in enumerate(events) if v[0]=='systemd-run')
         check = next(i for i,v in enumerate(events) if v[:2]==['systemctl','is-active'])
-        restart = next(i for i,v in enumerate(events) if v==['systemctl','restart','gdm.service'])
+        restart = next(i for i,v in enumerate(events) if v==['systemctl','start','gdm.service'])
         self.assertLess(reserve,check); self.assertLess(check,restart)
-        self.assertFalse(any('stop' in v for v in events))
+        self.assertFalse(any('stop' in v and any(str(x).endswith('.timer') for x in v) for v in events))
+        stop=events.index(['systemctl','stop','gdm.service'])
+        user_restart=events.index(['systemctl','restart','user@1000.service'])
+        unset=next(i for i,v in enumerate(events) if 'unset-environment' in v)
+        reload=next(i for i,v in enumerate(events) if 'daemon-reload' in v)
+        self.assertLess(check,stop);self.assertLess(stop,user_restart)
+        self.assertLess(user_restart,unset);self.assertLess(unset,reload);self.assertLess(reload,restart)
         data=json.loads((self.root/'state/test-one/state.json').read_text())
         self.assertEqual(data['previous_environment'], {'PAN_MESA_DEBUG':'nocrc'})
         self.assertFalse(data['accepted'])
@@ -88,7 +94,7 @@ class TrialTests(unittest.TestCase):
         def command(argv,**kw):
             if argv[0]=='systemd-run':raise RuntimeError('reserve failed')
             return types.SimpleNamespace(stdout='')
-        with patch.object(m,'private_root',return_value=True),patch.object(m,'STATE',self.root/'state'),patch.object(m,'verify_device'),patch.object(m,'verify_shell_command'),patch.object(m,'verify_build',return_value=receipt),patch.object(m.pwd,'getpwnam',return_value=types.SimpleNamespace(pw_uid=1000,pw_dir=str(home))),patch.object(m,'run',side_effect=command):
+        with patch.object(m,'private_root',return_value=True),patch.object(m,'STATE',self.root/'state'),patch.object(m,'verify_device'),patch.object(m,'verify_shell_command'),patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}),patch.object(m,'verify_build',return_value=receipt),patch.object(m.pwd,'getpwnam',return_value=types.SimpleNamespace(pw_uid=1000,pw_dir=str(home))),patch.object(m,'run',side_effect=command):
             with self.assertRaises(RuntimeError):m.apply(args)
         self.assertFalse((home/'.config').exists())
 
@@ -102,21 +108,21 @@ class TrialTests(unittest.TestCase):
     def test_automatic_accepted_timer_is_noop_but_manual_rollback_restores(self):
         directory=self.root/'state';directory.mkdir()
         state={'accepted':True,'files':{},'previous_environment':{}}
-        with patch.object(m,'load_state',return_value=state),patch.object(m,'cleanup_user_files',return_value=[]) as cleanup,patch.object(m,'restore_environment') as restore,patch.object(m,'run') as run:
+        with patch.object(m,'load_state',return_value=state),patch.object(m,'cleanup_user_files',return_value=[]) as cleanup,patch.object(m,'restore_environment') as restore,patch.object(m,'run') as run,patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}):
             m.rollback_locked(directory,automatic=True)
             cleanup.assert_not_called();run.assert_not_called()
             m.rollback_locked(directory,automatic=False)
             cleanup.assert_called_once();restore.assert_called_once_with({})
-            run.assert_called_once_with(['systemctl','restart','gdm.service'])
+            self.assertEqual([call.args[0] for call in run.call_args_list],[['systemctl','stop','gdm.service'],['systemctl','restart','user@1000.service'],['systemctl','start','gdm.service']])
             self.assertTrue(json.loads((directory/'state.json').read_text())['rolled_back'])
 
     def test_changed_owned_files_preserved_and_reported_after_recovery(self):
         directory=self.root/'state';directory.mkdir()
         state={'accepted':False,'files':{'changed':'hash'},'previous_environment':{}}
-        with patch.object(m,'load_state',return_value=state),patch.object(m,'cleanup_user_files',return_value=['changed']),patch.object(m,'restore_environment'),patch.object(m,'run') as run:
+        with patch.object(m,'load_state',return_value=state),patch.object(m,'cleanup_user_files',return_value=['changed']),patch.object(m,'restore_environment'),patch.object(m,'run') as run,patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}):
             with self.assertRaisesRegex(RuntimeError,'preserved modified'):
                 m.rollback_locked(directory)
-            run.assert_called_once_with(['systemctl','restart','gdm.service'])
+            self.assertEqual([call.args[0] for call in run.call_args_list],[['systemctl','stop','gdm.service'],['systemctl','restart','user@1000.service'],['systemctl','start','gdm.service']])
             self.assertEqual(json.loads((directory/'state.json').read_text())['rollback_preserved_changed_files'],['changed'])
 
     def test_explicit_accept_stops_only_its_timer_after_scoped_evidence(self):
@@ -171,7 +177,7 @@ class TrialTests(unittest.TestCase):
             barrier.wait(timeout=3)
             try:m.apply(types.SimpleNamespace(trial=name,build=build,expected_boot_sha256='b'*64));return 'applied'
             except RuntimeError as error:return str(error)
-        with patch.object(m,'private_root',return_value=True),patch.object(m,'STATE',self.root/'state'),patch.object(m,'verify_device'),patch.object(m,'verify_shell_command'),patch.object(m,'verify_build',return_value=receipt),patch.object(m.pwd,'getpwnam',return_value=types.SimpleNamespace(pw_uid=1000,pw_dir=str(home))),patch.object(m,'run',side_effect=command),patch.object(m,'write_user_files'):
+        with patch.object(m,'private_root',return_value=True),patch.object(m,'STATE',self.root/'state'),patch.object(m,'verify_device'),patch.object(m,'verify_shell_command'),patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}),patch.object(m,'verify_build',return_value=receipt),patch.object(m.pwd,'getpwnam',return_value=types.SimpleNamespace(pw_uid=1000,pw_dir=str(home))),patch.object(m,'run',side_effect=command),patch.object(m,'write_user_files'):
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
                 futures=[pool.submit(attempt,name) for name in ('first','second')]
                 results=[f.result(timeout=4) for f in futures]
@@ -205,6 +211,34 @@ class TrialTests(unittest.TestCase):
         link=build/'libgbm.so';link.symlink_to(outside)
         (build/'receipt.json').write_text(json.dumps({'phase':'built','outputs':outputs,'runtime_links':{str(link):str(outside)}}))
         with self.assertRaisesRegex(RuntimeError,'Build link changed'):m.verify_build(build)
+
+    def test_failed_shell_does_not_mark_gdm_job_success_as_desktop_recovery(self):
+        directory=self.root/'state';directory.mkdir()
+        state={'accepted':False,'files':{},'previous_environment':{}}
+        with patch.object(m,'load_state',return_value=state),patch.object(m,'cleanup_user_files',return_value=[]),patch.object(m,'restore_environment'),patch.object(m,'run') as run,patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':False}):
+            with self.assertRaisesRegex(RuntimeError,'GNOME desktop did not recover'):
+                m.rollback_locked(directory)
+        saved=json.loads((directory/'state.json').read_text())
+        self.assertTrue(saved['files_restored']);self.assertTrue(saved['environment_restored'])
+        self.assertTrue(saved['rolled_back']);self.assertFalse(saved['desktop_recovered'])
+        self.assertEqual(len(run.call_args_list),3) # one stop/reset/start, no retry
+
+    def test_shell_must_be_same_live_pid_for_three_observations(self):
+        samples=[{'shell_pid':1},{'shell_pid':1},{'shell_pid':2},{'shell_pid':2},{'shell_pid':2}]
+        with patch.object(m,'shell_metadata',side_effect=samples) as read,patch.object(m.time,'sleep'):
+            result=m.wait_stable_shell(Path('/usr/lib'))
+        self.assertTrue(result['desktop_recovered']);self.assertEqual(result['shell_pid'],2)
+        self.assertEqual(read.call_count,5)
+
+    def test_active_gdm_without_shell_cannot_satisfy_readiness(self):
+        with patch.object(m,'shell_metadata',return_value=None),patch.object(m.time,'monotonic',side_effect=[0,1,2,3]),patch.object(m.time,'sleep'):
+            self.assertEqual(m.wait_stable_shell(Path('/usr/lib'),timeout=3),{'desktop_recovered':False})
+
+    def test_failed_rollback_is_not_retried_by_later_automatic_timer(self):
+        state={'accepted':False,'rollback_attempted':True,'desktop_recovered':False}
+        with patch.object(m,'load_state',return_value=state),patch.object(m,'cleanup_user_files') as clean,patch.object(m,'run') as run:
+            m.rollback_locked(self.root,automatic=True)
+            clean.assert_not_called();run.assert_not_called()
 
 
 if __name__ == '__main__': unittest.main()

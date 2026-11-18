@@ -203,6 +203,52 @@ def restore_environment(previous):
     manager('daemon-reload')
 
 
+def shell_metadata(expected_prefix):
+    text = manager('show', 'org.gnome.Shell@wayland.service', '-p', 'ActiveState',
+                   '-p', 'MainPID', capture_output=True, timeout=5).stdout
+    values = dict(line.split('=', 1) for line in text.splitlines() if '=' in line)
+    try:
+        pid = int(values.get('MainPID', '0'))
+        if values.get('ActiveState') != 'active' or pid <= 0:
+            return None
+        process = Path('/proc') / str(pid)
+        if process.stat().st_uid != 1000:
+            return None
+        paths = {line.split()[-1] for line in (process / 'maps').read_text().splitlines()
+                 if any(name in line for name in ('libEGL_mesa', 'libgallium', 'libgbm'))}
+        if not all(any(name in path for path in paths) for name in ('libEGL_mesa', 'libgallium', 'libgbm')):
+            return None
+        if not all(Path(path).is_relative_to(expected_prefix) for path in paths):
+            return None
+        return {'shell_pid': pid, 'shell_graphics_paths': sorted(paths)}
+    except (OSError, ValueError):
+        return None
+
+
+def wait_stable_shell(expected_prefix, timeout=30):
+    deadline = time.monotonic() + timeout
+    last_pid, consecutive = None, 0
+    while time.monotonic() < deadline:
+        try: evidence = shell_metadata(expected_prefix)
+        except (subprocess.SubprocessError, OSError): evidence = None
+        if evidence:
+            consecutive = consecutive + 1 if evidence['shell_pid'] == last_pid else 1
+            last_pid = evidence['shell_pid']
+            if consecutive >= 3:
+                return dict(evidence, desktop_recovered=True)
+        else:
+            last_pid, consecutive = None, 0
+        time.sleep(1)
+    return {'desktop_recovered': False}
+
+
+def clean_user_manager():
+    # This ends ALL user-manager services. The root rollback job and tested SSH
+    # scope are independent; arbitrary user background apps are not preserved.
+    run(['systemctl', 'stop', 'gdm.service'], timeout=45)
+    run(['systemctl', 'restart', 'user@1000.service'], timeout=45)
+
+
 @contextmanager
 def lifecycle_lock(directory):
     load_state(directory)
@@ -218,16 +264,28 @@ def rollback(directory, automatic=False):
 
 def rollback_locked(directory, automatic=False):
     state = load_state(directory)
-    if state.get('accepted') and automatic:
+    if automatic and (state.get('accepted') or state.get('rollback_attempted')):
         return
     changed = cleanup_user_files(state['files'])
-    restore_environment(state['previous_environment'])
-    run(['systemctl', 'restart', 'gdm.service'])
-    state['rollback_preserved_changed_files'] = changed
-    state['rolled_back'] = True
+    state.update(rollback_attempted=True, rollback_preserved_changed_files=changed, files_restored=not changed,
+                 environment_restored=False, desktop_recovered=False, rolled_back=False)
     write_state(directory, state)
+    try:
+        clean_user_manager()
+        restore_environment(state['previous_environment'])
+        state['environment_restored'] = True
+        state['rolled_back'] = not changed
+        write_state(directory, state)
+        run(['systemctl', 'start', 'gdm.service'], timeout=45)
+        state.update(wait_stable_shell(Path('/usr/lib')))
+        write_state(directory, state)
+    except BaseException:
+        write_state(directory, state)
+        raise
     if changed:
         raise RuntimeError('Rollback preserved modified files; manual review required: ' + ', '.join(changed))
+    if not state['desktop_recovered']:
+        raise RuntimeError('Files/environment restored but GNOME desktop did not recover; no restart retry performed')
 
 
 def verify_device(args):
@@ -310,14 +368,19 @@ def apply(args):
         run(['systemctl', 'is-active', '--quiet', unit + '.timer'])
     try:
         write_user_files(files)
-        manager('unset-environment', *VARIABLES)
-        manager('set-environment', *[key + '=' + value for key, value in environment.items()])
-        manager('daemon-reload')
-        run(['systemctl', 'restart', 'gdm.service'])
+        clean_user_manager()
+        restore_environment(environment)
+        state['environment_applied'] = True
+        write_state(directory, state)
+        run(['systemctl', 'start', 'gdm.service'], timeout=45)
+        state.update(wait_stable_shell(build.resolve()))
+        write_state(directory, state)
+        if not state['desktop_recovered']:
+            raise RuntimeError('Trial GNOME Shell did not become stable; reverting once')
     except BaseException:
         rollback(directory)
         raise
-    print('Trial staged and GDM restarted. Root rollback timer remains armed for five minutes.')
+    print('Trial Shell was stable for three observations. The original five-minute rollback timer remains armed.')
     print('Inspect actual SSH, Shell DSO maps and kernel health before explicit accept.')
 
 
