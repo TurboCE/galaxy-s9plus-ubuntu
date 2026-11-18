@@ -32,6 +32,13 @@ systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target 
 grep -q '^PAN_MAX_AFBC_PACKING_RATIO=' /etc/environment ||
 	echo 'PAN_MAX_AFBC_PACKING_RATIO=0' >> /etc/environment
 
+# G965N / Mali-G72: CRC transaction elimination reproduced fragment job hangs
+# in Mesa25.2.8. nocrc passed the complete33-scene hardware suite with normal
+# DVFS/runtime PM. Keep hardware acceleration; avoid this unqualified fast path.
+# Preserve an existing explicit user debug policy rather than overwriting it.
+grep -q '^PAN_MESA_DEBUG=' /etc/environment ||
+	echo 'PAN_MESA_DEBUG=nocrc' >> /etc/environment
+
 cat > /etc/fstab <<'FSTAB'
 # The initramfs mounts USERDATA (/dev/sda25) as the root filesystem.
 LABEL=s9plus-root  /  ext4  defaults,noatime  0 0

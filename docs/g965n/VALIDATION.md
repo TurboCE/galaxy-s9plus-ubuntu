@@ -13,14 +13,14 @@ A build or a driver node is not sufficient evidence of a working function.
 | Native builds / Git | Git clone+pull; real fixdep C source compiled on each CPU, 8 identical object hashes | Short test passed |
 | Storage | USERDATA mounted as root and grew to 230GiB | Verified |
 | Display / touch | Owner confirmed desktop/touch; 2x desktop scaling persisted at 720x1480 logical pixels | Basic interaction verified; apps wider than 720 minimum still need adaptations |
-| GPU | Mali-G72/Panfrost GLES3.1; offscreen 100 texture/shader frames, 6,553,600 exact bytes, no new kernel faults in that interval | Basic readback passed; full33-scene sequence reproduces scheduler timeouts, including at fixed260MHz and with per-client AFBC off; unresolved |
+| GPU | nocrc: two full33-scene passes +100 exact frames each, including warm reboot and27 power cycles; Firefox120 frames /30MiB exact | CRC-enabled path reproduces hangs; nocrc mitigation qualified only for bounded tests. 768MiB pressure exposes ENOMEM; high-bank allocation corrupts pixels and was reverted. Long stability/pressure fix pending |
 | Wi-Fi | Connected; HTTPS200 explicitly bound to Wi-Fi; NTP synchronized | Data path verified; long reconnect tests pending |
 | USB networking / SSH | Mac received address automatically; key-only SSH works | Verified |
 | Manual wired disconnect recovery | Console identified Wi-Fi path; privileged reconnection + gadget rebind restored USB SSH | Verified |
 | System services | No failed system units during initial checks | Short observation only |
 | LTE / voice / SMS | Private-copy RFS replies; active KT phone SIM; combined CS/PS profile; repeated CEREG0,1 | Home LTE/EPS registration verified; PDP/IP/Internet, voice and SMS pending |
-| Speakers / microphone / headset | ABOX CRL0 booted; 2s silent PCM, 3s capture; two test frequencies observed in 5s capture; owner heard two quiet tones | Basic speaker/mic path passed; UCM exposes GNOME input/output; headset/call audio/quality and reboot persistence pending |
-| Bluetooth | hci0 firmware loaded at 3Mbaud; discovery found 12 peer addresses; missing AES supplied and controller power cycle passed | Discovery verified; pairing, audio and reboot persistence pending |
+| Speakers / microphone / headset | ABOX CRL0 booted; 2s silent PCM, 3s capture; two test frequencies observed in 5s capture; owner heard two quiet tones | Basic speaker/mic path passed; UCM exposes GNOME input/output; headset/call audio/quality pending; exact-BOOT startup and GNOME devices persisted on#8 |
+| Bluetooth | hci0 firmware loaded at 3Mbaud; discovery found 12 peer addresses; missing AES supplied and controller power cycle passed | Discovery verified; exact-BOOT startup persisted on#8; pairing/audio pending |
 | Accelerometer / gyroscope | Own SSP probe: chip0x55, firmware21031900; 19 accel and18 gyro samples with varying raw values | Raw readings verified; axes/calibration/automatic rotation and persistence pending |
 | Compass / light / proximity / other hub sensors | Hub enumerated a sensor mask; no individual sample validation yet | Not normal yet |
 | Korean text | Noto CJK/emoji installed; ko fallback selects KR; Pango Korean sample has 0 missing glyphs | Font coverage verified; live app refresh may be needed |

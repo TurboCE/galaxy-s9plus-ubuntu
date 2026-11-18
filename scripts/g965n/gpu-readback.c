@@ -23,8 +23,34 @@ static GLuint shader(GLenum type, const char *source)
     if (!ok) { char log[2048]; glGetShaderInfoLog(s, sizeof(log), NULL, log); fprintf(stderr, "%s\n", log); fail("shader compilation"); }
     return s;
 }
-int main(void)
+static void pressure_color(unsigned index, unsigned char *color)
 {
+    color[0] = (index * 17) & 255;
+    color[1] = (index * 37) & 255;
+    color[2] = (index * 61 + (index >> 8) * 53) & 255;
+    color[3] = 255;
+}
+static void pressure_verify(GLuint texture, unsigned index, unsigned char *output)
+{
+    unsigned char color[4]; pressure_color(index, color);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); glFinish();
+    glReadPixels(0, 0, W, W, GL_RGBA, GL_UNSIGNED_BYTE, output);
+    if (glGetError() != GL_NO_ERROR) fail("pressure render/readback");
+    for (unsigned i = 0; i < BYTES; i++)
+        if (output[i] != color[i % 4]) fail("pressure texture mismatch");
+}
+int main(int argc, char **argv)
+{
+    unsigned pressure_mib = 0;
+    if (argc != 1) {
+        char *end = NULL;
+        unsigned long value = argc == 3 ? strtoul(argv[2], &end, 10) : 0;
+        if (argc != 3 || strcmp(argv[1], "--pressure-mib") || !end || *end || value < 32 || value > 1024) {
+            fprintf(stderr, "Usage: %s [--pressure-mib 32..1024]\n", argv[0]); return 2;
+        }
+        pressure_mib = (unsigned)value;
+    }
     PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform = (void *)eglGetProcAddress("eglGetPlatformDisplayEXT");
     if (!get_platform) fail("no platform display extension");
     EGLDisplay d = get_platform(EGL_PLATFORM_SURFACELESS_MESA, EGL_DEFAULT_DISPLAY, NULL);
@@ -57,16 +83,45 @@ int main(void)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glDisable(GL_DITHER); glDisable(GL_BLEND); glViewport(0, 0, W, W);
     unsigned char input[BYTES], output[BYTES];
+    GLuint *pool = NULL;
+    if (pressure_mib) {
+        /* One 512x512 RGBA texture has 1MiB nominal pixel data; retain every live GL object. */
+        unsigned char *data = malloc(1U << 20);
+        pool = calloc(pressure_mib, sizeof(*pool));
+        if (!data || !pool) fail("pressure allocation");
+        glGenTextures(pressure_mib, pool);
+        for (unsigned t = 0; t < pressure_mib; t++) {
+            unsigned char color[4]; pressure_color(t, color);
+            for (unsigned i = 0; i < (1U << 20); i++) data[i] = color[i % 4];
+            glBindTexture(GL_TEXTURE_2D, pool[t]);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 512, 512, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+            if (glGetError() != GL_NO_ERROR) fail("pressure texture upload");
+            pressure_verify(pool[t], t, output);
+        }
+        free(data);
+        glBindTexture(GL_TEXTURE_2D, tex);
+    }
     for (unsigned frame = 0; frame < 100; frame++) {
         for (unsigned i = 0; i < BYTES; i++) input[i] = (i * 37 + (i >> 8) + frame * 19) & 255;
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, W, W, 0, GL_RGBA, GL_UNSIGNED_BYTE, input);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); glFinish();
+        /* Leave GPU-written data unread across runtime idle. Reading before
+         * sleeping can flush it and hide loss during core/domain power-off.
+         * Keep the surface/context/texture alive; do not upload or redraw. */
+        if (frame % 10 == 9) usleep(250000);
         glReadPixels(0, 0, W, W, GL_RGBA, GL_UNSIGNED_BYTE, output);
         if (glGetError() != GL_NO_ERROR) fail("render/readback");
         if (memcmp(input, output, BYTES)) { fprintf(stderr, "pixel mismatch frame=%u\n", frame); return 1; }
-        if (frame % 10 == 9) usleep(250000); /* keep resources alive across idle */
     }
     printf("PASS frames=100 compared_bytes=%u mismatches=0\n", 100 * BYTES);
+    if (pool) {
+        /* Recheck all retained textures after allocation churn and idle. */
+        for (unsigned t = 0; t < pressure_mib; t++) pressure_verify(pool[t], t, output);
+        printf("PRESSURE_PASS live_texture_mib=%u mismatches=0\n", pressure_mib);
+        glDeleteTextures(pressure_mib, pool); free(pool);
+    }
     glDeleteTextures(1, &tex); glDeleteProgram(p);
     eglMakeCurrent(d, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     eglDestroyContext(d, ctx); eglDestroySurface(d, surface); eglTerminate(d);

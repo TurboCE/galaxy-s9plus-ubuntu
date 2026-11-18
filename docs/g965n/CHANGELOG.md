@@ -426,3 +426,62 @@ host build wrapper already supplies the revision. Kernel/image bytes unchanged.
 Staged exact#8 audio/Bluetooth guards; no module load during staging. Repeated
 physical EFS/CPEFS/RADIO hashes exactly match the pre-kernel backup after RFS tests.
 Requested recovery reboot; BOOT not yet written at this checkpoint.
+
+## 2026-11-19 — Diagnostic kernel boot and allocation comparison
+
+Fresh nine-partition recovery backup passed size/hash checks. The guarded BOOT-only
+writer verified image0084314e... readback, then Ubuntu booted kernel#8. Exact-BOOT
+audio/Bluetooth startup guards passed; both services active, hci0 and PCM nodes
+present, PipeWire exposes Phone speakers and microphone. This proves startup
+binding/policy, not another acoustic or Bluetooth peer test. #7 was never flashed.
+
+Default#8 completed100 exact readback frames and all33 scenes, but35 matching GPU
+error log lines made qualification fail. The new timeout diagnostic identifies
+actual glmark jobs as well as compositor jobs. Turned s9p_lowmem_bos=N only after
+that suite ended. Unrestricted new allocations still completed the suites but
+produced73 error log lines, so this does NOT fix scheduler hangs. A separate
+memory-pressure reproduction is still necessary for the backing-allocation issue.
+
+Next isolated runtime suspend using the GPU device's power/control=on (not just
+the G3D-domain always_on override, which still allows Panfrost internal core/L2
+shutdown). A POSIX-sh readback command used unsupported brace expansion after
+the write; explicit paths confirm the device policy is on. Test outcome pending.
+Review also found the original readback test slept AFTER reading pixels, which
+could flush dirty contents before idle. Moved idle before readback without an
+intervening upload/redraw to test preservation more directly. Not yet run.
+
+## 2026-11-19 — CRC hang isolation, reboot pass and memory-pressure failure
+
+Keeping internal GPU power on, even combined with a fixed260MHz clock, did not
+clear the33-scene hangs. Restored power/control=auto and max572MHz. Isolated the
+ideas scene using sync mode: nofp16, nocache and linear still aborted with a GPU
+timeout. nocrc passed; noafbc also passed that single scene. This implicates the
+CRC/AFBC path but does not prove which hardware/driver mechanism is responsible.
+
+With only PAN_MESA_DEBUG=nocrc (no sync), normal DVFS/runtime PM and the original
+low-memory BO policy,100 exact frames and all33 scenes passed with zero GPU
+error lines. Added nocrc to the image environment and current handset; preserved
+the original environment privately. Warm reboot succeeded. Repeated the suite
+while an interactive client ran: zero errors,100 exact frames,33 complete scenes,
+and G3D counters increased by27 power-on/off pairs. The revised readback waits
+before reading, so dirty output spans idle without another upload/draw.
+
+A separate Firefox WebGL test compared120 frames /31,457,280bytes with zero
+mismatches/context loss. Firefox exposed the privacy-normalized renderer string
+'Mali-G51, or similar'; the native EGL probe reports the physical Mali-G72, and
+Firefox holds renderD128. Do not describe the privacy string as another GPU.
+This is bounded functional evidence, not a long desktop soak or video-codec test.
+
+Added an optional live-texture pressure test. At768MiB nominal texture data, the
+original low-RAM policy failed with CREATE_BO errno12 and the new diagnostic
+confirmed BO backing err=-12, while system MemAvailable remained over2GiB.
+Unrestricted allocation repeated that workload but produced a pixel mismatch
+and DATA_INVALID_FAULT. Immediately restored s9p_lowmem_bos=Y. Thus merely
+removing the restriction is unsafe and is NOT an installed fix. No default for
+unrestricted buffers or a no-suspend/fixed-clock policy was installed.
+
+The Lineage kernel configuration selects bv_r38p1. Its GPL device initialization
+unconditionally chooses AArch64 page tables; the current generic Panfrost match
+uses legacy Mali-LPAE. Hardware MMU_FEATURES=0x2830 advertises48-bit VA/40-bit PA.
+This is a specific source-backed lead for the high-bank failure, not a confirmed
+cause. A board-specific match using upstream's existing AARCH64 support is next.

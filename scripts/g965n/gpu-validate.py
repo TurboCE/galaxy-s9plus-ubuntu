@@ -34,11 +34,26 @@ def run(command, environment, timeout):
         return 124, output + '\nQUALIFICATION_TIMEOUT\n'
 
 
+def snapshot():
+    settings = {}
+    for pattern in ['/sys/bus/platform/devices/17500000.gpu/power/control',
+                    '/sys/bus/platform/devices/17500000.gpu/power/autosuspend_delay_ms',
+                    '/sys/class/devfreq/*.gpu/governor', '/sys/class/devfreq/*.gpu/min_freq',
+                    '/sys/class/devfreq/*.gpu/max_freq', '/sys/module/s9p_g3d/parameters/*',
+                    '/sys/module/s9p_g3d_pd/parameters/*', '/sys/module/panfrost/parameters/s9p_*']:
+        for name in glob.glob(pattern):
+            try:
+                settings[name] = Path(name).read_text().strip()
+            except OSError:
+                pass
+    return settings
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True, help='New private directory outside published artifacts')
     parser.add_argument('--readback', type=Path, required=True, help='Compiled gpu-readback.c')
-    parser.add_argument('--mesa-debug', choices=['normal', 'noafbc', 'sync'], default='normal')
+    parser.add_argument('--mesa-debug', choices=['normal', 'noafbc', 'nocrc', 'sync'], default='normal')
     parser.add_argument('--cooldown', type=int, choices=range(0, 31), default=5)
     args = parser.parse_args()
     if b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):
@@ -63,15 +78,7 @@ def main():
         env.pop('PAN_MESA_DEBUG', None)
         if args.mesa_debug != 'normal':
             env['PAN_MESA_DEBUG'] = args.mesa_debug
-        settings = {}
-        for pattern in ['/sys/class/devfreq/*.gpu/governor', '/sys/class/devfreq/*.gpu/min_freq',
-                        '/sys/class/devfreq/*.gpu/max_freq', '/sys/module/s9p_g3d/parameters/*',
-                        '/sys/module/s9p_g3d_pd/parameters/*', '/sys/module/panfrost/parameters/s9p_*']:
-            for name in glob.glob(pattern):
-                try:
-                    settings[name] = Path(name).read_text().strip()
-                except OSError:
-                    pass
+        settings = snapshot()
         results = {}
         commands = [('readback', [str(args.readback.resolve())], 30),
                     ('scenes', ['glmark2-es2-wayland', '--size', '512x512', '--benchmark', ':duration=1'], 90)]
@@ -88,7 +95,8 @@ def main():
         faults = [line for line in delta.splitlines() if FAULT.search(line)]
         passed = all(r['exit'] == 0 and r['physical_mali'] and r['complete'] for r in results.values()) and not faults
         receipt = {'kernel': os.uname().release, 'kernel_version': os.uname().version,
-                   'mesa_debug': args.mesa_debug, 'settings_before': settings, 'tests': results,
+                   'mesa_debug': args.mesa_debug, 'settings_before': settings,
+                   'settings_after': snapshot(), 'tests': results,
                    'kernel_fault_lines': len(faults), 'passed': passed,
                    'scope': 'bounded rendering only; not reboot, browser, video decoding or long-term stability'}
         (args.output / 'result.json').write_text(json.dumps(receipt, indent=2) + '\n')
