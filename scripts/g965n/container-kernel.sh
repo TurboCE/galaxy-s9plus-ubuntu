@@ -2,6 +2,14 @@
 # SPDX-License-Identifier: GPL-2.0-only
 set -euo pipefail
 cd /src
+# A managed worktree's .git file may point outside the container. The host
+# wrapper supplies its revision; direct callers must do the same if needed.
+project_commit=${S9_PROJECT_COMMIT:-}
+if [[ -z "$project_commit" ]]; then
+  project_commit=$(git rev-parse HEAD) || { echo 'Set S9_PROJECT_COMMIT from the host checkout.'; exit 1; }
+fi
+[[ "$project_commit" =~ ^[0-9a-f]{40}$ ]] || { echo 'Invalid source commit receipt.'; exit 1; }
+export S9_PROJECT_COMMIT="$project_commit"
 export BUILD=/build BUILD_IMG= UBUNTU_MIRROR=https://ports.ubuntu.com/ubuntu-ports
 for f in bcmdhd_sta.bin_b2 nvram.txt_r02a_b2 bcmdhd_clm.blob regulatory.db regulatory.db.p7s; do
   test -s "firmware/$f" || { echo "Missing local firmware/$f. See firmware/README.md."; exit 1; }
@@ -46,7 +54,7 @@ TWRP_IMG=/build/reference/twrp.img bash scripts/build/pack_uniloader.sh "$out" "
 mkdir -p dist/g965n
 cp /build/firmware-inputs.sha256 dist/g965n/
 dpkg-query -W > dist/g965n/build-host-packages.txt
-printf '%s\n' "${S9_PROJECT_COMMIT:-$(git rev-parse HEAD)}" > dist/g965n/project-commit.txt
+printf '%s\n' "$S9_PROJECT_COMMIT" > dist/g965n/project-commit.txt
 git -C /build/src/mainline rev-parse HEAD > dist/g965n/kernel-commit.txt
 sha256sum /build/out/busybox-arm64 > dist/g965n/busybox.sha256
 sha256sum "dist/uniloader/$name" > dist/g965n/boot.sha256

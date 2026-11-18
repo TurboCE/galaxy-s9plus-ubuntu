@@ -19,6 +19,8 @@ def main():
     p.add_argument('--source-commit', required=True)
     p.add_argument('--features', nargs='+', choices=FILES, required=True)
     a = p.parse_args()
+    if not re.fullmatch(r'[0-9a-f]{40}', a.source_commit):
+        raise SystemExit('Provide the actual host source commit')
     version = re.search(r'^#define UTS_VERSION "([^"]+)"$',
         (a.kernel_out / 'include/generated/utsversion.h').read_text(), re.M)
     if not version:

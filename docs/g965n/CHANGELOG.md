@@ -415,3 +415,14 @@ s9p_lowmem_bos switch for NEW allocations only, defaulting to the old policy.
 No existing buffer is moved; unrestricted allocations may fail DECON import and
 require rollback. These are diagnostic changes, not a claimed GPU repair.
 The owner explicitly authorized continuing reboot tests after using the device.
+
+Diagnostic kernel#8 built: BOOT0084314ebcdfbe15d57e804b20e72d254682f840b5e5dd905e62fa9c95204b17,
+27,088,912bytes, UTS#8 Nov18 15:32:53UTC. The direct container call initially
+could not resolve the host worktree's external .git pointer, leaving a blank
+source receipt. Regenerated the receipt with the actual host a3f3c66 revision;
+a mistyped intermediate receipt was corrected before deployment. Added a
+fail-fast source-revision check for future direct container calls. The normal
+host build wrapper already supplies the revision. Kernel/image bytes unchanged.
+Staged exact#8 audio/Bluetooth guards; no module load during staging. Repeated
+physical EFS/CPEFS/RADIO hashes exactly match the pre-kernel backup after RFS tests.
+Requested recovery reboot; BOOT not yet written at this checkpoint.
