@@ -1718,3 +1718,40 @@ existing actual#18 full33 log and all33 complete rows were accepted. No raw
 fixture is published. This is workload-completion validation, not an identity
 audit of every possible benchmark scene or a substitute for GPU fault checks.
 The next hardware full-suite run remains separate from this source check.
+
+## 2026-11-19 — Isolated full-height full-suite rendering completes
+
+One strict full-profile run passed100 exact128x128 readbacks, all33 complete
+positive FPS/FrameTime scenes and fullscreen FIFO61/61/61fps, with0 new matching
+GPU journal faults, scheduler timeouts or soft-stop failures. Actual scene/FIFO
+glmark maps prove private patched EGL/Gallium/GBM. All13605 scene and728 FIFO
+commits are1440x2960/U-tiled; no unknown commit. Big/GPU maximum76/68C, no thermal
+abort. Restored original display-off/locked state/settings; no glmark remains.
+
+The100us IRQ shadow-check rejection counter increased1→2 inside the public
+workload interval. The40ms generation-wait timeout counter stayed0; generation
+marks and waits both increased5836→8571. This counter rejects an IRQ that cannot
+yet certify the pending generation and is not itself a50ms flip failure. No
+per-scene counter sample exists, so its frame impact remains undetermined.
+Neither ignore it nor label a proven missed frame from this observation alone.
+The system compositor still uses system Mesa; desktop animation and long
+endurance with the new stack remain separate qualifications.
+
+## 2026-11-19 — Source fixes for bounded Wi-Fi diagnosis and PMIC correctness
+
+Integrated exact-hash source helpers into the build-only kernel patch step.
+Wi-Fi logs only rate-limited numeric selected command/firmware status and P2P
+IF-event metadata. No payload/MAC/SSID/credentials. A separate minimum IF-event
+length check rejects0..4-byte records before existing readers and frees once;
+valid event behavior is unchanged. This does not implement a P2P workaround.
+
+PMIC patches correct RGB single/multicolor object identity, LEDEN mask/value
+order and error propagation, plus verified MAX77705 bias02/bit7 and supply-error
+rollback. Preserve all upstream license notices, including ISC Wi-Fi and the
+GPL-2.0-or-later haptic notice; project helpers/tests retain GPL-2.0-only.
+16 actual PMIC C scenarios and exact-hash/idempotence checks passed; Wi-Fi
+production-function tests passed AddressSanitizer/UndefinedBehaviorSanitizer,
+filter/redaction/return/short-event checks. Root independently repeated both
+Linux-host test sets successfully. No DT/config/hardware enabling, kernel
+deployment or RGB/haptic/P2P hardware success is implied. ARM64 compilation
+and actual device trials remain separate pending steps.

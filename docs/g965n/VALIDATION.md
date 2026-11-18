@@ -13,7 +13,7 @@ A build or a driver node is not sufficient evidence of a working function.
 | Native builds / Git | Git clone+pull; real fixdep C source compiled on each CPU, 8 identical object hashes | Short test passed |
 | Storage | USERDATA mounted as root and grew to 230GiB | Verified |
 | Display / touch | Owner confirmed desktop/touch; 2x desktop scaling persisted at 720x1480 logical pixels | #14 touch binds after rail reset with no initial I2C timeout; basic interaction previously owner verified; apps wider than 720 minimum still need adaptations |
-| GPU | #14 same-kernel FIFO old31/31/31fps → latch60/61/61fps; #18 full33 +FIFO61/61/61fps at requested512x512 and independent128x128 readback100 pass,0 matching faults/new IRQ-check timeouts, runtime PM/DVFS retained | One-frame delay and repeated process polling reduced in bounded tests; generation-associated completion passed bounded hardware cadence test; #16 later idle vblank timeout prompted #18 tracked-tail/initial-enable fix; four bounded DPMS cycles/idle/SSH passed with0 new matching errors; owner reports improvement but residual desktop stutter;1440x2960 full33 stress FAILED with3 glmark scheduler timeouts despite FIFO61x3; #21 public targeted3-scene run stillFAILED with5 scheduler timeouts, all cores ready. nocrc remains required, lowmemY retained; private-high/shared-low allocation and long stability pending |
+| GPU | #21 isolated patched Mesa with nocrc,noafbc: exact128x128 readback100, full33 positive scene rows, fullscreen1440x2960 U-tiled presentation and FIFO61/61/61fps;0 new matching GPU faults/timeouts; actual private-library maps verified | Bounded isolated rendering passed.100us IRQ generation-check rejections +1 with40ms completion wait failures0; frame impact unconfirmed. System desktop remains on the previously failing Mesa stack. Desktop/browser/endurance, CRC-enabled operation and allocation policy remain unqualified |
 | Wi-Fi | Connected; HTTPS200 explicitly bound to Wi-Fi; NTP synchronized | Data path verified; long reconnect tests pending |
 | Wi-Fi Direct / roaming | #21 P2P creation waits for IF_ADD and fails; roam-trigger firmware command rejected with collapsed error -52 | P2P not normal; roaming cause and actual handover unverified |
 | USB networking / SSH | Mac received address automatically; key-only SSH works | Verified |
@@ -25,6 +25,7 @@ A build or a driver node is not sufficient evidence of a working function.
 | Accelerometer / gyroscope | Own SSP probe: chip0x55, firmware21031900; 19 accel and18 gyro samples with varying raw values | Raw readings verified; axes/calibration/automatic rotation and persistence pending |
 | Compass / light / proximity / other hub sensors | #15 isolated hub advertises light9; lux18 format sample received, actual fresh count1 in60s, lux/RGBW0; physical illumination not confirmed | Optical response, IIO/automatic brightness and other individual sensors remain unverified |
 | Korean text | Noto CJK/emoji installed; ko fallback selects KR; Pango Korean sample has 0 missing glyphs | Font coverage verified; live app refresh may be needed |
+| Vibration / notification RGB | Source audit found missing DT/config connections and upstream object/mask/bias errors; reviewed source fixes pass host C tests only | Not enabled or hardware-qualified; PWM clocks/supply/current limits and stock behavior parity pending |
 | Cameras / flash / hardware video codecs | No full pipeline tested | Pending port/validation |
 | GPS / NFC / fingerprint / other Lineage-supported sensors | No end-to-end test yet | Pending port/validation |
 | Buttons / brightness / USB OTG / fast charging | #16 non-root GPIO reader/seat ACL verified; #18 four direct DPMS cycles retained background heartbeats and fresh SSH,0 new matching display/GPU errors; original state restored | Screen-only software path verified; physical short/long button interaction, brightness, OTG and fast-charge negotiation pending |
@@ -55,9 +56,9 @@ ARM64 ELF headers verified. An isolated128x128/100-frame readback then passed
 with zero pixel mismatches/new matching kernel faults and private-library load
 proof. A later patched windowed native-request targeted run passed3/3 scenes
 with0 new GPU faults/timeouts and actual U-tiled presentation/private-library
-maps. Most buffers were1440x2896; steady full-height, full-suite and desktop
-qualification remain pending. The desktop still uses system Mesa.
+maps. Most windowed buffers were1440x2896. The desktop still uses system Mesa.
 
 A separate isolated fullscreen targeted run now passes3/3 with all11772
-committed buffers1440x2960/U-tiled and0 new GPU faults/timeouts. Full33/FIFO,
-desktop and endurance qualification are still pending; system Mesa unchanged.
+committed buffers1440x2960/U-tiled and0 new GPU faults/timeouts. The later full33/FIFO suite also completes without new GPU journal faults,
+with one internal100us IRQ-check rejection of undetermined frame impact.
+Desktop and endurance qualification remain pending; system Mesa unchanged.

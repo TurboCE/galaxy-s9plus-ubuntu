@@ -4,6 +4,7 @@ Idempotent: runs before every build, does nothing if the entries are already
 there. Takes the kernel source directory as its only argument.
 """
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -1190,6 +1191,7 @@ if 'S9P_TOUCH_RAIL_READY' not in touch:
         '\t\t\t\t     "waiting for touch rail reset\\n");\n\n' + anchor, 1)
     touch_path.write_text(touch)
 
+
 # touchscreen_parse_properties(..., true) configures MT axes. Check those,
 # not unused legacy ABS_X/Y, and keep the warning for genuinely unset axes.
 touch = touch_path.read_text()
@@ -1202,3 +1204,12 @@ if 'S9P_TOUCH_MT_AXIS_CHECK' not in touch:
         '\tif (!input_abs_get_max(sdata->input, ABS_MT_POSITION_X) ||\n'
         '\t    !input_abs_get_max(sdata->input, ABS_MT_POSITION_Y)) {', 1)
     touch_path.write_text(touch)
+
+
+# Reviewed source-only fixes. These helpers never enable hardware or flash;
+# they reject unknown source/patch hashes before modifying their target files.
+subprocess.run([sys.executable, str(Path(__file__).with_name('g965n-wifi-diagnostics.py')),
+                str(src)], check=True)
+subprocess.run([sys.executable,
+                str(Path(__file__).resolve().parents[2] / 'experiments/pmic/apply.py'),
+                'apply', '--kernel-source', str(src)], check=True)

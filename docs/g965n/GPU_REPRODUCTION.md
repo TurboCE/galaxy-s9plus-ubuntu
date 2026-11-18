@@ -46,6 +46,11 @@ the expected default workload's completion, not every possible GPU operation.
 Keep the output directory private. `result.json` records the selected profile,
 expected and observed completeness, requested/reported surfaces, actual kernel,
 settings and new kernel faults. A high score or 61fps does not override faults.
+Also inspect display counters in `settings_before`/`settings_after`:
+`irq_latch_check_timeouts` counts100us generation-certification rejections,
+not necessarily a failed50ms hardware flip. A positive delta needs separate
+interpretation even when the bounded rendering/journal check passes; it is not
+proof of flawless presentation or, by itself, proof of a missed frame.
 Timeline capture uses nonblocking reads with a fixed deadline, kills the command
 process group on failure, and waits for the direct child during cleanup. Silent
 commands and output without a final newline cannot extend the deadline. Exit

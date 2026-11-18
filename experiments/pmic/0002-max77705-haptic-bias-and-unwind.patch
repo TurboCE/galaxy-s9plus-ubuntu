@@ -1,0 +1,45 @@
+--- a/drivers/input/misc/max77693-haptic.c
++++ b/drivers/input/misc/max77693-haptic.c
+@@ -86,15 +86,24 @@
+ 
+ static int max77843_haptic_bias(struct max77693_haptic *haptic, bool on)
+ {
+-	int error;
+-
+-	if (haptic->dev_type != TYPE_MAX77843)
++	unsigned int reg, mask;
++	int error;
++
++	switch (haptic->dev_type) {
++	case TYPE_MAX77705:
++		reg = MAX77705_PMIC_REG_MAINCTRL1;
++		mask = MAX77705_MAINCTRL1_BIASEN_MASK;
++		break;
++	case TYPE_MAX77843:
++		reg = MAX77843_SYS_REG_MAINCTRL1;
++		mask = MAX77843_MAINCTRL1_BIASEN_MASK;
++		break;
++	default:
+ 		return 0;
+-
+-	error = regmap_update_bits(haptic->regmap_haptic,
+-				   MAX77843_SYS_REG_MAINCTRL1,
+-				   MAX77843_MAINCTRL1_BIASEN_MASK,
+-				   on << MAINCTRL1_BIASEN_SHIFT);
++	}
++
++	error = regmap_update_bits(haptic->regmap_haptic, reg, mask,
++				   on ? mask : 0);
+ 	if (error) {
+ 		dev_err(haptic->dev, "failed to %s bias: %d\n",
+ 			str_enable_disable(on), error);
+@@ -278,6 +287,9 @@
+ 	if (error) {
+ 		dev_err(haptic->dev,
+ 			"failed to enable regulator: %d\n", error);
++		/* Roll back only the newly supported variant; keep the first error. */
++		if (haptic->dev_type == TYPE_MAX77705)
++			max77843_haptic_bias(haptic, false);
+ 		return error;
+ 	}
+ 

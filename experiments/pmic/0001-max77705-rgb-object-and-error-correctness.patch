@@ -1,0 +1,87 @@
+--- a/drivers/leds/leds-max77705.c
++++ b/drivers/leds/leds-max77705.c
+@@ -35,11 +35,10 @@
+ 	.max_register = MAX77705_LED_REG_END,
+ };
+ 
+-static int max77705_rgb_blink(struct led_classdev *cdev,
++static int max77705_rgb_blink_apply(struct max77705_led *led,
+ 				unsigned long *delay_on,
+ 				unsigned long *delay_off)
+ {
+-	struct max77705_led *led = container_of(cdev, struct max77705_led, cdev);
+ 	int value, on_value, off_value;
+ 
+ 	if (*delay_on < MAX77705_RGB_DELAY_100_STEP)
+@@ -76,6 +75,23 @@
+ 	return regmap_write(led->regmap, MAX77705_RGBLED_REG_LEDBLNK, value);
+ }
+ 
++static int max77705_rgb_blink_single(struct led_classdev *cdev,
++				   unsigned long *delay_on, unsigned long *delay_off)
++{
++	struct max77705_led *led = container_of(cdev, struct max77705_led, cdev);
++
++	return max77705_rgb_blink_apply(led, delay_on, delay_off);
++}
++
++static int max77705_rgb_blink_multi(struct led_classdev *cdev,
++				  unsigned long *delay_on, unsigned long *delay_off)
++{
++	struct led_classdev_mc *mcdev = lcdev_to_mccdev(cdev);
++	struct max77705_led *led = container_of(mcdev, struct max77705_led, mcdev);
++
++	return max77705_rgb_blink_apply(led, delay_on, delay_off);
++}
++
+ static int max77705_led_brightness_set(struct regmap *regmap, struct mc_subled *subled,
+ 				int num_colors)
+ {
+@@ -101,9 +117,11 @@
+ 
+ 			ret = regmap_update_bits(regmap,
+ 					MAX77705_RGBLED_REG_LEDEN,
+-					LED_ON << MAX77705_LED_EN_SHIFT(channel),
+-					MAX77705_LED_EN_MASK << MAX77705_LED_EN_SHIFT(channel));
++					MAX77705_LED_EN_MASK << MAX77705_LED_EN_SHIFT(channel),
++					LED_ON << MAX77705_LED_EN_SHIFT(channel));
+ 		}
++		if (ret)
++			return ret;
+ 	}
+ 
+ 	return ret;
+@@ -189,7 +207,7 @@
+ 		cdev = &led->mcdev.led_cdev;
+ 		cdev->max_brightness = MAX77705_LED_MAX_BRIGHTNESS;
+ 		cdev->brightness_set_blocking = max77705_led_brightness_set_multi;
+-		cdev->blink_set = max77705_rgb_blink;
++		cdev->blink_set = max77705_rgb_blink_multi;
+ 
+ 		fwnode_for_each_child_node(np, child) {
+ 			ret = max77705_parse_subled(dev, child, &info[i]);
+@@ -208,7 +226,7 @@
+ 		if (ret)
+ 			return ret;
+ 
+-		ret = max77705_led_brightness_set_multi(&led->cdev, LED_OFF);
++		ret = max77705_led_brightness_set_multi(cdev, LED_OFF);
+ 		if (ret)
+ 			return ret;
+ 	} else {
+@@ -216,11 +234,13 @@
+ 		if (!info)
+ 			return -ENOMEM;
+ 
+-		max77705_parse_subled(dev, np, info);
++		ret = max77705_parse_subled(dev, np, info);
++		if (ret)
++			return ret;
+ 
+ 		led->subled_info = info;
+ 		led->cdev.brightness_set_blocking = max77705_led_brightness_set_single;
+-		led->cdev.blink_set = max77705_rgb_blink;
++		led->cdev.blink_set = max77705_rgb_blink_single;
+ 		led->cdev.max_brightness = MAX77705_LED_MAX_BRIGHTNESS;
+ 
+ 		ret = devm_led_classdev_register_ext(dev, &led->cdev, &init_data);

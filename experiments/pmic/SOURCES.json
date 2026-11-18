@@ -1,0 +1,22 @@
+{
+  "upstream_commit": "8cd9520d35a6c38db6567e97dd93b1f11f185dc6",
+  "scope": "source-only; no DT/config/hardware enabling",
+  "files": [
+    {
+      "path": "drivers/leds/leds-max77705.c",
+      "patch": "0001-max77705-rgb-object-and-error-correctness.patch",
+      "before_sha256": "fa2cdb0771eb9a9210a2a8438136db9a6abc43aadd90bcd85165268372f3d204",
+      "after_sha256": "e6ef3c279d4f2a3e7340ba3f6df722976d319077fe05602ccc6913959de61a07",
+      "patch_sha256": "4fdab2334a8670ac205a2ef6c63381ff1b276ca5f1e502456dda3e2783624c05",
+      "upstream_license": "GPL-2.0"
+    },
+    {
+      "path": "drivers/input/misc/max77693-haptic.c",
+      "patch": "0002-max77705-haptic-bias-and-unwind.patch",
+      "before_sha256": "1381c66f627cb4bddaf550426452aafa0552711ac7d6b254044e6fb8a0fc3300",
+      "after_sha256": "408b0bb39310ec9707d39a61a8875607e7886249cc1644e77250d0652bcc226f",
+      "patch_sha256": "0b26c9583ab83cc77a6b380f8b5497fda1b5c22c8c1e3116436ecaeea7879200",
+      "upstream_license": "GPL-2.0-or-later"
+    }
+  ]
+}
