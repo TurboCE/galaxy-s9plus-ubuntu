@@ -1252,3 +1252,18 @@ varied and cleanup/daemon stop succeeded. Their aggregate sample counts include
 startup settling, so cannot qualify sampling-window rates or AP-state improvement.
 Both light observations remained lux/RGBW0,CCT1452,time17,gain64. Optical
 response is still unverified. Phase-separated counting is being corrected.
+
+
+## 2026-11-19 — Independent recovery-state correction candidate
+
+Adapted only Arun Iyengar's upstream mailing-list proposal v3 patch12/14
+(2026-11-13, Message-ID recorded beside the patch), preserving attribution/GPL
+terms. It polls live JS_STATUS for all slots rather than the IRQ-clear snapshot
+JOB_INT_JS_STATE before draining reset queues, and safely returns NULL on an
+unexpected empty dequeue. The initiating scheduler500ms and soft-stop10ms
+budgets/reset policy remain unchanged; no long-job grace-period policy from
+patch13 is included. Our#19 observation of snapshot0 with live ACTIVE8 supports
+this recovery-state discrepancy, not a claim to explain the first GPU hang.
+Exact pinned-source/idempotence checks pass; compile and hardware recovery
+qualification are still pending. Original proposal:
+https://lists.openwall.net/linux-kernel/2026/11/13/872

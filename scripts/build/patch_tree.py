@@ -405,6 +405,86 @@ static void panfrost_job_timeout_snapshot(struct panfrost_job *job)
     pj = pj.replace(anchor, '\tpanfrost_job_timeout_snapshot(job);\n\n' + anchor, 1)
     (src / pj_path).write_text(pj)
 
+# Independent recovery correction, adapted from the upstream mailing-list patch:
+# Arun Iyengar <aiyengar1990@gmail.com>, 2026-11-13 09:03:04 +0000,
+# [PATCH v3 12/14] drm/panfrost: Wait for the soft-stopped slots with the live slot status
+# Message-ID: <20261113-panfrost-long-jobs-v3-12-80ae78d38f6e@gmail.com>
+# https://lore.kernel.org/all/20261113-panfrost-long-jobs-v3-12-80ae78d38f6e@gmail.com/
+# Author's original mail was read through the lore-kernel.gnuweeb.org mirror.
+# Additional original-mail archive: https://lists.openwall.net/linux-kernel/2026/11/13/872
+# Fixes: 030761e097b4 (drm/panfrost: Queue jobs on the hardware).
+# Retain the kernel source's GPL-2.0 terms and author attribution. This adopts
+# only patch 12's live-state wait and defensive dequeue guard, not patch 13's
+# long-job policy. It does NOT claim to fix the initiating GPU timeouts.
+pj = (src / pj_path).read_text()
+if "S9P_LIVE_SLOT_STATUS" not in pj:
+    replacements = [
+        (r"""static u32 panfrost_active_slots(struct panfrost_device *pfdev,
+				 u32 *js_state_mask, u32 js_state)
+{
+	u32 rawstat;
+
+	if (!(js_state & *js_state_mask))
+		return 0;
+
+	rawstat = job_read(pfdev, JOB_INT_RAWSTAT);
+	if (rawstat) {
+		unsigned int i;
+
+		for (i = 0; i < NUM_JOB_SLOTS; i++) {
+			if (rawstat & MK_JS_MASK(i))
+				*js_state_mask &= ~MK_JS_MASK(i);
+		}
+	}
+
+	return js_state & *js_state_mask;
+}
+""", r"""/* S9P_LIVE_SLOT_STATUS: adapted from Arun Iyengar's 2026-11-13 v3 12/14.
+ * JOB_INT_JS_STATE is latched by JOB_INT_CLEAR, not a live idle indication.
+ * Keep the original 10ms stop budget and the existing reset policy.
+ */
+static bool panfrost_slots_idle(struct panfrost_device *pfdev)
+{
+	unsigned int i;
+
+	for (i = 0; i < NUM_JOB_SLOTS; i++) {
+		if (job_read(pfdev, JS_STATUS(i)) ==
+		    DRM_PANFROST_EXCEPTION_ACTIVE)
+			return false;
+	}
+
+	return true;
+}
+
+"""),
+        (r"""	u32 js_state, js_state_mask = 0xffffffff;
+	unsigned int i, j;
+	bool cookie;
+""", r"""	unsigned int i, j;
+	bool cookie, idle;
+"""),
+        (r"""	/* Wait at most 10ms for soft-stops to complete */
+	ret = readl_poll_timeout(pfdev->iomem + JOB_INT_JS_STATE, js_state,
+				 !panfrost_active_slots(pfdev, &js_state_mask, js_state),
+				 10, 10000);
+""", r"""	/* Wait for live slot status before draining queues, at most 10ms. */
+	ret = read_poll_timeout(panfrost_slots_idle, idle, idle, 10, 10000,
+				false, pfdev);
+"""),
+        (r"""	struct panfrost_job *job = pfdev->jobs[slot][0];
+
+	WARN_ON(!job);
+""", r"""	struct panfrost_job *job = pfdev->jobs[slot][0];
+
+	if (WARN_ON(!job))
+		return NULL;
+"""),
+    ]
+    for old, new in replacements:
+        assert pj.count(old) == 1, "Panfrost live-slot correction anchor drift"
+        pj = pj.replace(old, new, 1)
+    (src / pj_path).write_text(pj)
+
 # Report why BO backing failed rather than only a WARN backtrace.
 mmu_path = src / "drivers/gpu/drm/panfrost/panfrost_mmu.c"
 mmu = mmu_path.read_text()
