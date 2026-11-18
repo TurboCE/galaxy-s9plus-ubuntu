@@ -23,3 +23,9 @@ The optional experiments/modem/ sources retain Samsung/Lineage GPL notices.
 SOURCES.json identifies the GPL-backed vendor copies and pinned adaptations;
 COPYING.vendor preserves the vendor-kernel licence context. New compatibility
 and verification code is GPL-2.0-only. No radio firmware or EFS data is included.
+
+experiments/bluetooth and experiments/sensors contain only explicitly GPL-2.0
+files from the pinned ztOS reference; per-file hashes appear in SOURCES.json.
+Broadcom original notices remain. Sensor firmware header arrays are excluded:
+the owner extracts the patch from a private stock BOOT and supplies it locally.
+Bluetooth HCD, hub firmware and closed vendor daemons are not distributed here.

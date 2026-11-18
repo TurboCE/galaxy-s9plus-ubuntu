@@ -1,0 +1,43 @@
+{
+  "repository": "https://github.com/Zerone-Laboratories/ztOS",
+  "commit": "8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+  "files": [
+    {
+      "path": "sensors/driver/bbd.c",
+      "sha256": "8fd250c052a351f70a67c9b3570447a4258ad4a1f1a4f854f6231080aced0050"
+    },
+    {
+      "path": "sensors/driver/bbd.h",
+      "sha256": "55cb4764eacd2952d420c3ef8295d51545f48fdc9c27e0866af07d25fbd31c54"
+    },
+    {
+      "path": "sensors/driver/bbd_rpc_lh.c",
+      "sha256": "ab530d252e9d6bcd829bb274f5bcf8ceaecbef7f7e5c101c8d9ebe4bde1d933e"
+    },
+    {
+      "path": "sensors/driver/bcm_gps_spi.c",
+      "sha256": "e972b53442f2d807f4cadb258b1fcff09df76ea52b200fb46de0dad4e52013f3"
+    },
+    {
+      "path": "sensors/driver/bcm_gps_spi.h",
+      "sha256": "15e6c186066b657b526d70b271353b96ac11ae6845d3835d8dd7b3ce382a5ce6"
+    },
+    {
+      "path": "sensors/driver/bcm_gps_regs.c",
+      "sha256": "65f7216fff1b777669858da4f4c7c9d5b8c96a295d85a306b4c045adb6d35035"
+    },
+    {
+      "path": "sensors/driver/bcm_gps_mem.c",
+      "sha256": "0e0e9fdeb60797e4fa0f5c5d6bf1f9d5a0c2c4bbf3e28cba742fca1f1c8665eb"
+    },
+    {
+      "path": "sensors/driver/zrn_bbd_board.c",
+      "sha256": "389a248251d7c214b605e19347f8df4009bf615e65203bdae7ca9cb45562d3b6"
+    },
+    {
+      "path": "sensors/driver/zrn_compat.h",
+      "sha256": "5bee3e482a2d4b90610fef707e4e64405ea007dd8bbd95228f46818cf04e9d11"
+    }
+  ],
+  "notes": "Only explicitly GPL-2.0 files; embedded firmware headers excluded. Local changes documented in README.md."
+}

@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/Zerone-Laboratories/ztOS",
+  "commit": "8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+  "files": [
+    {
+      "path": "bluetooth/driver/zrn-bt.c",
+      "sha256": "45354b6e398eecd4cf0644aa9b09eb843300af244ca141da7105ce17f8a4692d"
+    }
+  ],
+  "notes": "Only explicitly GPL-2.0 files; embedded firmware headers excluded. Local changes documented in README.md."
+}

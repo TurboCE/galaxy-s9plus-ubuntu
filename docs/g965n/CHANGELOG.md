@@ -184,3 +184,33 @@ Git/build/ALSA tools are now included in the recipe rather than a forgotten
 post-install step. Added host-resolved source-commit metadata for worktree builds.
 Local password policy remains configurable with an explicit short-password
 opt-in; no actual device password is published or stored in the profile.
+
+## 2026-11-18 — GPU evidence, board ports and reversible kernel tests
+
+The baseline log contains nautilus INSTR_INVALID_ENC and GNOME/Xwayland
+DATA_INVALID_FAULT jobs. A prior on-screen gears result was screen-locked and
+is not a meaningful FPS benchmark. Added an independent surfaceless EGL test:
+Mali-G72 rendered and read back 100 changing texture patterns (6,553,600 bytes)
+with zero mismatches; the bounded kernel log plus cooldown had no new faults.
+This does not resolve the earlier desktop faults.
+
+Imported explicitly GPL-2.0 Bluetooth and BCM4773 transport files with pinned
+source hashes/notices. Compared UART, expander, wake/handshake and amplifier
+addresses/pins against this handset's private stock revision-26 tree. Added
+model/opt-in guards, Bluetooth partial-registration cleanup and board quirks.
+Removed sensor firmware arrays and replaced them with request_firmware.
+Fixed transport init-error propagation/partial cleanup and patch read bounds.
+Extracted the own-device hub patch from original BOOT, structurally validated
+it and checked it equals the reference Android10 payload. Output remains private.
+Read-only VENDOR inspection and own Calliope staging passed. A read-only EFS
+check found no Wi-Fi module-vendor record at wifi/.cid.info; no EFS write.
+Installed EGL development libraries and BlueZ for controlled tests.
+
+Built the experimental kernel with ALSA, Broadcom HCI, SPI and OF overlays,
+and linked all four external modules without unresolved-symbol suppression.
+BOOT SHA256 ac5a362c9309ff9b84b4776f1e48ca4eb97c84836ac3087548b17fe485b5b11d,
+27,084,816 bytes; kernel build #6. No driver loaded or new kernel booted yet.
+Added an explicit BOOT-only installer mode that runs the existing G965N and
+nine-partition backup/identity checks while preserving USERDATA and RECOVERY.
+The consent regression initially failed on argparse wording; restored explicit
+consent validation before any device access. All 20 guard regressions pass.

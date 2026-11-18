@@ -342,6 +342,19 @@ AUDIO_KCONFIG
 	cfg --enable SND_G965N_ABOX_SUPPORT
 	cfg --enable I2C_GPIO
 fi
+if [ "${S9_EXPERIMENTAL_BLUETOOTH:-0}" = 1 ]; then
+	for sym in RFKILL BT BT_BREDR BT_RFCOMM BT_BNEP BT_HCIUART SERIAL_DEV_BUS SERIAL_DEV_CTRL_TTYPORT BT_HCIUART_SERDEV BT_HCIUART_BCM I2C_GPIO; do
+		cfg --enable "$sym"
+	done
+	python3 "$PROJ/scripts/g965n/patch-bluetooth.py" "$PWD" || exit 1
+fi
+if [ "${S9_EXPERIMENTAL_SENSORS:-0}" = 1 ]; then
+	cfg --enable SPI
+fi
+if [ "${S9_EXPERIMENTAL_MODEM:-0}" = 1 ]; then
+	cfg --enable OF_OVERLAY
+	cfg --enable OF_DYNAMIC
+fi
 for extra in "$@"; do
 	cfg $extra
 done

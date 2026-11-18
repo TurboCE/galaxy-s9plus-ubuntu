@@ -18,12 +18,19 @@ def main():
     p.add_argument('--adb', default='adb')
     p.add_argument('--serial', required=True)
     p.add_argument('--backup', type=Path, required=True)
-    p.add_argument('--rootfs', type=Path, required=True)
+    p.add_argument('--rootfs', type=Path)
     p.add_argument('--boot', type=Path, required=True)
-    p.add_argument('--erase-userdata-experimental-g965n', action='store_true')
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument('--erase-userdata-experimental-g965n', action='store_true')
+    mode.add_argument('--update-kernel-experimental-g965n', action='store_true',
+                      help='Write BOOT only; keep the installed Ubuntu USERDATA.')
     args = p.parse_args()
-    require(args.erase_userdata_experimental_g965n,
-            'G965N Ubuntu boot is not validated. Explicit experimental/USERDATA erase consent is required.')
+    require(args.erase_userdata_experimental_g965n or args.update_kernel_experimental_g965n,
+            'Explicit full-install or kernel-update consent is required.')
+    require(args.update_kernel_experimental_g965n or args.rootfs is not None,
+            'A rootfs image is required for a full installation.')
+    require(not (args.update_kernel_experimental_g965n and args.rootfs is not None),
+            'Kernel-only updates must not supply a rootfs image.')
     device = Device(args.adb, args.serial)
     current = device.inspect()
     manifest = json.loads((args.backup / 'manifest.json').read_text())
@@ -39,18 +46,22 @@ def main():
         if name in ('EFS', 'CPEFS'):
             require(device.shell('sha256sum ' + '/dev/block/platform/11120000.ufs/by-name/' + name).split()[0]
                     == entry['sha256'], 'Backup belongs to a different or changed phone: ' + name)
-    for path in (args.boot, args.rootfs):
+    for path in [args.boot] + ([args.rootfs] if args.rootfs else []):
         require(path.resolve().is_relative_to((ROOT / 'dist').resolve()), 'Images must be inside dist/.')
         require(path.is_file(), 'Missing image: ' + str(path))
     with args.boot.open('rb') as stream:
         require(stream.read(8) == b'ANDROID!', 'Invalid boot image header.')
-    with args.rootfs.open('rb') as stream:
-        stream.seek(1024 + 56)
-        require(stream.read(2) == b'\x53\xef', 'Root filesystem is not ext4.')
+    if args.rootfs:
+        with args.rootfs.open('rb') as stream:
+            stream.seek(1024 + 56)
+            require(stream.read(2) == b'\x53\xef', 'Root filesystem is not ext4.')
     environment = dict(os.environ, S9PLUS_ADB=args.adb, S9PLUS_SERIAL=args.serial)
-    print('Experimental install: replacing USERDATA, then BOOT; RECOVERY is preserved.', flush=True)
-    subprocess.run([sys.executable, str(ROOT / 'scripts/flash/flash_s9plus_rootfs_adb.py'),
-                    str(args.rootfs.resolve())], env=environment, check=True)
+    if args.rootfs:
+        print('Experimental install: replacing USERDATA, then BOOT; RECOVERY is preserved.', flush=True)
+        subprocess.run([sys.executable, str(ROOT / 'scripts/flash/flash_s9plus_rootfs_adb.py'),
+                        str(args.rootfs.resolve())], env=environment, check=True)
+    else:
+        print('Experimental kernel update: BOOT only; USERDATA and RECOVERY preserved.', flush=True)
     subprocess.run([sys.executable, str(ROOT / 'scripts/flash/flash_s9plus_boot_adb.py'),
                     str(args.boot.resolve())], env=environment, check=True)
 

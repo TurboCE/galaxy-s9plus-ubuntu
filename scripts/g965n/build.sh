@@ -36,9 +36,10 @@ docker volume create "$VOLUME" >/dev/null
 RUN=(docker run --rm --platform linux/amd64 --cpus "${S9_BUILD_CPUS:-3}"
   --memory "${S9_BUILD_MEMORY:-4g}" -v "$VOLUME:/build" -v "$ROOT:/src"
   -e "S9_PROJECT_COMMIT=$(git rev-parse HEAD)")
-if [[ "${S9_EXPERIMENTAL_AUDIO:-0}" = 1 ]]; then
-  RUN+=(-e S9_EXPERIMENTAL_AUDIO=1)
-fi
+for feature in AUDIO BLUETOOTH SENSORS MODEM; do
+  option="S9_EXPERIMENTAL_$feature"
+  if [[ "${!option:-0}" = 1 ]]; then RUN+=(-e "$option=1"); fi
+done
 if [[ "$ACTION" = kernel || "$ACTION" = all ]]; then
   "${RUN[@]}" "$IMAGE" bash scripts/g965n/container-kernel.sh \
     2>&1 | tee "$STATE/logs/kernel.log"

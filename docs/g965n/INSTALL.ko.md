@@ -83,3 +83,16 @@ sudo sh scripts/g965n/recover-usb-on-device.sh
 실기에서 수동 유선 연결 해제 → 콘솔로 Wi-Fi 경로 확인 → Wi-Fi SSH에서 복구 →
 USB 주소 재할당·SSH 재접속까지 확인했습니다. USB 네트워크가 꺼져도 직렬 콘솔은
 별도 경로로 사용할 수 있습니다. 로그인 비밀번호·원본 로그는 공개하지 마세요.
+
+## 설치된 우분투를 보존하며 시험 커널 교체
+
+TWRP에서 같은 기기·백업 검증을 거친 뒤 BOOT만 교체할 수 있습니다.
+이 모드에는 rootfs를 전달하지 않습니다. 기존에 부팅 확인한 BOOT도 보관하세요.
+
+```bash
+python3 scripts/g965n/install.py --adb ADB --serial SERIAL --backup PRIVATE_BACKUP \
+  --boot dist/uniloader/TEST_BOOT.img --update-kernel-experimental-g965n
+```
+
+실험 드라이버는 자동 로드하지 않습니다. 각 기능의 모듈을 따로 시험하고
+실제 결과를 CHANGELOG와 VALIDATION에 반영합니다. 빌드 성공은 기능 정상 판정이 아닙니다.
