@@ -1610,3 +1610,10 @@ Actual two-job compilation is running as a bounded user service with3GiB memory
 cap, no swap, at most two CPU equivalents and low background priority. Its
 output and receipt stay private; it does not install libraries or start GPU
 tests. Completion, output verification and actual rendering remain pending.
+
+At440/1325 build steps, the big CPU sensor reached83C. Reduced only this user
+service's CPU quota from200% to100%; readback1s CPU quota per second passed,
+the service stayed active and the next sample fell to80C at516/1325. Memory
+remained over4GiB available and no fatal compile error had appeared. Kept the
+85C stop threshold and recorded the bounded-service recipe; no hardware clock,
+voltage or compositor configuration was changed. Full build remains pending.

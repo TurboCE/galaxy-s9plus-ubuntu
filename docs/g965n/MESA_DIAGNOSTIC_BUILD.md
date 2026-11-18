@@ -116,6 +116,28 @@ tests and extra tools are disabled. Meson may not download subprojects.
 The prefix points inside the private variant directory, but no install command
 is run. Keep compilation logs and dependency preparation receipts privately.
 
+During the first handset build, two unrestricted CPU equivalents reached83C.
+The operator reduced only the build service's CPU quota to one equivalent;
+temperature fell to80C at the next observation. For long handset compilation,
+use a bounded user service rather than assuming two jobs guarantee a low
+temperature. For example, after configure, replace the direct build command:
+
+```sh
+systemd-run --user --unit=g965n-mesa-diagnostic-build \
+  --property=CPUQuota=100% --property=MemoryMax=3G \
+  --property=MemorySwapMax=0 --property=Nice=10 \
+  --property=RuntimeMaxSec=10800 \
+  /usr/bin/python3 "$PWD/scripts/g965n/build-mesa-diagnostic.py" build \
+  --work-dir "$HOME/g965n-test/mesa-diagnostic" --variant patched \
+  --meson "$HOME/.local/share/g965n-mesa-tools/bin/meson" --jobs 2
+```
+
+The first trial separately monitors temperatures and available memory and stops
+only that build service at85C or sustained available memory below300MiB. Those
+are experimental operator limits, not hardware specification limits, and the
+builder itself does not implement a thermal monitor. CPU/GPU clocks and voltage
+settings are unchanged by these service resource controls.
+
 ## Receipts and deliberate later execution
 
 Each variant has `receipt.json`, a fresh source tree, `build/`, and eventually
