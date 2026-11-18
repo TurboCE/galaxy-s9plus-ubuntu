@@ -312,6 +312,36 @@ if "S9P_SGT_ERROR" not in mmu:
         '\t\treturn PTR_ERR(sgt);\n\t}')
     mmu_path.write_text(mmu.replace(anchor, replacement, 1))
 
+# --- Exynos9810: use the vendor's AArch64 GPU page-table mode ---------------
+# Lineage bv_r38p1 device/mali_kbase_device.c selects AArch64 unconditionally.
+# The DTS already has this board-compatible before the generic Bifrost fallback.
+# Reuse mainline's existing AARCH64 support; do not alter other Bifrost devices.
+insert_before('drivers/gpu/drm/panfrost/panfrost_drv.c',
+    'static const struct panfrost_compatible default_pm_rt_data = {',
+    '/* S9P_AARCH64_MMU: same supplies/PM contract as default_data. */\n'
+    'static const struct panfrost_compatible exynos9810_data = {\n'
+    '\t.num_supplies = ARRAY_SIZE(default_supplies) - 1,\n'
+    '\t.supply_names = default_supplies,\n'
+    '\t.num_pm_domains = 1,\n'
+    '\t.pm_domain_names = NULL,\n'
+    '\t.gpu_quirks = BIT(GPU_QUIRK_FORCE_AARCH64_PGTABLE),\n'
+    '};\n\n', 'S9P_AARCH64_MMU')
+insert_after('drivers/gpu/drm/panfrost/panfrost_drv.c',
+    '\t/* Set first to probe before the generic compatibles */\n',
+    '\t{ .compatible = "samsung,exynos9810-mali", /* S9P_AARCH64_MATCH */\n'
+    '\t  .data = &exynos9810_data, },\n', 'S9P_AARCH64_MATCH')
+mmu_path = src / 'drivers/gpu/drm/panfrost/panfrost_mmu.c'
+mmu = mmu_path.read_text()
+if 'S9P_MMU_MODE_LOG' not in mmu:
+    anchor = '\tmmu = kzalloc_obj(*mmu);\n'
+    assert mmu.count(anchor) == 1
+    mmu = mmu.replace(anchor,
+        '\t/* S9P_MMU_MODE_LOG: record the actual selected page-table format. */\n'
+        '\tdev_info_once(pfdev->base.dev, "GPU page tables: %s\\n",\n'
+        '\t\tfmt == ARM_64_LPAE_S1 ? "AARCH64_4K" : "Mali legacy LPAE");\n\n'
+        + anchor, 1)
+    mmu_path.write_text(mmu)
+
 # --- sysfb: invalidate the CPU cache before blitting a GPU-written FB -------
 # Mutter renders with Panfrost straight into the KMS driver's shmem dumb
 # buffers (exported as dma-buf). Those are mapped cached on the CPU side

@@ -485,3 +485,13 @@ unconditionally chooses AArch64 page tables; the current generic Panfrost match
 uses legacy Mali-LPAE. Hardware MMU_FEATURES=0x2830 advertises48-bit VA/40-bit PA.
 This is a specific source-backed lead for the high-bank failure, not a confirmed
 cause. A board-specific match using upstream's existing AARCH64 support is next.
+
+## 2026-11-19 — Board-specific AArch64 MMU trial prepared
+
+Confirmed the selected Lineage bv_r38p1 device/mali_kbase_device.c line312 chooses
+kbase_mmu_mode_get_aarch64(). Added an Exynos9810-compatible Panfrost match ahead
+of generic Bifrost, copying its existing supply/PM contract and selecting only
+upstream GPU_QUIRK_FORCE_AARCH64_PGTABLE. Other GPU compatibles are unaffected.
+Added a once-per-device log of the actual page-table mode. No vendor binary or
+implementation was copied. This candidate has NOT yet been built/boot-tested;
+keep the low-RAM policy and nocrc mitigation until hardware evidence says more.
