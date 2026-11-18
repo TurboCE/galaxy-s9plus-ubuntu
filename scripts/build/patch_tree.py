@@ -212,6 +212,27 @@ if "S9P_GEM_DMA32" not in g:
 else:
     print(f"{gem_c}: S9P_GEM_DMA32 already there")
 
+# --- Panfrost: isolate the port's all-BO low-memory allocation policy ------
+# The display needs 32-bit scanout addresses; the Mali MMU itself does not.
+# Constraining every GPU BO to that zone can exhaust low RAM while high RAM
+# remains available. Keep the old policy by default, but allow a controlled
+# new-allocation-only comparison without another kernel flash. Existing BOs
+# are never moved. Whether imported scanout still works must be device-tested.
+g = g_path.read_text()
+if "S9P_LOWMEM_BO" not in g:
+    anchor = "#include <linux/pagemap.h> /* S9P_GEM_DMA32 */\n"
+    assert g.count(anchor) == 1
+    g = g.replace(anchor, anchor +
+        "#include <linux/moduleparam.h> /* S9P_LOWMEM_BO */\n"
+        "static bool s9p_lowmem_bos = true;\n"
+        "module_param_named(s9p_lowmem_bos, s9p_lowmem_bos, bool, 0644);\n"
+        'MODULE_PARM_DESC(s9p_lowmem_bos, "restrict new GPU BOs to low RAM for the S9 scanout experiment");\n', 1)
+    anchor = TAB + "mapping_set_gfp_mask(shmem->base.filp->f_mapping,\n"
+    assert g.count(anchor) == 1
+    g = g.replace(anchor, TAB + "if (READ_ONCE(s9p_lowmem_bos)) /* S9P_LOWMEM_BO */\n"
+                  + TAB + anchor, 1)
+    g_path.write_text(g)
+
 # --- Panfrost: make the job-slot flush reduction switchable at run time ------
 # Mali-G72 r0p1 on this SoC throws sporadic DATA_INVALID_FAULT / page faults at
 # VA 0 under allocation churn, which vanish with PAN_MESA_DEBUG=sync. Flush
@@ -265,6 +286,31 @@ if 'S9P_JOB_OWNER' not in pj:
         '\t\t\tjob->submitter_comm, job->submitter_tgid, job->bo_count, job->jc);\n'
         '\t\tdev_err(pfdev->base.dev, "js fault,')
     (src / pj_path).write_text(pj.replace(anchor, diagnostic, 1))
+
+# Timeouts need the same owner information as hardware exception reports.
+pj = (src / pj_path).read_text()
+if "S9P_TIMEOUT_OWNER" not in pj:
+    anchor = '\tdev_err(pfdev->base.dev, "gpu sched timeout, js='
+    assert pj.count(anchor) == 1
+    pj = pj.replace(anchor,
+        '\t/* S9P_TIMEOUT_OWNER: distinguish compositor and benchmark jobs. */\n'
+        '\tdev_err(pfdev->base.dev, "timeout owner=%s tgid=%d bos=%u jc=%#llx\\n",\n'
+        '\t\tjob->submitter_comm, job->submitter_tgid, job->bo_count, job->jc);\n'
+        + anchor, 1)
+    (src / pj_path).write_text(pj)
+
+# Report why BO backing failed rather than only a WARN backtrace.
+mmu_path = src / "drivers/gpu/drm/panfrost/panfrost_mmu.c"
+mmu = mmu_path.read_text()
+if "S9P_SGT_ERROR" not in mmu:
+    anchor = '\tif (WARN_ON(IS_ERR(sgt)))\n\t\treturn PTR_ERR(sgt);'
+    assert mmu.count(anchor) == 1
+    replacement = (
+        '\tif (IS_ERR(sgt)) { /* S9P_SGT_ERROR */\n'
+        '\t\tdev_err_ratelimited(pfdev->base.dev, "BO backing failed: err=%ld bytes=%zu heap=%u\\n",\n'
+        '\t\t\tPTR_ERR(sgt), obj->size, bo->is_heap);\n'
+        '\t\treturn PTR_ERR(sgt);\n\t}')
+    mmu_path.write_text(mmu.replace(anchor, replacement, 1))
 
 # --- sysfb: invalidate the CPU cache before blitting a GPU-written FB -------
 # Mutter renders with Panfrost straight into the KMS driver's shmem dumb

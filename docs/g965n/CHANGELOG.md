@@ -397,3 +397,21 @@ reduction remainsN. No new kernel was flashed.
 
 Paused disruptive GPU workloads/reboot tests while the owner uses the handset.
 GPU correctness, compositor smoothness and long-term stability remain open.
+
+## 2026-11-19 — GPU backing failures and diagnostic kernel preparation
+
+An interactive desktop renderer also raised DATA_INVALID_FAULT. Later a desktop
+client repeatedly hit the WARN at panfrost_mmu_map's get_pages_sgt failure path;
+GPU shrinker purges were frequent while MemAvailable still exceeded2GiB. This
+suggests allocation pressure in the restricted DMA zone, but the exact allocation
+error and its relationship to job faults are NOT yet proven. The port currently
+forces every new Panfrost BO below4GiB to permit DECON imports, although Mali's
+own MMU supports wider addresses. Do not confuse that policy with a Mali limit.
+
+Enabled Panfrost dump_core temporarily for private fault capture; no dump or
+framebuffer content belongs in Git. Added source diagnostics for timeout owner
+and backing-allocation errno/size, preserving failure returns. Added a runtime
+s9p_lowmem_bos switch for NEW allocations only, defaulting to the old policy.
+No existing buffer is moved; unrestricted allocations may fail DECON import and
+require rollback. These are diagnostic changes, not a claimed GPU repair.
+The owner explicitly authorized continuing reboot tests after using the device.
