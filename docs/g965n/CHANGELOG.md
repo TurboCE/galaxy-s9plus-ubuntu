@@ -86,3 +86,14 @@ saved infrastructure profiles with autoconnect enabled, and bounded commands.
 Disabled radio/manual-only profiles remain untouched. Three regression tests
 cover interface naming, ongoing authentication/configuration and explicit choices.
 All ten recovery/network checks pass; actual G965N link recovery still awaits boot.
+
+## 2026-11-18 — ACPM diagnostic read must not change touch power
+
+Static review found touch-rail writes incorrectly nested under the DVFS command;
+a valid DVFS query fell through and could power down LDO35/LDO43. Restored a
+separate tsp on/off dispatch, with invalid values rejected before any MFD write.
+Added lazy MMIO initialization and aligned/ranged SRAM/mailbox checks, rejecting
+the known faulting first three SRAM pages before ctypes dereference. info skips
+queue inspection when a descriptor points into a blocked region. Four regressions
+pass, including DVFS query issuing zero MFD writes. No diagnostic MMIO was run
+on the handset; hardware verification remains pending. Fourteen tests pass.

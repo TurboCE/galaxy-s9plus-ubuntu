@@ -103,8 +103,10 @@ instead.
 
 ## s9p-acpm info crashes
 
-One channel entry lies in a faulting SRAM page. `read`, `write`, `update` and
-`tsp` work.
+One channel entry lies in a faulting SRAM page. The G965N tree now checks aligned
+SRAM bounds before dereferencing and skips invalid queue offsets in info. Software
+regressions pass; the modified diagnostic tool has not yet been exercised on hardware.
+DVFS dispatch was also separated from touch power control to prevent unintended rail writes.
 
 ## No snap
 

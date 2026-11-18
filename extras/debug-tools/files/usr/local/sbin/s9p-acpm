@@ -37,18 +37,32 @@ L35CTRL, L43CTRL = 0x6c, 0x74
 # helpers copy byte-wise and take a bus error, so every access goes through
 # ctypes on the mapped address. Note the first three SRAM pages fault when
 # mapped from userspace, everything the protocol needs lies above 0x3000.
-fd = os.open("/dev/mem", os.O_RDWR | os.O_SYNC)
-_mbox = mmap.mmap(fd, 0x1000, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, offset=MBOX)
-_sram = mmap.mmap(fd, SRAM_SIZE, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, offset=SRAM)
-mbox = ctypes.addressof(ctypes.c_uint32.from_buffer(_mbox))
-sram = ctypes.addressof(ctypes.c_uint32.from_buffer(_sram))
+mbox = sram = None
+
+
+def map_device_memory():
+    global _mbox, _sram, mbox, sram
+    fd = os.open("/dev/mem", os.O_RDWR | os.O_SYNC)
+    _mbox = mmap.mmap(fd, 0x1000, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, offset=MBOX)
+    _sram = mmap.mmap(fd, SRAM_SIZE, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, offset=SRAM)
+    mbox = ctypes.addressof(ctypes.c_uint32.from_buffer(_mbox))
+    sram = ctypes.addressof(ctypes.c_uint32.from_buffer(_sram))
+
+def validate_access(m, off):
+    if m is None or m not in (mbox, sram):
+        raise ValueError("device memory is not mapped")
+    lower, upper = (0x3000, SRAM_SIZE) if m == sram else (0, 0x1000)
+    if not isinstance(off, int) or off % 4 or off < lower or off > upper - 4:
+        raise ValueError(f"unsafe device-memory offset {off!r}")
 
 
 def r32(m, off):
+    validate_access(m, off)
     return ctypes.c_uint32.from_address(m + off).value
 
 
 def w32(m, off, v):
+    validate_access(m, off)
     ctypes.c_uint32.from_address(m + off).value = v & 0xffffffff
 
 
@@ -83,8 +97,17 @@ class Channel:
         self.ap_rx = (self.tx_rear, self.tx_front, self.tx_base)
 
 
-fw = Framework()
-channels = [Channel(fw.ipc_channels + i * Channel.SIZE) for i in range(fw.ipc_ap_max)]
+fw = None
+channels = []
+
+
+def initialize():
+    global fw, channels
+    map_device_memory()
+    fw = Framework()
+    if not 0 < fw.ipc_ap_max <= 32:
+        raise ValueError("invalid ACPM channel count")
+    channels = [Channel(fw.ipc_channels + i * Channel.SIZE) for i in range(fw.ipc_ap_max)]
 seq = [int(time.time()) & 0x3f or 1]
 
 
@@ -173,10 +196,13 @@ def cmd_info():
     print(f"framework: plugins={fw.num_plugins} ipc_channels@{fw.ipc_channels:#x} "
           f"n={fw.num_ipc_channels} ap_max={fw.ipc_ap_max} fw_size={fw.fw_size:#x}")
     for ch in channels:
-        print(f"  ch id={ch.id} type={ch.type} poll={ch.ap_poll} q_len={ch.q_len} elem={ch.q_elem_size} "
-              f"ap_tx(rear/front/base)={ch.ap_tx[0]:#x}/{ch.ap_tx[1]:#x}/{ch.ap_tx[2]:#x} "
-              f"ap_rx={ch.ap_rx[0]:#x}/{ch.ap_rx[1]:#x}/{ch.ap_rx[2]:#x} "
-              f"txq={r32(sram, ch.ap_tx[0])}/{r32(sram, ch.ap_tx[1])} rxq={r32(sram, ch.ap_rx[0])}/{r32(sram, ch.ap_rx[1])}")
+        try:
+            print(f"  ch id={ch.id} type={ch.type} poll={ch.ap_poll} q_len={ch.q_len} elem={ch.q_elem_size} "
+                  f"ap_tx(rear/front/base)={ch.ap_tx[0]:#x}/{ch.ap_tx[1]:#x}/{ch.ap_tx[2]:#x} "
+                  f"ap_rx={ch.ap_rx[0]:#x}/{ch.ap_rx[1]:#x}/{ch.ap_rx[2]:#x} "
+                  f"txq={r32(sram, ch.ap_tx[0])}/{r32(sram, ch.ap_tx[1])} rxq={r32(sram, ch.ap_rx[0])}/{r32(sram, ch.ap_rx[1])}")
+        except ValueError as error:
+            print(f"  ch id={ch.id}: queue inspection skipped ({error})")
     print(f"mailbox: INTSR0={r32(mbox, INTSR0):08x} INTMR0={r32(mbox, INTMR0):08x} "
           f"INTSR1={r32(mbox, INTSR1):08x} INTMR1={r32(mbox, INTMR1):08x}")
 
@@ -213,6 +239,9 @@ def main(argv):
         else:
             s = send(ch, [dom, 0, 1, 0]); w = receive(ch, s)
             print(f"dvfs get {argv[1]}: {w[1]} kHz reply={[hex(x) for x in w]}")
+    elif op == "tsp":
+        if len(argv) != 2 or argv[1] not in ("on", "off"):
+            raise SystemExit("usage: s9p-acpm tsp on|off")
         on = argv[1] == "on"
         for name, reg in (("LDO35 tsp_io", L35CTRL), ("LDO43 tsp_avdd", L43CTRL)):
             ret, before, _ = mfd(FUNC_READ, PMIC, reg)
@@ -225,4 +254,8 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    try:
+        initialize()
+        main(sys.argv[1:])
+    except ValueError as error:
+        raise SystemExit(str(error))
