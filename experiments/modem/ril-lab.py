@@ -17,7 +17,6 @@ from pathlib import Path
 import re
 import select
 import struct
-import stat
 import time
 from collections import deque
 
@@ -137,6 +136,8 @@ def main():
     parser.add_argument('--seconds', type=int, choices=range(10, 181), default=90)
     parser.add_argument('--apn')
     parser.add_argument('--configure-radio', action='store_true')
+    parser.add_argument('--runtime-helper', type=Path, required=True)
+    parser.add_argument('--expected-receipt-sha256', required=True)
     args = parser.parse_args()
     if args.configure_radio and (not args.apn or not re.fullmatch(r'[A-Za-z0-9.-]{1,100}', args.apn)):
         raise SystemExit('Explicit valid APN required for radio configuration')
@@ -144,12 +145,14 @@ def main():
         raise SystemExit('Expected star2lte')
     os.umask(0o077)
     with ExitStack() as stack:
-        runtime_fd = os.open('/run/g965n-vendor-runtime.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
-        runtime_lock = stack.enter_context(open(runtime_fd, 'rb', closefd=True))
-        info = os.fstat(runtime_fd)
-        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != 0 or stat.S_IMODE(info.st_mode) & 0o077:
-            raise RuntimeError('Unexpected runtime lock file')
-        fcntl.flock(runtime_fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        helper = args.runtime_helper
+        if helper.is_symlink() or not helper.is_file():
+            raise RuntimeError('Missing reviewed runtime helper')
+        runtime_spec = importlib.util.spec_from_file_location('ril_child_runtime', helper)
+        runtime = importlib.util.module_from_spec(runtime_spec)
+        runtime_spec.loader.exec_module(runtime)
+        stack.enter_context(runtime.shared_runtime_lock())
+        runtime.validate_launch_state(args.expected_receipt_sha256)
         lock_fd = os.open('/run/lock/g965n-modem-probe.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
         lock = stack.enter_context(open(lock_fd, 'rb', closefd=True))
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)

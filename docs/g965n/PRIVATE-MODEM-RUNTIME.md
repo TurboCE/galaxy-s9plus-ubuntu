@@ -29,8 +29,14 @@ Stop all modem clients before runtime migration. `run-ril-test.py`, `ril-lab.py`
 and `run-cbd-test.py` now take a shared lease on
 `/run/g965n-vendor-runtime.lock`; mutations take its exclusive lease. Both use
 no-follow, non-truncating opens and check a private root-owned ordinary lock file.
-CBD keeps the shared lease through `flock --no-fork` for its actual process
-lifetime, including optional tracing outside the chroot. Do not remove or replace
+CBD uses a separate `flock` monitor for its actual process lifetime, including
+optional tracing outside the chroot. The monitor retains the lease even when
+vendor code closes inherited file descriptors. After acquiring their own lease,
+both children revalidate the exact parent-attested receipt SHA, private NV/RADIO
+checksums, and current private mount inodes/read-only flags before opening modem
+channels or executing vendor code. A queued service cannot silently accept a
+new receipt published during the launch handoff. Original block-device access
+is confined to the parent preflight and is never added to either child policy. Do not remove or replace
 this lock file. Old versions of launchers must be stopped before migration.
 
 ## New private state
@@ -97,6 +103,11 @@ expose original block devices.
 
 ## Failures and recovery limits
 
+On hardware, verify that CBD remains in the foreground under its monitor and
+that the complete transient-unit cgroup is empty after its runtime bound. A
+successful service-start request alone proves neither process lifetime nor
+cleanup.
+
 No automatic retry powers the CP or activates a PDP. A failed stage preserves
 its partial newly created files and may require explicit review because the
 normal archive path requires complete valid state. A failed bind may leave
@@ -128,9 +139,10 @@ marking data working. No calls, SMS, PIN or IMEI operations are part of this lab
   archive and reboot resume; no automatic adoption, original partition mounts,
   daemon autostart or live PDP activation.
 - Fixed mutable backup extraction input and opaque receipt preservation; added
-  no-follow permission walks and lifetime migration/client locks.
+  no-follow permission walks, lifetime migration/client locks, and child state
+  revalidation after the asynchronous service-start handoff.
 - Added pre-CP launcher provenance/private-bind/read-only RADIO checks and a
   source-qualified reference-only PDP planner; S9 wire-layout gaps fail closed.
-- Host verification: 22 runtime tests, 3 launcher preflight tests, 4 reference PDP
+- Host verification: 24 runtime tests, 4 launcher preflight tests, 4 reference PDP
   tests, Python compile and diff whitespace checks passed. Device archive/stage/
   resume and data connectivity still require separate recorded hardware evidence.

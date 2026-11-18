@@ -382,6 +382,38 @@ def read_provenance():
     return receipt
 
 
+def launch_receipt_bytes():
+    private_state()
+    path = STATE / RECEIPT_NAME
+    info = regular_info(path, maximum=65536)
+    if info.st_uid != ROOT_UID or stat.S_IMODE(info.st_mode) & 0o077:
+        raise RuntimeError('Launch receipt must remain root-private')
+    return read_regular(path, 65536)
+
+
+def launch_receipt_digest():
+    return hashlib.sha256(launch_receipt_bytes()).hexdigest()
+
+
+def validate_launch_state(expected_receipt_sha256):
+    """Child recheck under its lifetime lease, without original block access.
+
+    The parent attests this exact receipt only after read_provenance verified
+    original partitions. Migration never writes originals. A different receipt
+    after the enqueue gap must require a fresh parent preflight.
+    """
+    assert_board()
+    receipt_bytes = launch_receipt_bytes()
+    if (not isinstance(expected_receipt_sha256, str) or
+            not re.fullmatch(r'[0-9a-f]{64}', expected_receipt_sha256) or
+            hashlib.sha256(receipt_bytes).hexdigest() != expected_receipt_sha256):
+        raise RuntimeError('Private runtime changed since launcher preflight')
+    receipt = json.loads(receipt_bytes)
+    model_fields(receipt)
+    validate_modem_state(receipt)
+    verify_private_bindings()
+
+
 def alias_preflight(path, target):
     parent = path.parent
     while not parent.exists() and not parent.is_symlink():

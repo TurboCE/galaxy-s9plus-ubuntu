@@ -23,19 +23,42 @@ class RuntimePreflightTests(unittest.TestCase):
             validate_modem_state=MagicMock(), verify_private_bindings=MagicMock(),
             shared_runtime_lock=lambda: nullcontext(), safe_components=MagicMock(), regular_info=MagicMock())
 
-    def test_cbd_lifetime_lock_wraps_trace_outside_chroot(self):
-        runtime = SimpleNamespace(RUNTIME_LOCK=Path('/run/g965n-vendor-runtime.lock'))
+    def test_cbd_lifetime_monitor_and_child_validation_command(self):
+        runtime = SimpleNamespace(RUNTIME_LOCK=Path('/run/g965n-vendor-runtime.lock'),
+            launch_receipt_digest=lambda: 'a'*64)
         for trace in (False, True):
-            command = cbd.cbd_command(SimpleNamespace(trace=trace), runtime)
-            self.assertEqual(command[:5], ['/usr/bin/flock', '--shared', '--nonblock',
-                                          '--no-fork', str(runtime.RUNTIME_LOCK)])
-            chroot = command.index('/usr/sbin/chroot')
-            self.assertEqual(command[chroot+1], str(cbd.ROOT))
-            self.assertEqual(command[chroot+2], '/vendor/bin/cbd')
+            args = SimpleNamespace(trace=trace, runtime_helper=ROOT/'scripts/g965n/vendor-runtime.py', seconds=30)
+            command = cbd.cbd_command(args, runtime)
+            self.assertEqual(command[:4], ['/usr/bin/flock', '--shared', '--nonblock', str(runtime.RUNTIME_LOCK)])
+            self.assertNotIn('--no-fork', command)  # monitor survives vendor FD closing
+            self.assertIn('--child', command)
+            self.assertEqual(command[command.index('--expected-receipt-sha256')+1], 'a'*64)
+            self.assertNotIn('/vendor/bin/cbd', command)  # only child may exec it
+            vendor = cbd.vendor_command(args)
+            chroot = vendor.index('/usr/sbin/chroot')
+            self.assertEqual(vendor[chroot+1], str(cbd.ROOT))
+            self.assertEqual(vendor[chroot+2], '/vendor/bin/cbd')
             if trace:
-                self.assertLess(command.index('/usr/bin/strace'), chroot)
+                self.assertLess(vendor.index('/usr/bin/strace'), chroot)
             else:
-                self.assertNotIn('/usr/bin/strace', command)
+                self.assertNotIn('/usr/bin/strace', vendor)
+
+    def test_cbd_child_revalidates_before_vendor_exec(self):
+        args = SimpleNamespace(child=True, trace=False, seconds=30,
+            runtime_helper=ROOT/'scripts/g965n/vendor-runtime.py', expected_receipt_sha256='a'*64)
+        runtime = self.runtime()
+        runtime.validate_launch_state = MagicMock(side_effect=RuntimeError('stale queued state'))
+        fake_spec = SimpleNamespace(loader=SimpleNamespace(exec_module=lambda module: None))
+        with patch.object(cbd.argparse.ArgumentParser, 'parse_args', return_value=args), \
+                patch.object(cbd.os, 'geteuid', return_value=0), \
+                patch.object(cbd.os.path, 'ismount', return_value=True), \
+                patch.object(Path, 'read_bytes', return_value=b'samsung,star2lte\0'), \
+                patch.object(cbd.importlib.util, 'spec_from_file_location', return_value=fake_spec), \
+                patch.object(cbd.importlib.util, 'module_from_spec', return_value=runtime), \
+                patch.object(cbd.os, 'execv') as execv:
+            with self.assertRaisesRegex(RuntimeError, 'stale queued state'): cbd.main()
+            runtime.validate_launch_state.assert_called_once_with('a'*64)
+            execv.assert_not_called()
 
     def test_provenance_rejection_happens_before_modem_off(self):
         args = SimpleNamespace(apn='fixture.apn', lab_directory=ROOT/'experiments/modem',

@@ -98,6 +98,32 @@ class PrivateRuntimeTests(unittest.TestCase):
         self.assertFalse(any(str(file) in str(self.mounts)+str(binds) for file,_ in self.specs.values()))
         self.assertEqual((self.runtime/'efs').readlink(),Path('/mnt/vendor/efs'))
 
+    def test_child_revalidates_attested_receipt_after_enqueue_gap(self):
+        expected = vr.launch_receipt_digest()
+        with patch.object(vr, 'verify_private_bindings') as bindings:
+            vr.validate_launch_state(expected)
+            bindings.assert_called_once()
+            # A migration publishes a new receipt before queued service starts.
+            receipt = self.state / vr.RECEIPT_NAME
+            receipt.write_text(receipt.read_text() + ' ')
+            bindings.reset_mock()
+            with self.assertRaisesRegex(RuntimeError, 'changed since'):
+                vr.validate_launch_state(expected)
+            bindings.assert_not_called()
+
+    def test_child_rejects_changed_nv_and_radio_even_with_same_receipt(self):
+        expected = vr.launch_receipt_digest()
+        with patch.object(vr, 'verify_private_bindings') as bindings:
+            (self.state / 'efs/nv_data.bin').write_bytes(b'x'*len(self.nv))
+            with self.assertRaisesRegex(RuntimeError, 'checksum'):
+                vr.validate_launch_state(expected)
+            bindings.assert_not_called()
+            self.populate(self.state / 'efs', 'efs')
+            (self.state / 'RADIO').write_bytes(b'x'*1024)
+            with self.assertRaisesRegex(RuntimeError, 'RADIO'):
+                vr.validate_launch_state(expected)
+            bindings.assert_not_called()
+
     def test_shared_lock_blocks_exclusive_and_never_truncates(self):
         lock = self.base / 'runtime.lock'
         lock.write_bytes(b'preserved'); lock.chmod(0o600)

@@ -61,7 +61,9 @@ def main():
         with open('/dev/umts_boot0', 'rb', buffering=0) as boot:
             fcntl.ioctl(boot.fileno(), 0x6f20, 0)  # _IO('o',0x20), IOCTL_MODEM_OFF
         command = ['/usr/bin/python3', str((args.lab_directory / 'ril-lab.py').resolve()),
-                   '--seconds', str(args.seconds), '--configure-radio', '--apn', args.apn]
+                   '--seconds', str(args.seconds), '--configure-radio', '--apn', args.apn,
+                   '--runtime-helper', str(args.runtime_helper.resolve()),
+                   '--expected-receipt-sha256', runtime.launch_receipt_digest()]
         properties = [
             ('Description', GLib.Variant('s', 'Bounded G965N private-copy IPC/RFS lab')),
             ('DevicePolicy', GLib.Variant('s', 'closed')),

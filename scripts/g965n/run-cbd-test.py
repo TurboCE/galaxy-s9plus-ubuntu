@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import stat
 import importlib.util
+import sys
 
 ROOT = Path('/run/g965n-vendor-runtime/root')
 
@@ -19,6 +20,8 @@ def main():
     parser.add_argument('--confirm-private-nv-copy', action='store_true', required=True)
     parser.add_argument('--seconds', type=int, choices=range(10, 121), default=60)
     parser.add_argument('--runtime-helper', type=Path, default=Path(__file__).with_name('vendor-runtime.py'))
+    parser.add_argument('--child', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--expected-receipt-sha256', help=argparse.SUPPRESS)
     parser.add_argument('--trace', action='store_true', help='Private host strace around chroot/exec')
     args = parser.parse_args()
     if os.geteuid() != 0 or not os.path.ismount(ROOT):
@@ -31,20 +34,38 @@ def main():
     spec = importlib.util.spec_from_file_location('cbd_runtime_preflight', helper)
     runtime = importlib.util.module_from_spec(spec); spec.loader.exec_module(runtime)
     with runtime.shared_runtime_lock():
+        if args.child:
+            runtime.validate_launch_state(args.expected_receipt_sha256)
+            command = vendor_command(args)
+            os.execv(command[0], command)
+            raise RuntimeError('Vendor exec unexpectedly returned')
         runtime.assert_board()
         runtime.validate_modem_state(runtime.read_provenance())
         runtime.verify_private_bindings()
         launch(args, runtime)
 
 
-def cbd_command(args, runtime):
+def vendor_command(args):
     command = ['/usr/sbin/chroot', str(ROOT), '/vendor/bin/cbd', '-d',
                '-tss310', '-bm', '-mm', '-P',
                'platform/11120000.ufs/by-name/RADIO', '-n', '/mnt/vendor/efs']
     if args.trace:
         command = ['/usr/bin/strace', '-f', '-s', '100', '-o',
                    '/var/lib/g965n-vendor-runtime/cbd-start.strace'] + command
-    return ['/usr/bin/flock', '--shared', '--nonblock', '--no-fork', str(runtime.RUNTIME_LOCK)] + command
+    return command
+
+
+def cbd_command(args, runtime):
+    # A separate flock monitor retains the lease even if vendor code closes all
+    # inherited descriptors. Child rechecks state after acquiring its own lease.
+    command = ['/usr/bin/flock', '--shared', '--nonblock', str(runtime.RUNTIME_LOCK),
+               '/usr/bin/python3', str(Path(__file__).resolve()), '--child',
+               '--confirm-private-nv-copy', '--runtime-helper', str(args.runtime_helper.resolve()),
+               '--expected-receipt-sha256', runtime.launch_receipt_digest(),
+               '--seconds', str(args.seconds)]
+    if args.trace:
+        command.append('--trace')
+    return command
 
 
 def launch(args, runtime):

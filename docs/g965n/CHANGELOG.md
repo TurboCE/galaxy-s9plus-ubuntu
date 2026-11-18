@@ -1013,3 +1013,14 @@ taking a vblank reference, then enable starts IRQ accounting and reuses the
 normal generation/latch update path. Inactive disable commits retain immediate
 event completion. This protects the completion-tail contract across initial
 enable, re-enable and modesets; hardware validation is still pending.
+
+
+Independent review then found a service enqueue/lease handoff race in the new
+modem tooling. Added child-side validation after obtaining the lifetime lease:
+parent fixes the exact verified receipt SHA, child rechecks receipt/model/NV/
+RADIO/private binding before IPC or vendor exec. No additional original block
+access is granted to the closed test units. CBD uses a separate flock monitor
+so vendor descriptor cleanup cannot silently release the lease.24 runtime,
+4 launcher and4 reference PDP checks pass; reviewer found no further immediate
+blocker. Actual CBD foreground/cgroup lifetime and hardware migration still
+need device checks. Nothing here qualifies LTE internet connectivity.
