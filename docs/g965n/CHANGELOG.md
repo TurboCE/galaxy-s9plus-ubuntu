@@ -1187,3 +1187,47 @@ No CP/CBD/RIL/PDP execution has yet qualified this source candidate.
 
 Timeout-snapshot kernel#19 compiled and packaged successfully; installation
 and actual diagnostic reproduction still require guarded device validation.
+
+
+## 2026-11-19 — Kernel#19 observations and read-only EFS comparison
+
+Fresh nine-partition backup verified, guarded BOOT-only write/readback and
+native#19 boot passed; exact audio/BT manifest matches. Source4e0740872ddd790e233fd3dc74a195b78dc86f73,
+BOOT c5a3bf384f1ff0cb887199bde8aa4414fd0b2f8c7747c6829220d381831d31f8,27088912bytes.
+A default-state targeted3-scene run reproduces6 JS0 timeouts and one Soft-stop
+failed warning. Snapshots show the expected unsignaled queue head and pending
+next job; job/MMU raw interrupt status0 with enabled masks, no GPU error IRQ.
+This gives no evidence of an outstanding unhandled DONE/MMU interrupt at that
+instant, but cannot exclude every IRQ race. No new display-latch failures.
+This is diagnostic evidence, not a stability fix.
+
+A separately bounded nocrc,noafbc targeted comparison also produced6 glmark
+JS0 timeouts and Soft-stop failed, with no compositor timeout in that interval.
+Thus AFBC compression alone is not a repair. No global noafbc setting was
+installed; all clocks/voltage/runtime-PM settings and desktop state retained.
+The helper accepts that exact combined debug option for reproducible diagnosis.
+
+Fresh recovery backup revealed EFS full-hash drift versus#18. Read-only image
+comparison found exactly8 changed bytes, all within primary ext4 superblock
+mount time, write time, mount count and lifetime-write fields. All bytes outside
+those fields are identical;127 file contents, links and on-disk inode data are
+unchanged. Current recovery mount list contained DATA/CACHE only. These images
+do not prove which component mounted it or when. Existing provenance correctly
+refuses automatic resume; explicit verified-superblock maintenance is being
+prepared, without relabelling a changed image as identical or replacing NV.
+
+## 2026-11-19 — Sensor readiness candidate and private PDP status diagnostics
+
+Transport ready is only lhd's ESW:READY callback; reference SSP initializes MCU
+separately after waiting for init completion/delay and bounded retries. The
+#18 CRASHED control message followed deliberate daemon stop, so is not evidence
+of spontaneous firmware crash. Probe now pumps read-only data for5s and retries
+only an exact missing chip-identity reply, at most3 attempts with1s gaps on the
+same increasing sequence. Wrong identity, lost ready, malformed response or
+short writes fail immediately. Sensor/AP-state commands are never retried;
+chip55 plus firmware/mask must reply first.21 host checks pass; new live
+readiness qualification is pending.
+
+S9 PDP private status reports now retain selected raw state/reason/throttle
+fields for rejection diagnosis, without payload, credentials or identifiers.
+S9 plan tests14 pass. Units and 3GPP cause meanings are not guessed.

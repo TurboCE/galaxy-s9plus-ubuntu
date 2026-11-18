@@ -121,6 +121,15 @@ class S9PDPTests(unittest.TestCase):
         for body in (bytes(4),bytes(8),bytes(10),bytes((1,1,0,2,0))+bytes(4)):
             with self.assertRaises(ValueError):ril.s9_pdp_status(body)
 
+    def test_private_status_record_has_only_raw_selected_fields(self):
+        record=ril.private_s9_status_record(status(state=10,cause=149,throttle=0x01020304))
+        self.assertEqual(record['pdp_status'],{'cid':1,'raw_state':10,'raw_end_reason':149,
+            'aux_flag':True,'additional_status':0,'throttle_timer_raw':0x01020304})
+        self.assertTrue(record['status_values_are_raw'])
+        self.assertTrue(record['private_journal_only'])
+        self.assertNotIn('raw_hex',str(record));self.assertNotIn('cause_name',str(record))
+        with self.assertRaises(ValueError):ril.private_s9_status_record(bytes(4))
+
     def plan_at_activation(self):
         p=ril.S9PDPPlan('fixture.apn',1,0,timeout=30)
         self.assertIsNone(p.registered(False,1))

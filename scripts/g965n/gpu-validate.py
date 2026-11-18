@@ -109,7 +109,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True, help='New private directory outside published artifacts')
     parser.add_argument('--readback', type=Path, required=True, help='Compiled gpu-readback.c')
-    parser.add_argument('--mesa-debug', choices=['normal', 'noafbc', 'nocrc', 'sync'], default='normal')
+    parser.add_argument('--mesa-debug', choices=['normal', 'noafbc', 'nocrc', 'nocrc,noafbc', 'sync'], default='normal')
     parser.add_argument('--fifo', action='store_true', help='Also require near-60Hz FIFO presentation in three bounded scenes')
     parser.add_argument('--size', choices=['512x512', '720x1480', '1440x2960'], default='512x512',
                         help='Requested benchmark surface; readback remains its independent fixed-size check')

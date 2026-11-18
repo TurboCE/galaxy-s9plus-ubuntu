@@ -52,6 +52,47 @@ def require_hub(chip_id):
         raise RuntimeError('Unexpected sensor hub identity; no sensor enabled')
 
 
+def require_transport_ready():
+    if Path('/sys/class/sec/sensorhub/ready').read_text().strip() != '1':
+        raise RuntimeError('Hub transport not ready; no sensor enabled')
+
+
+def settle_transport(probe, seconds):
+    """Bounded receive-only settling; transport READY is not SSP readiness."""
+    deadline = time.monotonic() + seconds
+    while True:
+        require_transport_ready()
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        probe.pump(min(.1, remaining))
+
+
+def acquire_hub_identity(probe):
+    # Stock SSP waits for MCU init completion after ESW:READY. Do not enable a
+    # sensor or send AP state until a real identity and metadata reply arrive.
+    settle_transport(probe, 5)
+    for attempt in range(3):
+        require_transport_ready()
+        try:
+            chip = int.from_bytes(probe.transaction(0x0F, length=1), 'little')
+        except RuntimeError as error:
+            require_transport_ready()
+            if str(error) != 'No valid sensor reply for command 0xf' or attempt == 2:
+                raise
+            # Preserve this Probe and its increasing sequence across retries.
+            settle_transport(probe, 1)
+            continue
+        require_transport_ready()
+        require_hub(chip)
+        result = {'chip_id': chip}
+        for name, command, size in [('firmware', 0xF0, 4), ('sensor_mask', 0xF4, 8)]:
+            require_transport_ready()
+            result[name] = int.from_bytes(probe.transaction(command, length=size), 'little')
+            require_transport_ready()
+        return result
+
+
 def terminate_probe(signum, _frame):
     # A systemd RuntimeMax/stop uses SIGTERM. Raising lets the existing sensor
     # disable/fd cleanup run instead of silently leaving enabled sensors behind.
@@ -165,8 +206,10 @@ class Probe:
         while self.reply is None and time.monotonic() < deadline:
             self.pump(.05)
         self.pending = None
-        if self.reply is None or (length and len(self.reply) != length):
+        if self.reply is None:
             raise RuntimeError(f'No valid sensor reply for command {command:#x}')
+        if length and len(self.reply) != length:
+            raise RuntimeError(f'Invalid sensor reply length for command {command:#x}')
         # Hub consumption of a write payload is not a second explicit reply.
         # Keep following headers apart instead of flooding its transport queue.
         if payload:
@@ -217,9 +260,7 @@ def main():
         enabled = []
         complete = True
         try:
-            result = {name: int.from_bytes(probe.transaction(cmd, length=size), 'little')
-                      for name, cmd, size in [('chip_id', 0x0F, 1), ('firmware', 0xF0, 4), ('sensor_mask', 0xF4, 8)]}
-            require_hub(result['chip_id'])
+            result = acquire_hub_identity(probe)
             if args.sample_seconds:
                 if 9 in selected and not result['sensor_mask'] & (1 << 9):
                     raise RuntimeError('The hub does not advertise a light sensor')

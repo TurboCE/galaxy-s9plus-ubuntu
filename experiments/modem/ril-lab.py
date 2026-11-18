@@ -221,6 +221,14 @@ def s9_pdp_status(body, cid=1):
             'raw_hex': body.hex()}
 
 
+def private_s9_status_record(body, cid=1):
+    status = s9_pdp_status(body, cid)
+    fields = ('cid', 'raw_state', 'raw_end_reason', 'aux_flag',
+              'additional_status', 'throttle_timer_raw')
+    return {'pdp_status': {key: status[key] for key in fields},
+            'status_values_are_raw': True, 'private_journal_only': True}
+
+
 class S9PDPPlan:
     """One activation, pure transitions; candidate IP is never internet proof."""
     def __init__(self, apn, cid, now, timeout=30):
@@ -551,6 +559,11 @@ def main():
                                 acknowledged.add(request)
                         elif code in (0x0D09, 0x0D10) and pdp_plan is not None:
                             pdp_plan.event(code, message[7:], time.monotonic(), kind=kind)
+                            if code == 0x0D10 and length > 7 and message[7] == pdp_plan.cid:
+                                try:
+                                    event.update(private_s9_status_record(message[7:], pdp_plan.cid))
+                                except ValueError:
+                                    event['pdp_status_validation_failed'] = True
                         elif code == 0x0501 and length > 7:
                             event['sim_status_code'] = message[7]
                             sim_ready = message[7] in (0, 130)
