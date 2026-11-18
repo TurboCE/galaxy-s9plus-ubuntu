@@ -1162,3 +1162,28 @@ within2s. Baseline exited1 with0 samples; AP-awake was never transmitted. lhd
 was stopped immediately, no process remained and ready returned0. This does
 not qualify sensor operation or optical response; no calibration/identity
 writes or automatic restarts were performed.
+
+
+## 2026-11-19 — Source-qualified S9 PDP candidate, not yet activated
+
+Read-only static analysis of the owner's stock RIL established S9-specific
+wire facts independently: definition127, activation105, IP157/base or257/
+extended, status9 bytes. Original encoders/parsers now implement those fields
+with strict truncation/CID/flag/address/mask/MTU checks. No vendor binary,
+disassembly implementation or handset identifiers are redistributed. Raw end
+reason and throttle fields are retained without guessing 3GPP mappings/units.
+Peer review matched offsets to the private evidence.51 relevant host checks
+and both CLI help entrypoints pass.
+
+Activation defaults off, requires two explicit S9 opt-ins and recent complete
+registration, CID1/no-auth IPv4, ordered acknowledgements and a bounded single
+activation. CP reset/registration loss fail closed; no CFUN recovery loop in
+this opt-in path. Best-effort deactivation is attempted at most once. Candidate
+IP requires ACK+active status+valid IPv4 and is emitted once to private journal
+without raw payload, credentials or device identifiers. It is explicitly not
+verified internet access; no route/DNS/address modification is included.
+Fixed an existing CEREG prefix regex that could misread status10 as1.
+No CP/CBD/RIL/PDP execution has yet qualified this source candidate.
+
+Timeout-snapshot kernel#19 compiled and packaged successfully; installation
+and actual diagnostic reproduction still require guarded device validation.

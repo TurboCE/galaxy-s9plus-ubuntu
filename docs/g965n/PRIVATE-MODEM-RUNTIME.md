@@ -132,10 +132,46 @@ assume the original layout remains complete after a partial move.
 and parsers based on Lineage samsung-ipc commit
 `6d244414f7c66b0d0f93ef4b34f5276023408016` (`include/gprs.h`, `include/gen.h`).
 That GPL-2.0-or-later protocol reference describes define=127, activate=103,
-IP configuration=27 and status=4 bytes. It does not establish the proposed S9
-105-byte activation / 257-byte IP layout. The reference planner is deliberately
-not connected to the live loop, and S9 activation remains blocked until primary
-source or reviewed hardware traces establish the exact target layout.
+IP configuration=27 and status=4 bytes. The legacy profile remains unqualified
+for S9 and is never connected to the S9 live path.
+
+An independent examination of the owner's stock `libsec-ril.so` IpcProtocol41
+and DataLink symbols established separate S9 wire facts: define=127,
+activation=105, IP configuration base=157 or extended=257, and status=9 payload
+bytes. The source candidate contains independent encoders/parsers and synthetic
+fixtures; no vendor binary, disassembly, proprietary implementation or private
+identifying data is redistributed. This is source evidence, not a hardware PDP
+activation or internet result.
+
+The initial S9 builder deliberately supports IPv4, CID1, no credentials and
+zero reserved/auth/reason fields. Parsers reject every unqualified IP length,
+wrong CID, invalid addresses, noncontiguous supplied netmask and out-of-range
+MTU. They preserve unknown fields/flags and raw status/end-reason/throttle values
+without guessing region-specific mappings or timer units. Absent gateway and
+mask remain absent; the stock implementation's guessed gateway and /24 defaults
+are not automatically applied. IPv6 and P-CSCF fields are parsed as facts but no
+IPv6 activation or IMS functionality is claimed.
+
+Actual activation remains OFF by default. Only the two explicit switches
+`--activate-pdp-s9 --confirm-reviewed-s9-pdp-layout` together can select the
+candidate, after operator review and the existing root/model/backup/private-NV
+checks. It additionally requires a recent complete CEREG registered status,
+explicit APN/CID1 and a bounded deadline. A plan emits at most one activation,
+requires matching define and activation acknowledgements plus active status and
+valid IPv4 to report only `candidate-ip`, and never creates routes, assigns
+addresses, changes DNS or reports internet verified. Exactly once after reaching
+that state, the protected private journal receives only the selected IPv4, DNS,
+gateway, prefix, MTU and CID fields for later owned-interface validation; no
+APN, credentials, raw packet or device identifiers are included in that record. This path disables the old
+CFUN4/1 retry. Registration loss, CP reset, malformed target messages or timeout
+fail the plan. At deadline or ordinary termination it sends at most one
+best-effort deactivate request if activation was attempted; that request is not
+proof of acknowledged deactivation. A CP reset prevents stale cleanup to the new
+CP. Service time limits and signal handling bound the lab lifetime.
+
+These switches must not be used until the source candidate and its actual
+hardware trial are explicitly approved. No PDP activation has been performed
+at this checkpoint.
 
 Even a registration acknowledgement and a candidate IP do not prove internet
 access. Future testing must bind DNS queries and HTTPS to the owned rmnet device,
@@ -156,8 +192,8 @@ marking data working. No calls, SMS, PIN or IMEI operations are part of this lab
   revalidation after the asynchronous service-start handoff.
 - Added pre-CP launcher provenance/private-bind/read-only RADIO checks and a
   source-qualified reference-only PDP planner; S9 wire-layout gaps fail closed.
-- Host verification: 29 runtime tests, 4 launcher preflight tests, 4 reference PDP
-  tests, Python compile and diff whitespace checks passed. Device archive/stage/
+- Host verification: 29 runtime tests, 5 launcher preflight tests, 4 reference PDP
+  tests and 13 S9 candidate tests, Python compile and diff whitespace checks passed. Device archive/stage/
   resume and data connectivity still require separate recorded hardware evidence.
 
 ## Kernel 18 migration observations pending integration
@@ -169,6 +205,11 @@ The next attempt prepared read-only runtime mounts, then stopped before any clon
 rename because EFS contained a symlink. A read-only check of the verified raw
 backup confirmed the same stock `cpdebug/node` symlink. Those failures motivated
 the preservation-only archive inventory and the exact diagnostic-link quarantine
-transform described above. At this documentation checkpoint the transformed
-archive/stage path has host evidence only; a fresh hardware retry remains pending.
-No CP, CBD, RIL or PDP was started during those failed migration attempts.
+transform described above. The reviewed transform then passed on native kernel #18: complete legacy
+archive and full raw quarantine inventories matched before/after, exactly the
+reviewed diagnostic link was excluded from the ordinary working clone, current
+NV salted checksum/private binds/read-only mounts verified, and original
+EFS/CPEFS/RADIO SHA-256 still matched the fresh backup. STATE remained 0700 and
+DATA remained 0755. These are hardware evidence for archive and fresh staging;
+reboot resume and bounded daemon lifetime still need their own checks. No CP,
+CBD, RIL or PDP was started during migration or its verification.

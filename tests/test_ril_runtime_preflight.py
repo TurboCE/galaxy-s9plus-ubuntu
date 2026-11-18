@@ -60,6 +60,16 @@ class RuntimePreflightTests(unittest.TestCase):
             runtime.validate_launch_state.assert_called_once_with('a'*64)
             execv.assert_not_called()
 
+    def test_incomplete_pdp_opt_in_is_rejected_before_any_cp_operation(self):
+        for selected, reviewed in ((True, False), (False, True)):
+            args=SimpleNamespace(activate_pdp_s9=selected,confirm_reviewed_s9_pdp_layout=reviewed,
+                                 apn='fixture.apn')
+            with patch.object(launcher.argparse.ArgumentParser,'parse_args',return_value=args), \
+                    patch.object(launcher.fcntl,'ioctl') as ioctl, \
+                    patch.object(launcher,'load_runtime') as load:
+                with self.assertRaisesRegex(SystemExit,'explicit opt-in'):launcher.main()
+                ioctl.assert_not_called();load.assert_not_called()
+
     def test_provenance_rejection_happens_before_modem_off(self):
         args = SimpleNamespace(apn='fixture.apn', lab_directory=ROOT/'experiments/modem',
             runtime_helper=ROOT/'scripts/g965n/vendor-runtime.py', seconds=30)
