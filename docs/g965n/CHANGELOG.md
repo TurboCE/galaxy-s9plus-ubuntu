@@ -51,3 +51,9 @@ Replaced extension-based ignores with deny-all firmware/* and an allowlist for M
 The public source repository was created with a clean root commit and no proprietary files
 in reachable history. An earlier draft was made private and archived; it is not the public source.
 Added a Git-ignore regression test covering NVRAM suffixes, firmware, regulatory data and credentials.
+
+## 2026-11-18 — Runtime Wi-Fi NVRAM line endings
+
+Original stock NVRAM keeps its input bytes/hash; the runtime rootfs copy normalizes CRLF to LF,
+matching the existing kernel embedding path and brcmfmac requirements. Regression test verifies
+source preservation and transformed runtime bytes. This is not a Wi-Fi hardware success claim.

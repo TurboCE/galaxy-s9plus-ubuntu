@@ -10,7 +10,7 @@ It mounts VENDOR read-only without journal replay, extracts and verifies three W
 
 Or use `python3 scripts/g965n/firmware.py DIRECTORY` with your own copies of those filenames.
 Conflicting existing files are rejected. Stock bytes are preserved; the kernel builder normalizes
-CRLF in its separate NVRAM build copy. Extraction success does not prove mainline Wi-Fi operation.
+CRLF in its separate NVRAM build copy; runtime NVRAM is also normalized to LF. Extraction success does not prove mainline Wi-Fi operation.
 `build.sh prepare` obtains regulatory.db and regulatory.db.p7s locally from Ubuntu's wireless-regdb.
 Bluetooth is disabled in this baseline, so no Bluetooth patchram is required.
 

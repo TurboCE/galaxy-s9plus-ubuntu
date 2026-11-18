@@ -111,8 +111,12 @@ class FirmwareTests(unittest.TestCase):
                 (inputs / name).write_bytes(b'local-own-firmware\r\n')
             stage(inputs, root)
             for name, mapped in FILES.items():
+                expected = (inputs / name).read_bytes()
+                if name.startswith('nvram'):
+                    expected = expected.replace(b'\r\n', b'\n')
                 self.assertEqual((root / 'device/base/lib/firmware/brcm' / mapped).read_bytes(),
-                                 (inputs / name).read_bytes())
+                                 expected)
+                self.assertEqual((root / 'firmware' / name).read_bytes(), (inputs / name).read_bytes())
             (inputs / next(iter(FILES))).write_bytes(b'different')
             with self.assertRaisesRegex(ValueError, 'Different firmware'):
                 stage(inputs, root)

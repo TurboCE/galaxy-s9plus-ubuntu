@@ -21,16 +21,18 @@ def stage(directory, root=ROOT):
     for name, data in inputs.items():
         target = root / 'firmware' / name
         output = root / 'device/base/lib/firmware/brcm' / FILES[name]
-        # Preserve source bytes and hashes. The inherited kernel build strips
-        # CRLF only in its build-volume NVRAM copy, as upstream requires.
-        for path in (target, output):
+        # Keep the original input unchanged. brcmfmac needs LF in its runtime
+        # NVRAM text, matching the inherited kernel builder's normalization.
+        runtime = data.replace(b'\r\n', b'\n') if name.startswith('nvram') else data
+        for path, expected in ((target, data), (output, runtime)):
             path.parent.mkdir(parents=True, exist_ok=True)
-            if path.exists() and path.read_bytes() != data:
+            if path.exists() and path.read_bytes() != expected:
                 raise ValueError('Different firmware is already staged: ' + str(path))
         records.append({'file': name, 'sha256': hashlib.sha256(data).hexdigest()})
     for name, data in inputs.items():
         (root / 'firmware' / name).write_bytes(data)
-        (root / 'device/base/lib/firmware/brcm' / FILES[name]).write_bytes(data)
+        runtime = data.replace(b'\r\n', b'\n') if name.startswith('nvram') else data
+        (root / 'device/base/lib/firmware/brcm' / FILES[name]).write_bytes(runtime)
     private = root / '.local'
     private.mkdir(mode=0o700, exist_ok=True)
     (private / 'firmware-inputs.json').write_text(json.dumps(records, indent=2) + '\n')
