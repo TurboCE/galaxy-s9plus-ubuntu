@@ -104,7 +104,7 @@ static int ctrl_write(u32 offset, u32 mask, u32 value)
 	if (mask != U32_MAX && ctrl_read(offset, &now))
 		return -EIO;
 	value = (value & mask) | (now & ~mask);
-	if (exynos_smc(SMC_ID, WRITE_CTRL, value, reg) > 0)
+	if (exynos_smc(SMC_ID, WRITE_CTRL, value, reg) != 0)
 		return -EIO;
 	pr_info("zrn-modem: pmu %s = 0x%08x\n", offset == CP_CTRL_S ? "CP_CTRL_S" : "CP_CTRL_NS", value);
 	return 0;

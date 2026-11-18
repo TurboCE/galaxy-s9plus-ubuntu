@@ -61,6 +61,7 @@ static irqreturn_t cp_wdt_handler(int irq, void *arg)
 	struct io_device *iod;
 	enum modem_state new_state;
 
+	g965n_cp_security_irq_failure();
 	mif_disable_irq(&mc->irq_cp_wdt);
 	mif_err("%s: ERR! CP_WDOG occurred\n", mc->name);
 
@@ -93,6 +94,7 @@ static irqreturn_t cp_fail_handler(int irq, void *arg)
 	struct io_device *iod;
 	enum modem_state new_state;
 
+	g965n_cp_security_irq_failure();
 	mif_disable_irq(&mc->irq_cp_fail);
 	mif_err("%s: ERR! CP_FAIL occurred\n", mc->name);
 
@@ -140,6 +142,8 @@ static void cp_active_handler(void *arg)
 	}
 
 	if (old_state != new_state) {
+		if (new_state == STATE_OFFLINE)
+			g965n_cp_security_offline_irq();
 		mif_err("new_state = %s\n", cp_state_str(new_state));
 
 		if (old_state == STATE_ONLINE)
@@ -310,6 +314,9 @@ static int ss310ap_on(struct modem_ctl *mc)
 	int cp_status = mbox_extract_value(MCU_CP, mc->mbx_cp_status,
 						mc->sbi_cp_status_mask, mc->sbi_cp_status_pos);
 
+	ret = g965n_cp_power_begin(false);
+	if (ret)
+		return ret;
 	mif_err("+++\n");
 	mif_err("cp_active:%d cp_status:%d\n", cp_active, cp_status);
 
@@ -322,8 +329,9 @@ static int ss310ap_on(struct modem_ctl *mc)
 
 	mc->phone_state = STATE_OFFLINE;
 
-	if (init_mailbox_regs(mc))
-		mif_err("Failed to initialize mbox regs\n");
+	ret = init_mailbox_regs(mc);
+	if (ret)
+		goto power_failed;
 
 	mbox_update_value(MCU_CP, mc->mbx_ap_status, 1,
 			mc->sbi_pda_active_mask, mc->sbi_pda_active_pos);
@@ -337,7 +345,7 @@ static int ss310ap_on(struct modem_ctl *mc)
 		if (AP2CP_CFG == NULL) {
 			mif_err("%s: AP2CP_CFG ioremap failed.\n", __func__);
 			ret = -EACCES;
-			return ret;
+			goto power_failed;
 		}
 
 		mif_err("__raw_readl(AP2CP_CFG): 0x%08x\n", __raw_readl(AP2CP_CFG));
@@ -347,13 +355,20 @@ static int ss310ap_on(struct modem_ctl *mc)
 		devm_iounmap(mc->dev, AP2CP_CFG);
 	} else {
 #ifdef CONFIG_CP_PMUCAL
-		if (cal_cp_status()) {
+		ret = cal_cp_status();
+		if (ret < 0 || ret > 1) {
+			ret = ret < 0 ? ret : -EIO;
+			goto power_failed;
+		}
+		if (ret == 1) {
 			mif_err("CP aleady Init, Just reset release!\n");
-			cal_cp_reset_release();
+			ret = cal_cp_reset_release();
 		} else {
 			mif_err("CP first Init!\n");
-			cal_cp_init();
+			ret = cal_cp_init();
 		}
+		if (ret)
+			goto power_failed;
 #else
 		if (exynos_get_cp_power_status() > 0) {
 			mif_err("CP aleady Power on, Just start!\n");
@@ -367,6 +382,8 @@ static int ss310ap_on(struct modem_ctl *mc)
 	msleep(300);
 	ret = change_cp_pmu_manual_reset();
 	mif_err("change_mr_reset -> %d\n", ret);
+	if (ret)
+		goto power_failed;
 
 #ifdef CONFIG_UART_SEL
 	mif_err("Recheck UART direction.\n");
@@ -374,42 +391,60 @@ static int ss310ap_on(struct modem_ctl *mc)
 #endif
 
 	mif_info("---\n");
-	return 0;
+	return g965n_cp_power_end(0, false);
+power_failed:
+	return g965n_cp_power_end(ret, false);
 }
 
 static int ss310ap_off(struct modem_ctl *mc)
 {
-	mif_err("+++\n");
+	int ret = 0;
 
+	ret = g965n_cp_power_begin(true);
+	if (ret)
+		return ret;
+	g965n_cp_power_expect_offline();
 	mbox_set_interrupt(MCU_CP, mc->int_cp_wakeup);
 	msleep(5);
 #ifdef CONFIG_CP_PMUCAL
 	cal_cp_enable_dump_pc_no_pg();
-	cal_cp_reset_assert();
+	ret = cal_cp_reset_assert();
 #else
-	exynos_set_cp_power_onoff(CP_POWER_OFF);
+	ret = exynos_set_cp_power_onoff(CP_POWER_OFF);
 #endif
-
-	mif_err("---\n");
-	return 0;
+	if (ret)
+		mif_err("CP off/reset not verified (%d)\n", ret);
+	return g965n_cp_power_end(ret, ret == 0);
 }
 
 static int ss310ap_shutdown(struct modem_ctl *mc)
 {
+	int ret;
+	bool verified_reset = false;
 	struct io_device *iod;
 	unsigned long timeout = msecs_to_jiffies(3000);
 	unsigned long remain;
 
+	ret = g965n_cp_power_begin(true);
+	if (ret)
+		return ret;
 	mif_err("+++\n");
 
 #ifdef CONFIG_CP_PMUCAL
-	if (mc->phone_state == STATE_OFFLINE || cal_cp_status() == 0)
+	ret = cal_cp_status();
+	if (ret < 0 || ret > 1) {
+		ret = ret < 0 ? ret : -EIO;
+		goto shutdown_out;
+	}
+	if (mc->phone_state == STATE_OFFLINE || ret == 0)
 #else
 	if (mc->phone_state == STATE_OFFLINE
 		|| exynos_get_cp_power_status() <= 0)
 #endif
 		goto exit;
 
+	/* The normal offline IRQ may complete the waiter immediately. */
+	g965n_cp_power_expect_offline();
 	reinit_completion(&mc->off_cmpl);
 	remain = wait_for_completion_timeout(&mc->off_cmpl, timeout);
 	if (remain == 0) {
@@ -422,31 +457,39 @@ static int ss310ap_shutdown(struct modem_ctl *mc)
 	}
 
 exit:
+	g965n_cp_power_expect_offline();
 	mbox_set_interrupt(MCU_CP, mc->int_cp_wakeup);
 	msleep(5);
 #ifdef CONFIG_CP_PMUCAL
 	cal_cp_enable_dump_pc_no_pg();
-	cal_cp_reset_assert();
+	ret = cal_cp_reset_assert();
 #else
-	exynos_set_cp_power_onoff(CP_POWER_OFF);
+	ret = exynos_set_cp_power_onoff(CP_POWER_OFF);
 #endif
 	mif_err("---\n");
-	return 0;
+	verified_reset = ret == 0;
+shutdown_out:
+	return g965n_cp_power_end(ret, verified_reset);
 }
 
 static int ss310ap_reset(struct modem_ctl *mc)
 {
+	int ret = 0;
+	bool verified_reset = false;
 	void __iomem *base = shm_get_ipc_region();
+	ret = g965n_cp_power_begin(true);
+	if (ret)
+		return ret;
 	mif_err("+++\n");
 
 	/* mc->phone_state = STATE_OFFLINE; */
 	if (mc->phone_state == STATE_OFFLINE)
-		return 0;
+		goto reset_out;
 
 	/* FIXME: For CP debug */
 	if (base) {
 		if (*(unsigned int *)(base + 0xF80) == 0xDEB)
-			return 0;
+			goto reset_out;
 	}
 
 	if (mc->phone_state == STATE_ONLINE)
@@ -456,28 +499,40 @@ static int ss310ap_reset(struct modem_ctl *mc)
 	mc->phone_state = STATE_OFFLINE;
 
 #ifdef CONFIG_CP_PMUCAL
-	if (cal_cp_status()) {
+	ret = cal_cp_status();
+	if (ret < 0 || ret > 1) {
+		ret = ret < 0 ? ret : -EIO;
+		goto reset_out;
+	}
+	if (ret == 1) {
 		mif_err("CP aleady Init, try reset\n");
 #else
 	if (exynos_get_cp_power_status() > 0) {
 		mif_err("CP aleady Power on, try reset\n");
 #endif
+		g965n_cp_power_expect_offline();
 		mbox_set_interrupt(MCU_CP, mc->int_cp_wakeup);
 		msleep(5);
 #ifdef CONFIG_CP_PMUCAL
 		cal_cp_enable_dump_pc_no_pg();
-		cal_cp_reset_assert();
+		ret = cal_cp_reset_assert();
+		if (ret)
+			goto reset_out;
 #ifdef CONFIG_SOC_EXYNOS9810
-		cal_cp_reset_release();
+		ret = cal_cp_reset_release();
+		if (ret)
+			goto reset_out;
 #endif
 #else
 		exynos_cp_reset();
 #endif
 		mbox_sw_reset(MCU_CP);
+		verified_reset = true;
 	}
 
 	mif_err("---\n");
-	return 0;
+reset_out:
+	return g965n_cp_power_end(ret, verified_reset);
 }
 
 static int ss310ap_boot_on(struct modem_ctl *mc)
@@ -597,11 +652,15 @@ static int ss310ap_dump_start(struct modem_ctl *mc)
 {
 	int err;
 	struct link_device *ld = get_current_link(mc->bootd);
+	err = g965n_cp_power_begin(false);
+	if (err)
+		return err;
 	mif_err("+++\n");
 
 	if (!ld->dump_start) {
 		mif_err("ERR! %s->dump_start not exist\n", ld->name);
-		return -EFAULT;
+		err = -EFAULT;
+		goto dump_out;
 	}
 
 	/* Change phone state to CRASH_EXIT */
@@ -609,7 +668,7 @@ static int ss310ap_dump_start(struct modem_ctl *mc)
 
 	err = ld->dump_start(ld, mc->bootd);
 	if (err)
-		return err;
+		goto dump_out;
 
 	if (IS_ENABLED(CONFIG_SOC_EXYNOS9810)) {
 		void __iomem *AP2CP_CFG;
@@ -619,7 +678,8 @@ static int ss310ap_dump_start(struct modem_ctl *mc)
 		AP2CP_CFG = devm_ioremap(mc->dev, AP2CP_CFG_ADDR, SZ_64);
 		if (AP2CP_CFG == NULL) {
 			mif_err("%s: AP2CP_CFG ioremap failed.\n", __func__);
-			return -EACCES;
+			err = -EACCES;
+			goto dump_out;
 		}
 
 		mif_err("__raw_readl(AP2CP_CFG): 0x%08x\n", __raw_readl(AP2CP_CFG));
@@ -629,7 +689,11 @@ static int ss310ap_dump_start(struct modem_ctl *mc)
 		devm_iounmap(mc->dev, AP2CP_CFG);
 	} else
 #ifdef CONFIG_CP_PMUCAL
-		cal_cp_reset_release();
+	{
+		err = cal_cp_reset_release();
+		if (err)
+			goto dump_out;
+	}
 #else
 		exynos_cp_release();
 #endif
@@ -638,7 +702,8 @@ static int ss310ap_dump_start(struct modem_ctl *mc)
 			mc->sbi_ap_status_mask, mc->sbi_ap_status_pos);
 
 	mif_err("---\n");
-	return err;
+dump_out:
+	return g965n_cp_power_end(err, false);
 }
 
 static void ss310ap_modem_boot_confirm(struct modem_ctl *mc)

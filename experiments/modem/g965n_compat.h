@@ -78,6 +78,12 @@ static inline int exynos_smc(unsigned long id, unsigned long a, unsigned long b,
     arm_smccc_smc(id, a, b, c, 0, 0, 0, 0, &reply);
     return (int)reply.a0;
 }
+void g965n_cp_security_irq_failure(void);
+void g965n_cp_security_offline_irq(void);
+int g965n_cp_power_begin(bool explicit_reset);
+void g965n_cp_power_expect_offline(void);
+int g965n_cp_power_end(int result, bool verified_reset);
+int g965n_cp_security_request(unsigned int mode, unsigned long param2, unsigned long param3);
 int cal_cp_init(void);
 int cal_cp_status(void);
 int cal_cp_reset_assert(void);

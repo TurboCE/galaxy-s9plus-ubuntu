@@ -256,3 +256,49 @@ EFS/CPEFS/RADIO SHA-256 still matched the fresh backup. STATE remained 0700 and
 DATA remained 0755. These are hardware evidence for archive and fresh staging;
 reboot resume and bounded daemon lifetime still need their own checks. No CP,
 CBD, RIL or PDP was started during migration or its verification.
+
+## Kernel 19 CP-start failure and source guard candidate
+
+The explicit kernel 19 superblock maintenance and existing-copy resume passed on
+hardware: the old receipt was preserved, working NV content stayed unchanged,
+archives/quarantine inventories matched, and original source hashes matched the
+fresh backup. The exact kernel 19 modem module and character nodes then loaded.
+
+The single approved bounded lab did **not** reach PDP activation. Its recovered
+journal contains no transmitted IPC configuration, AT command, RFS reply or PDP
+candidate. CP startup panicked the AP and recovery booted. Private pstore shows a
+failed initial reset-assert wait, then a failed CP-init pending-interrupt wait.
+The old driver ignored those errors and marked initialization complete, issued
+security mode 2, received a vendor status, and entered normal-mode security before
+an asynchronous SError. The normal-mode firmware sizes/addresses matched earlier
+successful startup logs. The PMU register sequence and 1 ms waits match Lineage;
+the reason the cold handshake failed is still unresolved. Unconditional initial
+OFF against an uninitialized CP is a hypothesis requiring separate review.
+
+The source-only guard candidate now propagates checked PMU errors, serializes
+security and all process power/reset/dump transitions with one mutex, and uses
+IRQ-safe atomic invalidation for watchdog/failure/unexpected offline events.
+Only a completed verified reset without a new fatal IRQ clears the failed
+session. Expected offline completion is recognized during an explicit reset or its
+graceful shutdown wait; watchdog/failure IRQs remain unconditional faults. RAM-logging security requests use the same gate. An optional probe logging
+request before the first CP initialization returns deferred (`-EAGAIN`) without
+clock/security calls or a new failure latch; it cannot cold-start the CP. Existing
+failure/IRQ latches remain blocking. Secure CTRL
+write failures of either sign are rejected. Internal clock/PMU failures return
+negative errors and clock disable is attempted on all paths after enable was
+attempted. The original clock-before-secure-CTRL-init order is preserved.
+
+The owner's CBD independently confirms that mode 2 preserves nonnegative vendor
+stage status and tests only its sign; those returns remain unchanged. Negative
+failures and normal/dump/logging verification errors latch the session closed.
+Neither firmware validation nor secure-monitor parameters are bypassed or changed.
+
+Host qualification compiles the actual production C functions with faultable
+PMU/SMC stubs and a real pthread mutex: 21 scenarios cover initialization/reset
+failure propagation, zero security calls after failed PMU readiness, clock error
+normalization/cleanup, vendor mode-2 ABI preservation, terminal error latching,
+IRQ invalidation, verified-reset recovery, and concurrent power/security exclusion.
+This is a containment candidate, not a demonstrated cold-boot fix. No further CP
+trial is authorized by a successful build or these host tests. Manual module
+reload alone does not prove physical readiness or retain a previous failure's
+history; automatic reload/retry remains prohibited.

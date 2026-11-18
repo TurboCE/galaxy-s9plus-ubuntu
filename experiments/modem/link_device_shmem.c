@@ -12,6 +12,7 @@
  *
  */
 
+#include <linux/mutex.h>
 #include <linux/irq.h>
 #include <linux/time.h>
 #include <linux/interrupt.h>
@@ -2260,55 +2261,177 @@ void shmem_check_modem_binary_crc(struct link_device *ld)
 #endif
 
 static int cp_init_done;
+static bool cp_security_failed;
+static DEFINE_MUTEX(cp_security_lock);
+static atomic_t cp_security_irq_epoch = ATOMIC_INIT(0);
+static atomic_t cp_expected_reset = ATOMIC_INIT(0);
+static int cp_accepted_irq_epoch;
+static int cp_power_irq_epoch;
+
+/* IRQ callbacks never take the sleeping process mutex. */
+void g965n_cp_security_irq_failure(void)
+{
+	atomic_inc(&cp_security_irq_epoch);
+	WRITE_ONCE(cp_init_done, 0);
+}
+
+void g965n_cp_security_offline_irq(void)
+{
+	/* A checked explicit reset normally produces an offline completion. */
+	if (!atomic_read(&cp_expected_reset))
+		g965n_cp_security_irq_failure();
+}
+
+/* Every physical process-context transition shares this lock with security. */
+int g965n_cp_power_begin(bool explicit_reset)
+{
+	mutex_lock(&cp_security_lock);
+	if (!explicit_reset && (cp_security_failed ||
+		atomic_read(&cp_security_irq_epoch) != cp_accepted_irq_epoch)) {
+		mutex_unlock(&cp_security_lock);
+		return -EIO;
+	}
+	cp_power_irq_epoch = atomic_read(&cp_security_irq_epoch);
+	atomic_set(&cp_expected_reset, 0);
+	return 0;
+}
+
+void g965n_cp_power_expect_offline(void)
+{
+	/* Only immediately before an actual reset sequence, while holding lock. */
+	atomic_set(&cp_expected_reset, 1);
+}
+
+int g965n_cp_power_end(int result, bool verified_reset)
+{
+	if (result > 0)
+		result = -EIO;
+	if (atomic_read(&cp_security_irq_epoch) != cp_power_irq_epoch && !result)
+		result = -EIO;
+	if (result) {
+		cp_security_failed = true;
+		WRITE_ONCE(cp_init_done, 0);
+	} else if (verified_reset) {
+		/* Only a completed checked PMU reset clears a failed session. */
+		cp_accepted_irq_epoch = cp_power_irq_epoch;
+		cp_security_failed = false;
+		WRITE_ONCE(cp_init_done, 0);
+	}
+	atomic_set(&cp_expected_reset, 0);
+	mutex_unlock(&cp_security_lock);
+	return result;
+}
+
+int g965n_cp_security_request(unsigned int mode, unsigned long param2,
+			      unsigned long param3)
+{
+	int err = 0, status = 1, clock_ret;
+	bool clock_attempted = false;
+	unsigned int requested_mode = mode;
+
+	if (mode != 0 && mode != 1 && mode != 2 && mode != CP_BOOT_REQ_CP_RAM_LOGGING)
+		return -EINVAL;
+	mutex_lock(&cp_security_lock);
+	if (cp_security_failed || atomic_read(&cp_security_irq_epoch) != cp_accepted_irq_epoch) {
+		err = -EIO;
+		goto unlock;
+	}
+	if (IS_ENABLED(CONFIG_SOC_EXYNOS9810)) {
+		status = cal_cp_status();
+		if (status < 0 || status > 1) {
+			err = status < 0 ? status : -EIO;
+			goto unsafe;
+		}
+		/* A logging request alone must never cold-start the CP. */
+		if (!status && requested_mode == CP_BOOT_REQ_CP_RAM_LOGGING) {
+			if (!READ_ONCE(cp_init_done)) {
+				/* Optional probe logging may precede the first CP boot. */
+				err = -EAGAIN;
+				goto unlock;
+			}
+			err = -EIO;
+			goto unsafe;
+		}
+	}
+	/* Preserve stock ordering: SSS clock precedes secure CTRL cold init. */
+	clock_attempted = true;
+	clock_ret = exynos_smc(SMC_ID_CLK, SSS_CLK_ENABLE, 0, 0);
+	if (clock_ret) {
+		mif_err("SSS clock enable failed (%d)\n", clock_ret);
+		err = clock_ret < 0 ? clock_ret : -EIO;
+		cp_security_failed = true;
+		goto clock_off;
+	}
+	if (IS_ENABLED(CONFIG_SOC_EXYNOS9810)) {
+		if (!status && !READ_ONCE(cp_init_done)) {
+			err = cal_cp_init();
+			if (err) {
+				err = err < 0 ? err : -EIO;
+				goto unsafe;
+			}
+			status = cal_cp_status();
+		}
+		if (status != 1) {
+			err = status < 0 ? status : -EIO;
+			goto unsafe;
+		}
+	}
+	if (atomic_read(&cp_security_irq_epoch) != cp_accepted_irq_epoch) {
+		err = -EIO;
+		goto unsafe;
+	}
+	WRITE_ONCE(cp_init_done, 1);
+	if (shm_get_use_cp_memory_map_flag() && mode == 0)
+		mode |= (unsigned int)shm_get_phys_base();
+	err = exynos_smc(SMC_ID, mode, param2, param3);
+	/* Owner CBD's RE_INIT mode2 preserves nonnegative stage status and tests
+	 * only its sign. Keep that ABI; normal/dump/logging errors are terminal. */
+	if (err < 0 || (err && requested_mode != 2))
+		cp_security_failed = true;
+	mif_info("security mode=%u return_value=0x%08x(%s)\n", requested_mode, err,
+			err >= 0 && (unsigned int)err < ARRAY_SIZE(smc_err_string) ? smc_err_string[err] : "NULL");
+clock_off:
+	clock_ret = exynos_smc(SMC_ID_CLK, SSS_CLK_DISABLE, 0, 0);
+	if (clock_ret) {
+		mif_err("SSS clock disable failed (%d)\n", clock_ret);
+		cp_security_failed = true;
+		if (err >= 0)
+			err = clock_ret < 0 ? clock_ret : -EIO;
+	}
+	goto unlock;
+unsafe:
+	WRITE_ONCE(cp_init_done, 0);
+	cp_security_failed = true;
+	mif_err("CP PMU readiness failed (%d); no security SMC issued\n", err);
+	if (clock_attempted)
+		goto clock_off;
+unlock:
+	mutex_unlock(&cp_security_lock);
+	return err;
+}
+
 static int shmem_security_request(struct link_device *ld, struct io_device *iod,
 				unsigned long arg)
 {
 	unsigned long param2, param3;
-	int err = 0;
+	int err;
 	struct modem_sec_req msr;
 
-	err = copy_from_user(&msr, (const void __user *)arg, sizeof(msr));
-	if (err) {
-		mif_err("%s: ERR! copy_from_user fail\n", ld->name);
-		err = -EFAULT;
-		goto exit;
-	}
-
+	if (copy_from_user(&msr, (const void __user *)arg, sizeof(msr)))
+		return -EFAULT;
 	err = shm_get_security_param2(msr.mode, msr.size_boot, &param2);
-	if (err) {
-		mif_err("%s: ERR! parameter2 is invalid\n", ld->name);
-		goto exit;
-	}
+	if (err)
+		return err;
 	err = shm_get_security_param3(msr.mode, msr.size_main, &param3);
-	if (err) {
-		mif_err("%s: ERR! parameter3 is invalid\n", ld->name);
-		goto exit;
-	}
-
+	if (err)
+		return err;
 #if !defined(CONFIG_CP_SECURE_BOOT)
 	if (msr.mode == 0)
 		shmem_check_modem_binary_crc(ld);
+	return 0;
 #else
-	mif_err("mode=%u, size=0x%lx, addr=0x%lx, cp_base_addr=0x%lx\n",
-			msr.mode, param2, param3, shm_get_phys_base());
-	exynos_smc(SMC_ID_CLK, SSS_CLK_ENABLE, 0, 0);
-	if (shm_get_use_cp_memory_map_flag() && msr.mode == 0)
-		msr.mode |= (unsigned int)shm_get_phys_base();
-	if (IS_ENABLED(CONFIG_SOC_EXYNOS9810) && !cp_init_done) {
-		if (cal_cp_status() == 0) {
-			mif_err("CP first Init!\n");
-			cal_cp_init();
-		}
-		cp_init_done = 1;
-	}
-	err = exynos_smc(SMC_ID, msr.mode, param2, param3);
-	exynos_smc(SMC_ID_CLK, SSS_CLK_DISABLE, 0, 0);
-	mif_info("%s: return_value=0x%08x(%s)\n", ld->name, err,
-			err < sizeof(smc_err_string) ? smc_err_string[err] : "NULL");
+	return g965n_cp_security_request(msr.mode, param2, param3);
 #endif
-
-exit:
-	return err;
 }
 
 #ifdef CONFIG_MODEM_IF_NET_GRO

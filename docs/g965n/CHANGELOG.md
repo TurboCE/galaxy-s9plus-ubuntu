@@ -1284,3 +1284,61 @@ readings may qualify post-enable observation separately, while startup-only
 data cannot qualify sampling.25 host checks pass. Previous#19 aggregate counts
 remain raw startup-inclusive observations, not corrected window measurements.
 No additional state command or physical-response claim was introduced.
+
+
+## 2026-11-19 — Cold modem boot panicked before PDP; recovery evidence preserved
+
+One explicitly gated#19 trial passed model/BOOT/module/source/provenance/NV/bind
+preflight, then lost USB SSH. Independent targeted ADB found automatic TWRP
+recovery. Preserved pstore, last-kmsg, journal and complete private modem state
+to owner-private host storage before further boot. No new BOOT image was written.
+Offline copied NV salted checksum remains valid. No recovery/identity/radio
+flash or data replacement occurred.
+
+Evidence contains no IPC, AT, RFS or PDP commands from the lab: the failure is
+before activation. Kernel trace identifies cbd's IOCTL_SECURITY_REQUEST secure
+monitor call followed by asynchronous SError/panic. Earlier MODEM_OFF central
+sequence wait and CP-init interrupt-pending wait timed out, but legacy callers
+ignored errors, marked initialization done and continued security requests.
+The first secure response was CP_NOT_WORKING; a later request panicked. Exact
+module offset maps to the security callback. This does not demonstrate an
+incorrect105-byte PDP layout because no PDP request ran.
+
+No retry, security bypass or forced PMU wait relaxation was attempted. A
+fail-closed error-propagation/readiness candidate is under source review; cold
+bring-up remains unresolved. Vendor mode2 positive statuses and clock-order
+semantics must be audited rather than assuming every status is fatal. Returned
+the unchanged#19 Ubuntu BOOT to its baseline after preserving evidence; native
+SSH returned, modem is not autoloaded and transient experiment units do not
+persist through reboot. CP physical readiness is not asserted from that boot.
+Kernel#20 compiled but was never installed; pending work remains explicitly
+unqualified.
+
+
+## 2026-11-19 — CP failure containment candidate (not cold-boot repair)
+
+Source now propagates failed PMU init/reset/off instead of continuing security
+SMCs or falsely caching initialization. Checked process power transitions and
+security share a mutex; IRQ handlers only advance a nonblocking failure epoch.
+Only a verified explicit reset can reopen a failed session. Graceful shutdown
+marks its expected offline completion before waiting; fatal/watchdog events
+still invalidate the transition, including a final epoch-publication race.
+
+SSS clock ordering required by the original secure CTRL path is preserved with
+symmetric cleanup; internal positive clock errors become negative errno. The
+owner CBD's independently verified mode2 nonnegative vendor-status ABI remains
+unchanged. Optional pre-init RAM logging defers with EAGAIN without cold-starting
+or poisoning a clean session; its former direct security path uses the same
+gate. Negative secure CTRL-write errors are no longer treated as success.
+Firmware authentication, SMC arguments, PMU wait sequences/budgets and protected
+partitions are not bypassed or modified.
+
+21 fault/concurrency scenarios compile and execute actual production C,
+including real pthread exclusion of security during OFF, normal/fatal shutdown
+completion, PMU failures issuing0 security calls, clock cleanup/status ABI and
+IRQ publication boundaries. Independent review passed;19 earlier scenarios
+also ran in the Linux builder. This is host/source containment evidence, not
+hardware qualification. Fresh-module seq5 alone cannot reconstruct a previous
+failed physical session, so automatic reload/retry remains prohibited and no
+new CP trial is authorized on the post-panic unknown physical state. Native
+Ubuntu baseline is restored with modem autoload disabled.

@@ -1447,15 +1447,6 @@ bool __skb_free_head_cp_zerocopy(struct sk_buff *skb)
 
 int security_request_cp_ram_logging(void)
 {
-	int err;
-
-	mif_err("SMC: CP_BOOT_REQ_CP_RAM_LOGGING\n");
-
-	exynos_smc(SMC_ID_CLK, SSS_CLK_ENABLE, 0, 0);
-	err = exynos_smc(SMC_ID, CP_BOOT_REQ_CP_RAM_LOGGING, 0, 0);
-	exynos_smc(SMC_ID_CLK, SSS_CLK_DISABLE, 0, 0);
-
-	mif_err("SMC: return_value=%d\n", err);
-
-	return err;
+	/* Same readiness/latch/clock protections as the boot security ioctl. */
+	return g965n_cp_security_request(CP_BOOT_REQ_CP_RAM_LOGGING, 0, 0);
 }
