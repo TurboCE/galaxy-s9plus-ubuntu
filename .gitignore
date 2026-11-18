@@ -20,3 +20,4 @@ __pycache__/
 *.mod.c
 Module.symvers
 modules.order
+*.o.d

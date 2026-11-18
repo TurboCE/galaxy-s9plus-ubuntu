@@ -1,0 +1,233 @@
+{
+  "copied": [
+    {
+      "file": "modem_main.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "6f7ebf5976002061c5e12e1b34c779e7f42f8e42e50b54caecaee48e6375002b"
+    },
+    {
+      "file": "modem_variation.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "27d1038a2afc069da63e37aab4bbb33baf81c9e0daba7069a8512f924358b20a"
+    },
+    {
+      "file": "modem_io_device.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "48573de89587027421e77e44c54da114ce1d5d25b42b8077dfae9dcb12f4e299"
+    },
+    {
+      "file": "modem_utils.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "6b9b313199ca201c81874caca851f1e11f638279c17b513af7cc67504b251af1"
+    },
+    {
+      "file": "modem_dump.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "21408ff9a8642820d2861128665655bd81e16047d056601e849690992393d2fd"
+    },
+    {
+      "file": "link_device_shmem.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "03e59f740636c6bdf041107e90b8ed4ce6332dc7a7f7aa50ba5a69c5ac75b320"
+    },
+    {
+      "file": "link_device_memory_snapshot.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "d7bfcddbf6b68fd18af18d41a4d77d257ef7bbf10f5ef284cb89c1adedae61e6"
+    },
+    {
+      "file": "link_device_memory_flow_control.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "f45fa8949c77711e90d874bfac1d5f054bd75ef7ba30cd3b113b8c1dfb2fd350"
+    },
+    {
+      "file": "link_device_memory_debug.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "1ac0df2fcbef764a9f53dcb36f7caee95f0fe65c5e96c06f4b392e2d4cf0138c"
+    },
+    {
+      "file": "link_device_memory_sbd.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "24e00c8837afd58f40e6efa2230af8169e83d0d58f3c1fc8a600aee713682637"
+    },
+    {
+      "file": "modem_notifier.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "44833771662830dc42f9b5c80509a9e6d86c190cf40dea07dcfc982b9a0d6636"
+    },
+    {
+      "file": "modem_ctrl_ss310ap.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "53414e440468ad90373b921bb178b753cae4cbf25129a37f10e533fdf28b442d"
+    },
+    {
+      "file": "zrn_cp_pmu.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "4a3410f7d000813543bfa5129356118e6332de8d472a0c265040e3a13098c6d7"
+    },
+    {
+      "file": "zrn_board.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "620699bc8d63f2d68f40107532caf4d3823bf9b43bd2f7bbd29b24f9b7757f17"
+    },
+    {
+      "file": "modem_klat.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "b5f55f37a4fb2bf763dbf93f12c993b95917b02197e92acbbee1050b6e15b1b2"
+    },
+    {
+      "file": "smapper.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "806c23487670e44515a88416f08fbe26fecd513074dfa8e372d3db913f6dc445"
+    },
+    {
+      "file": "shm_ipc.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "5fa1646592a5d9445b6a501603d2cb8bce488405f41d079e723cd9196fa7ceb0"
+    },
+    {
+      "file": "sipc5.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "472dd84e93b909b6bd083a4fe9ed47ad164bc3bbc4118b8727d092d98335d25b"
+    },
+    {
+      "file": "modem_prj.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "21752dc717eb7a99d8be405ada26c5ef8930959eec92e3d876159060245ff9fb"
+    },
+    {
+      "file": "modem_debug.h",
+      "source": "LineageOS@6a9461f9460ca51d1217e5069a5d5556fcc79e63",
+      "sha256": "0d358304ff0fe8bd8b47f131131f22dd46e27a796932086d033e8e5c86bd01e3"
+    },
+    {
+      "file": "modem_utils.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "9df79b8287a40c8aa0e76330bf9a3c2c135b87734ee6128b396dfdb94b641ced"
+    },
+    {
+      "file": "regs-mcu_ipc.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "1792921bf8f8929a3d7213c539b71806d76e0d573c3bdeb8d56765793d317c51"
+    },
+    {
+      "file": "link_device_memory.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "3ffef320d7fa190a3bc3a290a168fe4fef24844c1423257b5232e0eb6a56be7b"
+    },
+    {
+      "file": "circ_queue.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "742f5a4630fd8a89489f49f30ca0e22592dcd7226a65a4edf27fda8030509313"
+    },
+    {
+      "file": "modem_dump.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "ad19e2eb569f97a71162b9cbee7d11f070d71b6fdce0b66ac8aeb62f8953a2cc"
+    },
+    {
+      "file": "modem_pktlog.h",
+      "source": "LineageOS@6a9461f9460ca51d1217e5069a5d5556fcc79e63",
+      "sha256": "00e88e5f1aeefec039bb3ff4a8c87be39a49de69b48ea715c1d73f8e7172f6a8"
+    },
+    {
+      "file": "modem_v1.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "ddadac038893d17e59752c0dde074519f8be97d434283de5b7c6c181f9e491b7"
+    },
+    {
+      "file": "sbd.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "7e144ab3a87ec53f2e9aaaa9204a6f2f8f0d949a69b1617b3368a3385d79eac6"
+    },
+    {
+      "file": "modem_variation.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "44ff25a311878701ed02493b9f8dcf2a89b8d3c77c51129dd2d4467e602aaaff"
+    },
+    {
+      "file": "link_device_memory_config.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "f9400de8c7b4782e6be5f745aa21b84b47c9c1faba163b1df71bfc2d4dece7ea"
+    },
+    {
+      "file": "link_ctrlmsg_iosm.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "7a4ce61d5a809c451a374a671af54a141a6859707d5042ea69de298ba0b46956"
+    },
+    {
+      "file": "link_device_hsic.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "1e661d3ff2799846b0cda4954128e358386b4f9fa277c565c0bad74878157d09"
+    },
+    {
+      "file": "mcu_ipc.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "301ab53af306e07e7b7b34b643433243a3eb701632a5b62b0d88cb05162aba29"
+    },
+    {
+      "file": "include/smapper.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "806c23487670e44515a88416f08fbe26fecd513074dfa8e372d3db913f6dc445"
+    },
+    {
+      "file": "include/shm_ipc.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "5fa1646592a5d9445b6a501603d2cb8bce488405f41d079e723cd9196fa7ceb0"
+    },
+    {
+      "file": "include/sipc5.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "472dd84e93b909b6bd083a4fe9ed47ad164bc3bbc4118b8727d092d98335d25b"
+    },
+    {
+      "file": "include/circ_queue.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "742f5a4630fd8a89489f49f30ca0e22592dcd7226a65a4edf27fda8030509313"
+    },
+    {
+      "file": "include/sbd.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "7e144ab3a87ec53f2e9aaaa9204a6f2f8f0d949a69b1617b3368a3385d79eac6"
+    },
+    {
+      "file": "include/link_device_memory_config.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "f9400de8c7b4782e6be5f745aa21b84b47c9c1faba163b1df71bfc2d4dece7ea"
+    },
+    {
+      "file": "linux/shm_ipc.h",
+      "source": "LineageOS@6a9461f9460ca51d1217e5069a5d5556fcc79e63",
+      "sha256": "96a05e81c057086652f382e9a258b6aa7899cc9d50ccc4270586df7b2e58c0a1"
+    },
+    {
+      "file": "linux/modem_notifier.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "a8fcf546b49945ba1a6b570e6091f82ff7f66451d0c9b7881ac3bb1929bcd134"
+    },
+    {
+      "file": "linux/smc.h",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "278587105885362793ca5983c939568a14bedee3f062fe980bfd9f619ec0f6f5"
+    },
+    {
+      "file": "linux/mcu_ipc.h",
+      "source": "LineageOS@6a9461f9460ca51d1217e5069a5d5556fcc79e63",
+      "sha256": "8eaf98fd480bdf1ec97626cce5b3715e45a4a75e9f93e7a578998f1f9e8b8bf3"
+    },
+    {
+      "file": "mcu_ipc.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "7cbbf15c69b63c9fc885e7a8bc228a273004652c892eb40f5080f09af36b8f9c"
+    },
+    {
+      "file": "shm_ipc.c",
+      "source": "ztOS@8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+      "sha256": "e211f50174ed6343a8cf0539bbafeca616e269829ec239dfaee5367c4f8d3b3b"
+    }
+  ],
+  "not_copied_without_GPL2_basis": [
+    "zrn_compat.h"
+  ],
+  "status": "compile-stage port; no live modem loaded"
+}

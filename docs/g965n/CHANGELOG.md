@@ -122,3 +122,15 @@ failed because .git is a host-absolute worktree pointer unavailable inside /src.
 Pass the host-resolved commit explicitly into Docker rather than mounting the
 parent repository or relying on host paths. Kernel source commit is still
 resolved inside its own Linux build tree. No flash was attempted on failure.
+
+## 2026-11-18 — Compile-stage Shannon modem API port
+
+Prepared GPL-backed vendor/Lineage modem IPC and mailbox sources, with original
+notices/hash inventory. Wrote Linux 7.1 compatibility adapters without copying
+the unlabelled third-party GPL-3.0 header. Replaced writes to const netdev MAC
+with eth_hw_addr_random, and removed obsolete revision GPIO APIs in favour of
+validated DT revision. Corrected an internal/public mailbox header mix-up.
+Full g965n-modem.ko linking passed without unresolved-symbol suppression.
+The board overlay is deliberately empty, so hardware initialization is blocked
+even if opted in. No device module load, SIM registration or LTE test occurred.
+Owner can insert an active SIM later; that does not block core Ubuntu installation.
