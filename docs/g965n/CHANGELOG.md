@@ -1499,3 +1499,32 @@ of panfrost_dump.o passed. No new image was installed: native kernel#21 still
 runs the previous dump implementation, so hardware qualification is pending.
 Sparse-heap capture remains unsupported; marking zero-filled holes valid would
 misrepresent missing memory and is deliberately not done.
+
+
+## 2026-11-19 — Verify actual presented modifiers in the noafbc comparison
+
+One bounded#21 targeted comparison used nocrc,noafbc with process-local
+WAYLAND_DEBUG=client. Exact BOOT and default clock/voltage/PM/lowmem/flush
+settings passed preflight; start big/GPU temperatures55/44C, peaks74/63C.
+Five created Wayland buffers and all11731 attached/committed uses carry
+modifier0x0800000000000062: ARM AFBC32x8, SPLIT and SPARSE. No LINEAR,
+INVALID or unidentified committed buffer was observed. Most committed buffers
+have height2896 after the initial2960 configuration. Thus noafbc did not
+remove compression from this client's presented buffers in this run.
+
+Five glmark scheduler timeouts and five soft-stop failures remain. Protocol
+stderr interleaved inside scene stdout lines, so the public runner correctly
+did not qualify scene completeness. Private reconstruction removing only
+timestamped protocol lines finds the three expected scenes complete; this is
+diagnostic evidence, not an unmodified-runner or performance pass. Raw logs
+remain private. Original display-off/locked state and all GPU settings were
+restored. No dump re-arm, CP call, firmware change or flash occurred.
+
+Mesa25.2.8 source distinguishes default modifier selection, explicit modifier
+creation and import validation. Explicit creation can choose an AFBC candidate
+despite has_afbc=false; the client environment alone is not proof of layout.
+A separate display-GPU copy can also make a presented LINEAR buffer differ
+from the render target. The observation above establishes presented AFBC;
+runtime render/display FD identity was not captured. Do not generalize it to
+all import paths or every internal render resource. A creation-filter change
+and isolated-driver build are under source review, not yet deployed.

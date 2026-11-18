@@ -44,3 +44,7 @@ is not decoded or treated as valid evidence. No additional stress run or
 physical light-response test is implied by this metadata inspection.
 The source-only zero-initialization correction for invalid dump ranges is not
 a GPU-stability fix or a claim that sparse heap capture is now supported.
+The later#21 nocrc,noafbc protocol comparison still presents AFBC32x8 buffers
+and incurs five glmark timeouts. Interleaved protocol output invalidated the
+runner's unmodified scene-completeness check; it is a diagnostic comparison,
+not another qualified rendering pass. All temporary session state was restored.
