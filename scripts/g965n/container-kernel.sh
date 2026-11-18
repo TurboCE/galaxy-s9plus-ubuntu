@@ -23,6 +23,18 @@ fi
 echo '5b5d2290940203316024a94581107ffad17670bb2f596fd27ef483d3d2685994  /build/reference/twrp.img' | sha256sum -c -
 find firmware device/base/lib/firmware -type f ! -name '*.md' -exec sha256sum {} + > /build/firmware-inputs.sha256
 bash scripts/build/build_stable.sh
+if [[ "${S9_EXPERIMENTAL_AUDIO:-0}" = 1 ]]; then
+  make -C /build/src/mainline O=out ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- modules_prepare
+  # Image-only builds produce vmlinux.symvers, not the external-module table.
+  # This image has no other module dependencies; use its own exact export list.
+  cp /build/src/mainline/out/vmlinux.symvers /build/src/mainline/out/Module.symvers
+  make -C /build/src/mainline O=out ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+    M=/src/experiments/audio clean
+  make -C /build/src/mainline O=out ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+    M=/src/experiments/audio modules
+  mkdir -p dist/experimental/audio
+  cp experiments/audio/snd-zrn-abox.ko dist/experimental/audio/
+fi
 out=$(find dist -maxdepth 1 -type d -name 'm71-*' | sort | tail -1)
 test -n "$out"
 name="boot-g965n-experimental-$(date -u +%Y%m%dT%H%M%SZ).img"

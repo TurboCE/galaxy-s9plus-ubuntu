@@ -97,3 +97,20 @@ the known faulting first three SRAM pages before ctypes dereference. info skips
 queue inspection when a descriptor points into a blocked region. Four regressions
 pass, including DVFS query issuing zero MFD writes. No diagnostic MMIO was run
 on the handset; hardware verification remains pending. Fourteen tests pass.
+
+## 2026-11-18 — Isolated LTE/audio development
+
+Pinned LineageOS exynos9810 lineage-20 kernel at 6a9461f9460ca51d1217e5069a5d5556fcc79e63
+and ztOS at 8bfb09011757f06c68a055fbfd95ea07d5e4fbe1 for comparison. G965N
+recovery exposes Star-Madera/CS47L93, ABOX and umts/rmnet modem interfaces.
+Added only explicitly GPL-2.0 ABOX code, with star2lte + explicit enable guard,
+minimum amplifier default, capture off and modem voice-memory mapping off.
+Read-only VENDOR extraction verified three own-device Calliope blobs privately.
+Object compilation passed. Full module initially failed: hidden SND_PCM was
+removed by olddefconfig; external modules also lacked symbol/link preparation.
+Added an explicit PCM-selecting Kconfig option, modules_prepare, exact vmlinux
+export table, and clean external outputs. Full .ko linking then passed without
+unresolved symbols. Complete experimental packaging workflow is being rerun.
+No audio module or modem experiment has been loaded on the device. LTE port
+still requires compatible vendor IPC/mailbox code and native userspace control;
+unlabelled GPL-3.0 compatibility headers are not copied into GPL-2.0-only modules.

@@ -1,0 +1,13 @@
+{
+  "repository": "https://github.com/Zerone-Laboratories/ztOS",
+  "commit": "8bfb09011757f06c68a055fbfd95ea07d5e4fbe1",
+  "path": "audio/driver/snd-zrn-abox.c",
+  "original_sha256": "62339dd59c14d14a9ce13dae10b47cc35b57da50675869861bc429f20f271493",
+  "file_spdx": "GPL-2.0",
+  "notes": "Only explicitly GPL-2.0 source; no firmware included.",
+  "changes": [
+    "Require star2lte and explicit enable_g965n before MMIO",
+    "Minimum amplifier volume default",
+    "Modem voice mapping disabled by default"
+  ]
+}

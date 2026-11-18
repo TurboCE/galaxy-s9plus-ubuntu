@@ -323,6 +323,25 @@ if [ -n "${POKE:-}" ]; then
 	CMDLINE="$CMDLINE s9p.poke=$POKE"
 fi
 cfg --set-str CMDLINE "$CMDLINE"
+if [ "${S9_EXPERIMENTAL_AUDIO:-0}" = 1 ]; then
+	# ALSA core and GPIO-I2C for the explicitly loaded ABOX prototype.
+	# The hardware driver is not built in and is never loaded at boot.
+	# SND_PCM is a hidden Kconfig symbol: an actual selector is required.
+	if ! grep -q '^config SND_G965N_ABOX_SUPPORT$' sound/drivers/Kconfig; then
+		cat >> sound/drivers/Kconfig <<'AUDIO_KCONFIG'
+
+config SND_G965N_ABOX_SUPPORT
+	bool "Core support for the experimental external G965N ABOX module"
+	depends on SND
+	select SND_PCM
+	select SND_TIMER
+AUDIO_KCONFIG
+	fi
+	cfg --enable SOUND
+	cfg --enable SND
+	cfg --enable SND_G965N_ABOX_SUPPORT
+	cfg --enable I2C_GPIO
+fi
 for extra in "$@"; do
 	cfg $extra
 done

@@ -35,6 +35,9 @@ docker image inspect "$IMAGE" >/dev/null
 docker volume create "$VOLUME" >/dev/null
 RUN=(docker run --rm --platform linux/amd64 --cpus "${S9_BUILD_CPUS:-3}"
   --memory "${S9_BUILD_MEMORY:-4g}" -v "$VOLUME:/build" -v "$ROOT:/src")
+if [[ "${S9_EXPERIMENTAL_AUDIO:-0}" = 1 ]]; then
+  RUN+=(-e S9_EXPERIMENTAL_AUDIO=1)
+fi
 if [[ "$ACTION" = kernel || "$ACTION" = all ]]; then
   "${RUN[@]}" "$IMAGE" bash scripts/g965n/container-kernel.sh \
     2>&1 | tee "$STATE/logs/kernel.log"

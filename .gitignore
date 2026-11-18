@@ -13,3 +13,10 @@ __pycache__/
 /firmware/*
 !/firmware/*.md
 /device/base/lib/firmware/
+
+# External kernel module output (includes machine-local paths)
+*.cmd
+*.mod
+*.mod.c
+Module.symvers
+modules.order

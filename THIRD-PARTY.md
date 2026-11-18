@@ -14,3 +14,7 @@
 
 The firmware blobs are device firmware, not part of the kernel's own source.
 They are NOT distributed here. Users stage their own local inputs for WLAN=1 builds.
+
+The optional experiments/audio/snd-zrn-abox.c is the explicitly GPL-2.0 audio file
+from Zerone-Laboratories/ztOS, pinned in experiments/audio/SOURCE.json. Original
+notices are retained. Other unlabelled GPL-3.0 project files were not copied.
