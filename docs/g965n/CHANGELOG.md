@@ -57,3 +57,12 @@ Added a Git-ignore regression test covering NVRAM suffixes, firmware, regulatory
 Original stock NVRAM keeps its input bytes/hash; the runtime rootfs copy normalizes CRLF to LF,
 matching the existing kernel embedding path and brcmfmac requirements. Regression test verifies
 source preservation and transformed runtime bytes. This is not a Wi-Fi hardware success claim.
+
+## 2026-11-18 — Structural G965N/G965F comparison before first boot
+
+Read stock BOOT DTBH: chip 0x2652, rev26 selected by range 26–255. TWRP runtime
+shows framebuffer 0xcc000000 and firmware debug reservations below loader payload
+0x92000000. RAM banks and touch bus/address align with existing mainline assumptions.
+Details and limitations are in HARDWARE.md; inspection script reads backups only.
+Experimental Ubuntu installation and first-boot diagnostics are now explicitly
+authorized by the device owner. Preserve recovery and verified EFS/CPEFS/radio backups.
