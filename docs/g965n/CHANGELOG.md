@@ -114,3 +114,11 @@ unresolved symbols. Complete experimental packaging workflow is being rerun.
 No audio module or modem experiment has been loaded on the device. LTE port
 still requires compatible vendor IPC/mailbox code and native userspace control;
 unlabelled GPL-3.0 compatibility headers are not copied into GPL-2.0-only modules.
+
+## 2026-11-18 — Docker builds from managed Git worktrees
+
+Experimental kernel, .ko and wrapped boot image built, then metadata recording
+failed because .git is a host-absolute worktree pointer unavailable inside /src.
+Pass the host-resolved commit explicitly into Docker rather than mounting the
+parent repository or relying on host paths. Kernel source commit is still
+resolved inside its own Linux build tree. No flash was attempted on failure.

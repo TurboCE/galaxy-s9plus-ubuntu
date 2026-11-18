@@ -34,7 +34,8 @@ fi
 docker image inspect "$IMAGE" >/dev/null
 docker volume create "$VOLUME" >/dev/null
 RUN=(docker run --rm --platform linux/amd64 --cpus "${S9_BUILD_CPUS:-3}"
-  --memory "${S9_BUILD_MEMORY:-4g}" -v "$VOLUME:/build" -v "$ROOT:/src")
+  --memory "${S9_BUILD_MEMORY:-4g}" -v "$VOLUME:/build" -v "$ROOT:/src"
+  -e "S9_PROJECT_COMMIT=$(git rev-parse HEAD)")
 if [[ "${S9_EXPERIMENTAL_AUDIO:-0}" = 1 ]]; then
   RUN+=(-e S9_EXPERIMENTAL_AUDIO=1)
 fi
