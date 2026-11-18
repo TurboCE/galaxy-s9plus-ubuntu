@@ -10,8 +10,9 @@ kernel build as proof of correctness. No proprietary GPU library is published.
 - DATA_INVALID / JOB_BUS exceptions from interactive desktop clients.
 - Job-slot0 scheduler timeouts during the complete33-scene GLES sequence.
 - BO backing allocation failures during desktop use, despite free high RAM.
-  The port's all-BO DMA32 restriction is a candidate contributor; errno and a
-  controlled allocation-policy comparison are needed before claiming causality.
+  The all-BO DMA32 restriction reproduced ENOMEM at768MiB. AArch64 high-bank
+  allocations pass1024MiB internally, but unrestricted display exports trigger
+  DECON swiotlb failures. Private/shared allocation separation remains open.
 - Perceived desktop stutter; actual presentation pacing needs measurement.
   GPU3D rendering does not establish hardware video decoding (a separate block).
 
@@ -71,3 +72,19 @@ the normal exact test, then checks every retained texture again. Run under a
 bounded timeout, record kernel errors and keep other clients/settings comparable.
 On#8,768MiB failed allocation with the original policy; unrestricted allocation
 corrupted output. It is unsafe to set s9p_lowmem_bos=N as a default at this stage.
+
+## AArch64 pressure result and display-export qualification
+
+Kernel#11 uses AARCH64_4K tables on the Exynos9810 match and passes1024MiB
+retained GPU texture readback with unrestricted allocations and nocrc. This does
+not qualify the desktop: real display clients also caused DECON `swiotlb buffer
+is full` errors. DECON still has a32-bit DMA address constraint. The validation
+runner previously missed these lines; its acceptance regex now includes them
+with a regression fixture. Earlier GPU-only passes must not be interpreted as
+clean display-export passes.
+
+Runtime lowmem was restoredY. Source now restoresY even on a previously patched
+build tree; #11's installed BOOT still defaultsN until replaced, so reboot
+persistence is not repaired by this source change alone. The next approach must
+keep display-exportable BOs low while permitting verified private GPU BOs high.
+Do not infer exportability from BO size or indiscriminately enable high RAM.

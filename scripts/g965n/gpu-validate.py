@@ -15,7 +15,7 @@ import re
 import subprocess
 import time
 
-FAULT = re.compile(r'panfrost.*(?:timeout|fault|failed|error|WARNING)|WARNING:.*panfrost|flip did not latch|shadow update stuck', re.I)
+FAULT = re.compile(r'panfrost.*(?:timeout|fault|failed|error|WARNING)|WARNING:.*panfrost|flip did not latch|shadow update stuck|swiotlb buffer is full', re.I)
 
 
 def journal(*args):

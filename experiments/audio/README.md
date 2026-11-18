@@ -43,3 +43,29 @@ automated EFS writes. A successful C compile proves API compatibility only.
 
 Extract firmware while still in TWRP: `python3 experiments/audio/extract.py --serial SERIAL`.
 The extraction ran successfully on G965N and verified all three Calliope files.
+
+## WirePlumber0.4 timing trial
+
+On kernel#11 the owner reported robotic/crackling speech during replay. PipeWire
+logged hundreds of repeated ABOX playback follower resyncs. With the explicit
+ABOX-only properties in `device/base/etc/wireplumber/main.lua.d/51-g965n-audio-timing.lua`, the identical recording
+became much clearer according to the owner, with occasional crackling still
+reported. A bounded same-file replay produced no new PipeWire log entries.
+This is a partial timing mitigation, not proof of full microphone/audio quality.
+The individual effects of period size, headroom and non-mmap I/O were not isolated.
+
+For the opt-in G965N audio prototype with WirePlumber0.4, copy this source file
+to `/etc/wireplumber/main.lua.d/51-g965n-audio-timing.lua` after model/backup and
+consent checks, then restart the desktop user's `wireplumber` service. Do not
+install two copies of the rule. Remove the file and restart the same service to
+roll back. WirePlumber0.5 uses a different configuration format: do not copy this
+Lua file there. Reboot persistence and long concurrent recording/playback remain
+pending. The image includes the ABOX-only rule; it takes effect only when the optional
+audio prototype is active. This does not enable audio or load a module.
+A subsequent cue-assisted10s spoken recording/replay passed the owner
+intelligibility/no-crackling check. Long concurrent use still needs testing.
+
+`python3 scripts/g965n/audio-record-play.py --record-play --seconds 10 --cue --start-delay 10` records short owner-authorized samples in
+private runtime storage and replays original and normalized versions. Keep
+recordings out of Git, obtain actual spoken-word feedback, and delete the
+private files after the comparison. A nonzero signal is not a speech pass.

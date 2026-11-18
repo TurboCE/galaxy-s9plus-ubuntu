@@ -233,10 +233,9 @@ if "S9P_LOWMEM_BO" not in g:
                   + TAB + anchor, 1)
     g_path.write_text(g)
 
-# Hardware-qualified on G965N with AArch64 tables: use the full GPU-addressable
-# RAM, while retaining the low-address compatibility policy on legacy/other
-# boards. This is a kernel default, so rolling back BOOT cannot leave a new
-# userspace service enabling unsafe high addresses on an old legacy kernel.
+# AArch64 tables qualify internal high-bank GPU access, but DECON still needs
+# low-address exported buffers. Retain the conservative default until userspace
+# and kernel distinguish private allocations from display-exportable allocations.
 g = g_path.read_text()
 if 'S9P_LOWMEM_SAFE_DEFAULT' not in g:
     anchor = '#include <linux/moduleparam.h> /* S9P_LOWMEM_BO */\n'
@@ -244,7 +243,7 @@ if 'S9P_LOWMEM_SAFE_DEFAULT' not in g:
     g = g.replace(anchor, anchor + '#include <linux/of.h> /* S9P_LOWMEM_SAFE_DEFAULT */\n', 1)
     anchor = 'static bool s9p_lowmem_bos = true;'
     assert g.count(anchor) == 1
-    g = g.replace(anchor, 'static bool s9p_lowmem_bos; /* default permits qualified AArch64 board */', 1)
+    g = g.replace(anchor, 'static bool s9p_lowmem_bos = true; /* shared scanout still needs DMA32 */', 1)
     anchor = '\tif (READ_ONCE(s9p_lowmem_bos)) /* S9P_LOWMEM_BO */\n'
     assert g.count(anchor) == 1
     g = g.replace(anchor,
@@ -252,6 +251,13 @@ if 'S9P_LOWMEM_SAFE_DEFAULT' not in g:
         '\t    !of_device_is_compatible(dev->dev->of_node, "samsung,exynos9810-mali") ||\n'
         '\t    !(to_panfrost_device(dev)->comp->gpu_quirks & BIT(GPU_QUIRK_FORCE_AARCH64_PGTABLE)))\n', 1)
     g_path.write_text(g)
+
+# Repair previously patched build trees too; #11's all-high default caused
+# DECON swiotlb bounce failures despite a clean GPU-only pressure readback.
+g = g_path.read_text()
+g = g.replace('static bool s9p_lowmem_bos; /* default permits qualified AArch64 board */',
+              'static bool s9p_lowmem_bos = true; /* shared scanout still needs DMA32 */')
+g_path.write_text(g)
 
 # --- Panfrost: make the job-slot flush reduction switchable at run time ------
 # Mali-G72 r0p1 on this SoC throws sporadic DATA_INVALID_FAULT / page faults at

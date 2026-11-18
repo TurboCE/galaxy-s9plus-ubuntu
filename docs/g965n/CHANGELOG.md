@@ -538,3 +538,64 @@ Prepared speech-default mic_gain40 in the opt-in startup package (speaker gain
 unchanged). The previous gain40-only trial failed user recognition; do not call
 this a gain-only solution. Kernel#10 with safe GPU allocation default was built
 but never flashed; next build includes the microphone supply correction as well.
+
+## 2026-11-19 — Kernel#11 boot, microphone recording and display-import regression
+
+Kernel#11 BOOT b3210c87fc1a679136a2f98ad915590ed89bbd83f88099c651d45f1fb59f5ee1
+(27,088,912bytes) passed fresh nine-partition backup, guarded BOOT write/readback
+and native boot. RECOVERY/EFS/CPEFS/RADIO were not flashed. Actual MICBIAS1 readback
+8065 clears bypass while capture runs; the configured1.8V is not a measured
+physical voltage. Owner still reports no application speech recognition.
+
+With explicit recording/playback authorization, added a bounded private-tmpfs
+record/replay helper. The first10s sample had peak690/RMS56.4 and replay used9.5x
+normalization; owner heard sound and white noise. Owner subsequently clarified
+that they had not spoken for this test, so this is NOT speech/intelligibility
+evidence. A clearly announced repeat was started. No recordings enter Git.
+
+Tested a temporary WebRTC voice processing source. One-shot pw-cli load exited
+and removed its nodes; keeping an interactive client alive produces a real source.
+Initial AGC trial clipped14 samples; disabled AGC rather than promoting it as a
+fix. The no-AGC stream returns samples with no clipping in a15s numeric probe;
+quiet tail monoRMS3.2..3.9. Those are different ambient intervals, not a measured
+SNR improvement. Default input remains the physical microphone. AEC, intelligible
+speech and Lineage multi-mic parity remain unverified; no persistent filter yet.
+
+GPU#11 AArch64/nocrc passed1024MiB retained-texture readback, but real desktop
+clients exposed DECON swiotlb buffer exhaustion when high BOs were exported.
+The prior acceptance regex missed these display errors. Added this signature
+and a regression test. Restored runtime lowmemY and conservative source defaultY,
+including repair of previously patched build trees. Installed#11 still defaultsN
+after reboot; source change alone is not device persistence. Private-vs-shared
+BO allocation needs a coordinated kernel/Mesa fix before unrestricted defaults
+can be considered. No full GPU-normal claim is made.
+
+Owner spoke in the announced repeat:10s, peak832/RMS95.6, normalization7.88x.
+Owner recognizes their voice but reports robotic/crackling sound: speech is
+captured, but quality FAILS acceptance. Stopped the temporary WebRTC filter;
+it was not the default input for this recording. PipeWire logs show repeated
+playback follower resyncs (hundreds suppressed) and a prior broken-pipe recovery.
+A reversible handset-only WirePlumber trial now requests1024-frame periods,
+1024-frame headroom and non-mmap I/O for the ABOX nodes. The same recording is
+replayed to separate playback corruption from capture corruption. This is an
+unqualified diagnostic setting, not the installation default or a quality fix.
+
+The owner initially reported robotic/crackling artifacts gone on the same-file
+replay, then clarified speech is much clearer but occasional crackling remains.
+Record this as partial improvement, not a quality pass. The bounded replay logged
+no new PipeWire errors and both nodes expose the requested properties. Added the
+exact GPL-only WirePlumber0.4 trial rule and rollback instructions under the audio
+experiment; no base-image default or unverified processing feature was enabled.
+A cue-assisted repeat is in progress. The first cue wrapper invocation missed
+its required recording flag and exited before the cue/capture; corrected arguments
+and restarted the bounded test. No extra recording was produced by that failure.
+
+The subsequent cue-assisted10s spoken test (peak455/RMS61.4, replay14.4x) was
+confirmed by the owner as clear with no crackling. No new PipeWire errors were
+logged in that bounded interval. This establishes short spoken recording/replay,
+not long stability or all microphone functions. Included the exact ABOX-only
+WirePlumber0.4 rule in the image overlay so the tested path is reproducible;
+it does not enable the optional driver. Added optional quiet cue/start delay and
+exclusive recording lock to the helper to avoid ambiguous instructions/overlap.
+Application speech recognition is being tested separately. No app installation
+or personal configuration is published.

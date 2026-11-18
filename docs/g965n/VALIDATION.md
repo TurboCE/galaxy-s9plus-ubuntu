@@ -13,13 +13,13 @@ A build or a driver node is not sufficient evidence of a working function.
 | Native builds / Git | Git clone+pull; real fixdep C source compiled on each CPU, 8 identical object hashes | Short test passed |
 | Storage | USERDATA mounted as root and grew to 230GiB | Verified |
 | Display / touch | Owner confirmed desktop/touch; 2x desktop scaling persisted at 720x1480 logical pixels | Basic interaction verified; apps wider than 720 minimum still need adaptations |
-| GPU | nocrc: two full33-scene passes +100 exact frames each, including warm reboot and27 power cycles; Firefox120 frames /30MiB exact | CRC-enabled path reproduces hangs; nocrc mitigation qualified only for bounded tests. 768MiB pressure exposes ENOMEM; high-bank allocation corrupts pixels and was reverted. Long stability/pressure fix pending |
+| GPU | #9/#11 AARCH64_4K: 768/1024MiB retained textures and exact readback pass with nocrc; #11 desktop also exposes DECON swiotlb failures with unrestricted allocations | CRC mitigation remains required. Runtime lowmem restoredY; conservative source default restoredY. Shared-display allocation repair and long stability pending; GPU-only pressure pass is not a desktop pass |
 | Wi-Fi | Connected; HTTPS200 explicitly bound to Wi-Fi; NTP synchronized | Data path verified; long reconnect tests pending |
 | USB networking / SSH | Mac received address automatically; key-only SSH works | Verified |
 | Manual wired disconnect recovery | Console identified Wi-Fi path; privileged reconnection + gadget rebind restored USB SSH | Verified |
 | System services | No failed system units during initial checks | Short observation only |
 | LTE / voice / SMS | Private-copy RFS replies; active KT phone SIM; combined CS/PS profile; repeated CEREG0,1 | Home LTE/EPS registration verified; PDP/IP/Internet, voice and SMS pending |
-| Speakers / microphone / headset | ABOX CRL0 booted; 2s silent PCM, 3s capture; two test frequencies observed in 5s capture; owner heard two quiet tones | Basic speaker/mic path passed; UCM exposes GNOME input/output; headset/call audio/quality pending; exact-BOOT startup and GNOME devices persisted on#8 |
+| Speakers / microphone / headset | Owner heard speaker tones and short recorded playback; #11 MICBIAS1 readback8065 confirms bypass cleared; GNOME input/output nodes persist | Initial speech replay failed with robotic/crackling sound. ABOX timing rule removed repeated resyncs; subsequent cue-assisted10s spoken recording/replay confirmed clear without crackling by owner. Short acoustic test passes; long quality/ASR pending. Microphone quality, ASR, headset/call paths, multi-mic and processing parity unverified |
 | Bluetooth | hci0 firmware loaded at 3Mbaud; discovery found 12 peer addresses; missing AES supplied and controller power cycle passed | Discovery verified; exact-BOOT startup persisted on#8; pairing/audio pending |
 | Accelerometer / gyroscope | Own SSP probe: chip0x55, firmware21031900; 19 accel and18 gyro samples with varying raw values | Raw readings verified; axes/calibration/automatic rotation and persistence pending |
 | Compass / light / proximity / other hub sensors | Hub enumerated a sensor mask; no individual sample validation yet | Not normal yet |
@@ -30,7 +30,7 @@ A build or a driver node is not sufficient evidence of a working function.
 | Charging / temperature / idle power | Battery stayed present during bring-up; native power testing still needed | Partial observation |
 | Sleep / resume / warm reboot | Sleep masked; upstream warm-reboot/deep-idle issues unresolved | Not normal |
 
-23 software guard regressions cover recovery, transfers, filesystem status,
+Software guard regressions cover recovery, transfers, filesystem status,
 Wi-Fi recovery, ACPM dispatch, hub patch validation BOOT-only updates and private RFS copies.
 CI never flashes or publishes blobs.
 The full-function target is **not achieved**. Only the individual observations above are verified; full LTE/audio/Bluetooth/sensor support is not claimed.
