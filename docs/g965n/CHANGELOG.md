@@ -1755,3 +1755,34 @@ filter/redaction/return/short-event checks. Root independently repeated both
 Linux-host test sets successfully. No DT/config/hardware enabling, kernel
 deployment or RGB/haptic/P2P hardware success is implied. ARM64 compilation
 and actual device trials remain separate pending steps.
+
+The complete kernel patch step applied twice to the actual pinned cache with
+unchanged second-pass hashes for all four Wi-Fi/PMIC files. ARM64 compilation
+of fwil.o, fweh.o, leds-max77705.o and max77693-haptic.o passed. No image was
+flashed and RGB/haptic configuration remains disabled; native#21 is unchanged.
+
+## 2026-11-19 — Prepare a timed user-session Mesa trial
+
+Added a separate explicit deployment helper, never invoked by build scripts.
+It checks selected G965N BOOT/startup receipt and complete private backup
+provenance before staging unique user-only environment/Shell wrapper files.
+Normal driver detection, coherent private library/vendor hashes and generated
+vendor JSON pins are enforced. Unknown existing GPU overrides/path conflicts
+are refused. Greeter/system Mesa and personal application preferences stay
+outside this trial.
+
+The actual Shell service refuses direct manual restart; preserve its no-argument
+gnome-shell command and recreate the graphical session through GDM instead.
+A root system rollback timer is reserved and verified before profile writes;
+global reservation and per-trial lifecycle locks prevent overlap. State updates
+are atomic, user paths are created/removed as the user, modified files are
+preserved/reported, and explicit root evidence is required to cancel rollback.
+Manual rollback remains possible after acceptance. Legacy D-Bus activation
+environment is deliberately untouched because absent variables cannot be
+faithfully restored through that API; those apps need independent map checks.
+
+17 host tests passed, including concurrent reservations, timer ordering,
+atomic-state failure, rollback/accept races, active JSON tamper and runtime-link
+escape checks. Test lifecycle operations are mocked; their printed restart
+messages are not device evidence. No profile application or GDM restart has
+occurred at this source-review checkpoint.
