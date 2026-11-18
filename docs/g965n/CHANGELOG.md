@@ -1548,3 +1548,30 @@ existing graphics replacement. Before/after package inventories, the exact
 plan and installation log are retained privately. The pinned upstream25.2.8
 archive hash matches its official release notes. This is build preparation;
 no custom Mesa library has been installed into system paths or GPU-tested.
+
+
+## 2026-11-19 — Check capabilities before explicit Mesa modifier creation
+
+Added a Mesa25.2.8 candidate patch under experiments/mesa, with its upstream
+MIT copyright/permission notice and pinned pristine/patched source hashes.
+Both native/emulated explicit creation loops now consult the existing
+is_dmabuf_modifier_supported callback. That callback reflects has_afbc and
+format restrictions. An AFBC+LINEAR list can choose LINEAR when AFBC is
+disabled; an unsupported AFBC-only list fails with NULL rather than choosing
+an unrequested layout. Preserve the old only-INVALID implicit fallback.
+Imports, default creation and the capability callback are unchanged.
+
+13 host C scenarios compile the actual original/patched selector and reproduce
+the baseline bypass, supported fallback, unsupported rejection, preference,
+allocation failure and INVALID behavior. The check also proves every byte
+outside that function unchanged, including import code and original notices.
+These tests passed independently; full Mesa compilation/native acceptance are
+still pending. This fixes a diagnostic-option selection path, not yet the GPU
+timeout or compositor smoothness.
+
+Native private Meson bootstrap initially requested a binary-only1.4.2 install;
+that wheel was unavailable. Corrected to the available1.4.1 wheel, which meets
+Mesa's >=1.4.0 requirement. The private venv now reports1.4.1; no global pip
+installation occurred. A failed wheel lookup does not establish that the
+upstream1.4.2 source release is absent. The source archive copied to the phone
+has the exact official SHA256. System services still show no failed units.

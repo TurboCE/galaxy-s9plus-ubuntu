@@ -1,0 +1,50 @@
+From: SM-G965N port maintainers
+Subject: [PATCH] panfrost: check format/modifier support for explicit creation
+
+Target: Mesa 25.2.8, src/gallium/drivers/panfrost/pan_resource.c
+Upstream file SHA256: 445916b95a284b4f49d76491d60143754976bc7deacabbf4df3bfc56ad7f7eeb
+License: MIT; full upstream notice is in LICENSE.pan_resource.MIT.
+
+Use the existing screen capability callback before selecting a native or
+emulated explicit modifier. Reject unsupported explicit lists rather than
+asserting or allocating an unrequested layout. Keep the existing only-INVALID
+fallback. Imported resources and implicit/default layout selection are unchanged.
+
+diff --git a/src/gallium/drivers/panfrost/pan_resource.c b/src/gallium/drivers/panfrost/pan_resource.c
+--- a/src/gallium/drivers/panfrost/pan_resource.c
++++ b/src/gallium/drivers/panfrost/pan_resource.c
+@@ -1190,22 +1190,29 @@
+    PAN_SUPPORTED_MODIFIERS(native_mods);
+ 
+    for (unsigned i = 0; i < ARRAY_SIZE(native_mods); ++i) {
+-      if (drm_find_modifier(native_mods[i], modifiers, count)) {
++      if (drm_find_modifier(native_mods[i], modifiers, count) &&
++          screen->is_dmabuf_modifier_supported(screen, native_mods[i],
++                                               template->format, NULL)) {
+          return panfrost_resource_create_with_modifier(screen, template,
+                                                        native_mods[i], 0);
+       }
+    }
+ 
+    for (unsigned i = 0; i < ARRAY_SIZE(emulated_mods); ++i) {
+-      if (drm_find_modifier(emulated_mods[i], modifiers, count)) {
++      if (drm_find_modifier(emulated_mods[i], modifiers, count) &&
++          screen->is_dmabuf_modifier_supported(screen, emulated_mods[i],
++                                               template->format, NULL)) {
+          return panfrost_resource_create_with_modifier(screen, template,
+                                                        emulated_mods[i], 0);
+       }
+    }
+ 
+-   /* If we didn't find one, app specified invalid */
+-   assert(count == 1 && modifiers[0] == DRM_FORMAT_MOD_INVALID);
+-   return panfrost_resource_create(screen, template);
++   /* Preserve the existing implicit-modifier fallback only when requested. */
++   if (count == 1 && modifiers[0] == DRM_FORMAT_MOD_INVALID)
++      return panfrost_resource_create(screen, template);
++
++   /* Do not silently allocate a layout outside an explicit candidate list. */
++   return NULL;
+ }
+ 
+ void
