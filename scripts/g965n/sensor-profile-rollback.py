@@ -123,13 +123,20 @@ def main():
     parser.add_argument('--confirm-backup-verified', action='store_true')
     parser.add_argument('--consent-profile-rollback', action='store_true')
     parser.add_argument('--reboot', action='store_true')
+    parser.add_argument('--check-only', action='store_true')
     args = parser.parse_args()
     if os.geteuid() != 0 or not args.confirm_backup_verified or not args.consent_profile_rollback:
         parser.error('Root, verified backup and explicit rollback consent required')
     data = trusted(args.state, 16384)
     if hashlib.sha256(data).hexdigest() != args.state_sha256:
         raise ValueError('Rollback state differs')
-    restore(json.loads(data), args.reboot)
+    value = json.loads(data)
+    if args.check_only:
+        baseline(value)
+        verify_boot(value)
+        print('Pinned baseline and exact BOOT/kernel verified; no action')
+        return
+    restore(value, args.reboot)
 
 
 if __name__ == '__main__':
