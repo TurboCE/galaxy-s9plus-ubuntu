@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Korean XKB alone cannot compose Hangul. IBus packages are in device/packages.txt.
+# Defaults preserve existing per-user overrides; English remains a separate source.
+[org/gnome/desktop/input-sources]
+sources=[('xkb', 'us'), ('ibus', 'hangul')]
+
+[org/freedesktop/ibus/engine/hangul]
+initial-input-mode='hangul'
+disable-latin-mode=true

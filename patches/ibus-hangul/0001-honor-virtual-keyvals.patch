@@ -1,0 +1,15 @@
+From: G965N port maintainers
+Subject: Preserve the keysym of GNOME on-screen keys without a hardware keycode
+
+GNOME 46 InputMethod.handleVirtualKey passes keycode zero. Mapping that code
+through the US hardware keymap discards the supplied letter, so the engine
+rejects the event and GNOME falls back to Latin input. Keep hardware layout
+normalization for nonzero codes and honor the supplied virtual keysym.
+Based on Ubuntu ibus-hangul 1.5.5-2build2, upstream libhangul/ibus-hangul.
+Original source notices and debian/copyright must be retained.
+
+--- a/src/engine.c
++++ b/src/engine.c
+@@ -1508 +1508 @@
+-	    if (keymap != NULL)
++	    if (keymap != NULL && keycode != 0)

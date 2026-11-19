@@ -173,3 +173,21 @@ prints only counts/generic name-match; it never pairs or connects a peer.
 These results qualify initialization, bounded scanning/lifecycle and real
 bidirectional peer discovery. GO/client negotiation, peer IP/file transfer,
 long-term concurrent use and cross-firmware/hardware variants remain open.
+
+### Native36 real Fold7 connection and payload trial
+
+A unique peer match from native NetworkManager discovery was used for one
+volatile wifi-p2p PBC profile, autoconnect disabled, IPv4 auto/never-default and
+IPv6 disabled. The expected Android connection dialog was accepted. Activation
+and a dedicated p2p-wlp1s0-0 IPv4 succeeded. A P2P-bound HTTP download to Fold7 and
+a reverse source-bound TCP transfer each moved1048576 deterministic bytes with
+matching SHA256. Receiver also checked source peer. No private address, profile,
+credential, Android dump or vendor firmware is included here.
+
+Primary bound-WiFi HTTPS204 passed during and after the group. Owned profile,
+servers and cleanup timers were removed/stopped; native P2P device disconnected,
+primary Wi-Fi/USB stayed connected. This is one real group/data qualification;
+repeated pairing, opposite GO roles, persistence and endurance remain pending.
+Two action-frame retry batches preceded acceptance, and a chanspec-52 query
+error occurred. They remain genuine residual errors, alongside an SSP retry in
+the full boot, rather than being hidden or relabeled as repaired.

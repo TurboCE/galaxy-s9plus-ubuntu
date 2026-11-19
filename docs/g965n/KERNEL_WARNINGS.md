@@ -23,4 +23,9 @@ severity/filter was changed merely to achieve a clean error-priority snapshot.
 Wi-Fi Direct IF_ADD timeout is separately repaired by a real firmware-backed
 control context, with native boot/reboot, lifecycle/scans, existing STA HTTPS
 and owner-assisted bidirectional discovery evidence in WIFI_DIAGNOSTICS.md.
-No peer group/transfer or full Lineage hardware-parity claim is made.
+A later native36 Fold7 group and source-bound 1MiB transfer in both directions
+passed with matching hashes and preserved STA HTTPS204. The same boot now has
+four error-priority lines: one SSP initial zero-byte write retry, two failed
+action-frame retry batches while awaiting pairing, and one chanspec query -52.
+Connection and cleanup eventually succeeded; these errors are not suppressed
+or considered fixed by the transfer pass. No full Lineage parity is claimed.

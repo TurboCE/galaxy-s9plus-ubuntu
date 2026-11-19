@@ -2844,3 +2844,69 @@ no additional36 UI-presence result is inferred. The earlier actual native
 checkbox off/on test and owner-confirmed smoothing remain the UI evidence;
 latest36 ambient setting istrue with requested/applied56of401. No debug/log
 mask, forced feature-ID change or GPT rewrite was used to obtain the result.
+
+## 2026-11-19 — Korean touch-input investigation and current modem readiness
+
+Owner reports Hangul source selection still produces Latin text. Installed
+Noble ibus/ibus-hangul/im-config/GTK3/GTK4 integration and set native sources
+US + IBus Hangul, initial Hangul mode and disable-latin-mode. Restarted IBus and
+performed one normal kernel36 Ubuntu reboot; USB SSH returned. Merely selecting
+the engine did not fix input. Native IBus input-context comparison on the actual
+phone reproduces physical keycodes: six handled keys, commit `가나다`; virtual
+keycode0: zero handled keys, empty commit. GNOME46 handleVirtualKey supplies0;
+Ubuntu ibus-hangul1.5.5 unconditionally remaps it through the hardware keymap.
+Candidate preserves the supplied keysym only for0, retaining physical layout
+normalization. Pinned upstream/Ubuntu source and patch-only build recipe added;
+image build integrates the same local package. Device build/after-fix input and
+owner touch test are still pending at this checkpoint. No input success claimed.
+
+Read-only PMU readiness audit, gated by exact G965N/current BOOT, observes reset
+sequencer0x504=0 and central sequence0x284=0. No secure control reads, register
+writes, SMC, CP reset, modem module load or original NV mount performed. The
+newly inserted SIM has not yet been recognized in this boot; prior registration
+is historical evidence only. Cold bring-up/PDP remains unqualified.
+
+Two bounded native peer searches completed without API error. Each saw one
+peer, but neither supplied an unambiguous Fold7 identity. No arbitrary peer was
+paired. Fold7 test-owned ADB UI/dump directory prepared; connection, IP traffic
+and file transfer remain pending. Peer names/addresses and raw dumps stay private.
+
+## 2026-11-19 — Korean touch input and real Fold7 P2P transfer verified
+
+Native ARM64 build of1.5.5-2build2+g965n1 succeeded from pinned Ubuntu archives;
+upstream engine test1/1 passed, separate desktop integration test skipped by
+its own environment check. Package SHA256
+b673c0837ed163c7219009d05286298b1d5e706e94d8fe0247ade1f209442f37.
+Installed and restarted the user's standard GNOME IBus unit. The same input
+comparison now handles six keys and commits `가나다` for BOTH physical codes
+and virtual0. Owner confirms actual Korean touchscreen text entry works.
+Fresh complete image build and another-login persistence are not inferred.
+No extracted/vendor binary or user text/log is published.
+
+Owner reopened Fold7 Wi-Fi Direct. A third guarded15s native search found two
+peers with a unique Fold7 match. Exact model/currentBOOT/protected-backup guard
+passed; created one explicitly non-autoconnecting, unsaved PBC test profile,
+IPv4 auto/never-default and IPv6 disabled. A bounded cleanup timer protected the
+trial. Fold7 presented the expected immediate connection request and the test
+accepted it. Native NetworkManager activation succeeded and a real
+p2p-wlp1s0-0 obtained a dedicated IPv4 address. No primary route was replaced.
+
+Served a deterministic1048576-byte file only on the P2P address. Fold7 curl
+explicitly bound its P2P source address and downloaded it; SHA256 matched.
+Reverse Fold7 netcat transfer also explicitly bound that source; the S9 receiver
+checked the incoming peer and exact1048576 bytes/hash, all passed. This is real
+bidirectional peer data, not discovery or traffic over the preexisting LAN.
+Bound primary Wi-Fi HTTPS204 and zero failed system units during the group.
+Stopped owned test servers/timers and down/deleted only the owned volatile
+profile; P2P device disconnected, primary Wi-Fi/USB remained connected, subsequent
+bound primary HTTPS204 passed. An initial combined stop returned nonzero because
+a completed transient server unit had already unloaded; cleanup was rerun with
+unit-existence checks and verified, without deleting unowned state.
+
+Full unfiltered current-boot kernel error stream contains four lines: SSP first
+write0/36 retry1, two action-frame retry5 failures before pairing acceptance,
+and chanspec query-52. No IF_ADD timeout, firmware trap, call trace or SError in
+the bounded transfer window. Transfer success does not erase these errors;
+remaining transport/query failures need causal review and repeat qualification.
+No CP module load/reset/security request, partition write or bootloader change
+was performed in this phase.

@@ -12,3 +12,8 @@ pulseaudio-utils
 rtkit
 fonts-noto-cjk
 fonts-noto-color-emoji
+ibus
+ibus-hangul
+ibus-gtk3
+ibus-gtk4
+im-config
