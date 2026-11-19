@@ -2910,3 +2910,44 @@ the bounded transfer window. Transfer success does not erase these errors;
 remaining transport/query failures need causal review and repeat qualification.
 No CP module load/reset/security request, partition write or bootloader change
 was performed in this phase.
+
+## 2026-11-19 — Modem probe exposes legacy interrupt-type warnings
+
+Reverified all nine recovery backup files locally; exact running G965N/BOOT,
+module and firmware-overlay hash guards passed, no modem clients or original
+EFS/CPEFS/RADIO mounts. Loaded the matching kernel36 modem module once with
+explicit enable_g965n=1. Nine modem misc channels registered; CP reset and central
+sequencer status both stayed0. No CBD/RIL/security request or SIM/PDP claim.
+Sensors and standard IBus remained active, failed units0.
+
+The probe exposed six irq-gic WARNs (plus their call traces): legacy DT interrupt
+flags are NONE for CP mailbox/fail/watchdog. Mainline explicitly warns for NONE.
+Read-only GICD_ICFGR audit using the live controller base0x10101000 verifies bit1
+clear (level) for hardware IRQ101/106/472; the displayed /proc interrupt label
+alone is misleading when the descriptor has no specified sense. Adapted only
+those exact stock SPIs to explicit LEVEL_HIGH; no IRQ identity, polarity, register
+range or other hardware property changed. Strict stock verifier accepts only
+this exact0→4 migration and rejects arbitrary IRQ/flag changes; two host tests
+passed. New source-built overlay compares successfully with all three original
+stock BOOT subtrees after the explicit revision/interrupt migrations. Native
+updated-overlay reload/boot warning result is still pending at this checkpoint.
+The modem driver has no complete removal path; no unsafe hot unload is used.
+
+Updated overlay SHA256
+08d7aff3095c694ef6b26e19e018aa1560aad8c8c895c4b7dcc1a24456fd3cd8
+staged with exact old/new hashes and current model/BOOT guards; previous overlay
+preserved root-private. Normal reboot completed on the same kernel36; USB and
+Tailscale SSH returned. The previous loaded driver shutdown retains its checked
+CP-off/reset sequence even when already offline; no security authentication or
+CBD/RIL was requested. No hot unload or BOOT/partition write used. Audio/sensor
+and IBus services active after reboot, primary Wi-Fi connected. Full pre-probe
+kernel error stream has one line, separately retained for remaining review.
+
+Loaded exactly the previous matching module with only the reviewed new overlay,
+following repeated model/BOOT/artifact/no-client guards. Nine misc channels
+registered; invalid-type and gic_irq_domain_translate warning counts both0.
+All three original hardware IRQs now display Level in /proc/interrupts; before
+this change they misleadingly displayed Edge while GIC configuration was level.
+This qualifies native interrupt-description/probe warning correction. Actual
+IRQ delivery from an active CP, SIM, LTE/PDP/voice and modem endurance remain
+unverified; the modem is not autostarted or powered by this qualification.

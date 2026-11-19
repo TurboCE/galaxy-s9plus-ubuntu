@@ -13,6 +13,26 @@ from boot_parts import parts
 NODES = ('mif_pdata', 'shmem@F6E00000', 'mcu_ipc@14170000')
 
 
+def migrate_interrupts(node, stock, overlay):
+    """Allow only reviewed NONE -> LEVEL_HIGH on the three original SPIs.
+
+    Native G965N GICD_ICFGR readback has bit1 clear for HW IRQ101/106/472.
+    Do not permit different IRQ IDs, polarity, topology or arbitrary flags.
+    """
+    ids = {'mif_pdata': (0, 74, 0, 0, 440, 0),
+           'mcu_ipc@14170000': (0, 69, 0)}
+    if node not in ids:
+        return True
+    original = ids[node]
+    migrated = tuple(4 if i % 3 == 2 else v for i, v in enumerate(original))
+    pack = lambda cells: struct.pack('>' + 'I' * len(cells), *cells)
+    a, b = stock.get('', {}), overlay.get('', {})
+    if a.get('interrupts') != pack(original) or b.get('interrupts') != pack(migrated):
+        return False
+    a['interrupts'] = pack(migrated)
+    return True
+
+
 def tree(blob):
     if len(blob) < 40 or blob[:4] != b'\xd0\x0d\xfe\xed':
         raise ValueError('Invalid FDT')
@@ -83,6 +103,7 @@ def main():
     for node in NODES:
         a = subtree(stock, '/' + node)
         b = subtree(overlay, '/fragment@0/__overlay__/' + node)
+        irq_ok = migrate_interrupts(node, a, b)
         revision_ok = True
         if node == 'mif_pdata':
             # Legacy GPIO phandles belong to the stock tree, not mainline.
@@ -94,7 +115,8 @@ def main():
             revision_ok = revision_ok and b.get('', {}).pop('samsung,hw-revision', None) == expected
         rows.append({'node': node, 'stock_children': len(a),
                      'explicit_revision_migration_valid': revision_ok,
-                     'hardware_properties_match_after_revision_migration': bool(a) and a == b and revision_ok})
+                     'explicit_irq_migration_valid': irq_ok,
+                     'hardware_properties_match_after_revision_migration': bool(a) and a == b and revision_ok and irq_ok})
     print(json.dumps(rows, indent=2))
     if not all(row['hardware_properties_match_after_revision_migration'] for row in rows):
         raise SystemExit('Overlay differs from the stock handset; hardware probing remains blocked.')

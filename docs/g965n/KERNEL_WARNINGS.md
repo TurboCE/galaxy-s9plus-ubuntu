@@ -29,3 +29,10 @@ four error-priority lines: one SSP initial zero-byte write retry, two failed
 action-frame retry batches while awaiting pairing, and one chanspec query -52.
 Connection and cleanup eventually succeeded; these errors are not suppressed
 or considered fixed by the transfer pass. No full Lineage parity is claimed.
+
+A later opt-in modem probe exposed six IRQ_TYPE_NONE translation WARNs from
+the legacy modem overlay. Read-only native GICD configuration showed actual
+level mode for IRQ101/106/472. Explicit LEVEL_HIGH for those exact stock SPIs,
+with a strict migration-aware stock verifier, passed a normal kernel36 reboot
+and subsequent module probe with zero invalid-type/GIC-translate warnings.
+This fixes the hardware description; active CP interrupt delivery is pending.

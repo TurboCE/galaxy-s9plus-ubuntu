@@ -39,6 +39,14 @@ qualified its hardware properties for probing. A failed comparison aborts
 packaging; `passed` means only those properties match, not that CP boot or LTE
 works. Existing dtc layout warnings remain visible.
 
+The comparison now also requires one narrow mainline interrupt migration:
+stock NONE flags become explicit LEVEL_HIGH for only SPI69/74/440
+(hardware IRQ101/106/472). Native read-only GICD configuration showed level
+mode for those three lines. IDs and all remaining properties must still match.
+The old NONE overlay triggers mainline irq-gic WARNs and is no longer accepted
+by this verifier. This explicit migration is reported separately in each row;
+it does not qualify CP boot, SIM detection or radio traffic.
+
 For a separate comparison of an already built artifact:
 
 ```bash

@@ -15,7 +15,10 @@
 		reg = <0x0 0x10000 0x0>;
 		compatible = "sec_modem,modem_pdata";
 		status = "okay";
-		interrupts = <0x0 0x4a 0x0 0x0 0x1b8 0x0>;
+		/* Mainline requires an explicit sense type. These three GIC SPIs
+		 * retain their observed level configuration (IRQ_TYPE_LEVEL_HIGH),
+		 * instead of the legacy stock IRQ_TYPE_NONE placeholder. */
+		interrupts = <0x0 0x4a 0x4 0x0 0x1b8 0x4>;
 		mif,name = "ss360ap";
 		mif,modem_net = <0x0>;
 		mif,modem_type = <0xa>;
@@ -389,7 +392,7 @@
 		reg = <0x0 0x14170000 0x180>;
 		mcu,name = "mcu_ipc_cp";
 		mcu,id = <0x0>;
-		interrupts = <0x0 0x45 0x0>;
+		interrupts = <0x0 0x45 0x4>;
 		mcu,irq_affinity_mask = <0x3>;
 	};
         };
