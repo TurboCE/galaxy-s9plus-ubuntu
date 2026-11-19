@@ -1946,3 +1946,38 @@ Not part of #22 and no native correction claimed until the next boot.
 MAX77705 topology audit is documented separately: a phantom platform charger
 cell differs from the working sibling I2C driver; RGB/haptic require real board
 connections. No empty child nodes or invented motor supplies were added.
+
+
+#22 raw roam diagnostic interpretation: pinned fwil error table maps -3 to
+BCME_BADOPTION, distinct from BADARG(-2) and UNSUPPORTED(-23). Pinned vendor
+101_16 blocks legacy roam-trigger changes under PRODUCT_WBTEXT policy5 and
+uses optimized preinit without cmd55. This is a concrete policy-conflict
+hypothesis, not a confirmed live policy value. No forced policy change,
+unconditional skip or unsupported-error reclassification is applied.
+
+Pinctrl regression was independently rerun under the Linux builder: two tests
+passed and the optional local-Lineage-tree crosscheck skipped (the same
+crosscheck passed on the Mac). Wi-Fi diagnostics tests, experiment-package
+tests and PMIC actual-C correctness tests also passed. No feature exercise
+was added.
+
+
+Kernel #23 built from4c471d4 with pinctrl topology corrections. Verified exact
+private module hashes and staged only audio/Bluetooth startup for its BOOT,
+then requested recovery for fresh backups. No sensors/modem loading, HCI
+queries, graphical stress or physical interaction was requested.
+
+
+#23 hardware boot-log result: fresh nine-partition backup complete; guarded
+BOOT-only update and byte/hash readback passed. Actual native #23 BOOT matches
+its package; fresh USB SSH, zero failed system units and exact audio/Bluetooth
+service startup confirmed. External initramfs unpack failures remain zero. All
+three earlier samsung-pinctrl IRQ topology diagnostics are now absent. No new
+WARNING/BUG/Oops/panic/Asynchronous SError or GPU scheduler/soft-stop failure
+signatures were found in this boot observation. This is boot/log qualification,
+not physical button/wakeup/suspend or all-feature qualification.
+
+CLKOUT parent failure, MAX77705 missing children and Wi-Fi roam/P2P errors
+remain; CPU/cache messages retain their documented limitations. No logging
+filter, clock/voltage workaround, partition repair or unrelated feature test
+was introduced. Private complete before/after logs remain outside Git.

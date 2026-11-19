@@ -83,3 +83,9 @@ functional, modem, suspend or GPU desktop/endurance qualification is implied.
 Pinctrl topology candidate: two inapplicable GPIO-group initializers removed
 with all wakeup/bank data retained; gpa4 SPI446/447 restored from pinned stock
 source. Three host sanitizer tests pass. Native boot-log verification pending.
+
+Native #23 actual boot: guarded BOOT readback and package identity verified.
+All three former pinctrl IRQ topology errors absent; initramfs failure remains
+absent; zero failed system units, audio/Bluetooth startup active, no matching
+new fatal/GPU/BUG/WARNING signatures in this boot window. Physical IRQ consumer
+behavior/wakeup/suspend untested. CLKOUT/MFD/Wi-Fi errors remain open.
