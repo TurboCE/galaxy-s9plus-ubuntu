@@ -2239,3 +2239,25 @@ and passes42 host tests. Exact#25 transport and bounded900s lhd restarted.
 First three labeled poses had near-identical dominant rawX; do not infer
 orientation from them. Continuous movement comparison requested to separate
 physical target/pose timing from a stuck data path. No matrix installed.
+
+
+Six-pose operator qualification completed on#25. Initial unchanged-axis values
+were explained by yaw with phone top kept upright, not a stuck sensor. Explicit
+portrait/photo-landscape roll instructions produced independent signed axes.
+One unstable landscape capture was repeated; all six then passed the explicit
+handheld15deg discrete-axis policy (strict mode unchanged). Qualified matrix
+0,1,0;1,0,0;0,0,-1 has determinant+1. Raw observations and evaluation remain
+private; no continuous precision-calibration claim. New REMOVE_SENSOR uses
+the actual200ms enable delay, matching pinned stock; bounded post-remove
+read after drain observed0 acceleration samples/3s. Transport was then stopped/
+unmounted/unloaded normally. Earlier zero-delay removals did not establish
+semantic stop, although final lhd/transport shutdown remained effective.
+
+Source sensor-only supervisor, typed broker and desktop trial rollback added.
+Runtime does not expose modem/identity nodes; staged exact node rwm creation
+permission narrows to rw before children. Host runtime17,broker7,rollback3 and
+orientation9 regressions pass. Kernel#27 core+bridge/module package built from
+ef06a8b after#26 API correction. Fresh9backup complete and BOOT-only install
+started; successful device boot and IIO publication remain separate checks.
+Owner now requests no verification subagents; all earlier agents are finished
+and further implementation/verification is performed by the main agent.

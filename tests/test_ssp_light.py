@@ -637,3 +637,32 @@ class CanonicalProbeLockTests(unittest.TestCase):
                     raise ValueError('body')
             with self.assertRaises(OSError):
                 self.real_fstat(fd)
+
+
+class MatchingRemoveDelayTests(unittest.TestCase):
+    def test_add_and_remove_share_exact_previous_delay_bytes(self):
+        class Probe:
+            def __init__(self):
+                self.samples = {0:[], 9:[]}; self.calls = []
+            def transaction(self, command, payload):
+                self.calls.append((command, payload))
+        p = Probe(); enabled = []
+        ssp.enable_sampling_phases(p, [0,9], (1<<0)|(1<<9), enabled)
+        ssp.disable_sensors(p, enabled)
+        self.assertEqual(ssp.SAMPLE_DELAY_MS, 200)
+        self.assertEqual(p.calls, [
+            (0xA1, struct.pack('<BiiB', 0, 200, 0, 0)),
+            (0xA1, struct.pack('<BiiB', 9, 200, 0, 0)),
+            (0xA2, struct.pack('<Bi', 0, 200)),
+            (0xA2, struct.pack('<Bi', 9, 200))])
+
+    def test_every_cleanup_keeps_actual_delay_after_first_failure(self):
+        calls = []
+        class Probe:
+            def transaction(self, command, payload):
+                calls.append((command, payload))
+                if payload[0] in (0,9):
+                    raise RuntimeError('test failure')
+        with patch('sys.stdout', new_callable=io.StringIO), self.assertRaises(RuntimeError):
+            ssp.disable_sensors(Probe(), [0,1,9])
+        self.assertEqual(calls, [(0xA2,struct.pack('<Bi', sensor,200)) for sensor in (0,1,9)])

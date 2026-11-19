@@ -634,12 +634,13 @@ def mount(source, target, *options):
     run('mount', *options, source, target)
 
 
-def device_nodes():
+def device_nodes(include_modem=True):
     safe_components(ROOT / 'dev')
     if not os.path.ismount(ROOT):
         raise RuntimeError('Runtime not mounted')
     selected = ['null', 'zero', 'random', 'urandom', 'ttyBCM', 'bbd_control', 'bbd_sensor', 'bbd_patch']
-    selected += [p.name for p in Path('/dev').glob('umts_*')]
+    if include_modem:
+        selected += [p.name for p in Path('/dev').glob('umts_*')]
     for name in selected:
         source = Path('/dev') / name
         if source.exists():
@@ -657,7 +658,7 @@ def device_nodes():
                 os.chown(target, 1001, 1001)  # stock cbd drops to Android radio
 
 
-def prepare():
+def prepare(sensor_only=False, create_devices=True):
     assert_board()
     safe_directory(BASE)
     safe_directory(STATE)
@@ -694,7 +695,8 @@ def prepare():
         safe_directory(DATA / name)
     mount(DATA, ROOT / 'data', '--bind')
     # Individual character devices only: never bind the host's entire /dev.
-    device_nodes()
+    if create_devices:
+        device_nodes(include_modem=not sensor_only)
     (ROOT / 'bin').symlink_to('system/bin')
     (ROOT / 'etc').symlink_to('system/etc')
     print('Owner vendor runtime prepared; no daemon started; no identity block devices exposed.')
@@ -956,7 +958,7 @@ def teardown():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('up', 'down', 'refresh-devices', 'stage-modem', 'resume-modem', 'archive-modem-state', 'cbd-permissions', 'revalidate-efs-superblock'))
+    parser.add_argument('action', choices=('up', 'up-sensors', 'down', 'refresh-devices', 'stage-modem', 'resume-modem', 'archive-modem-state', 'cbd-permissions', 'revalidate-efs-superblock'))
     parser.add_argument('--efs-backup', type=Path)
     parser.add_argument('--old-efs-backup', type=Path)
     parser.add_argument('--confirm-efs-superblock-revalidation', action='store_true')
@@ -1003,7 +1005,7 @@ def main():
             if os.path.ismount(ROOT):
                 raise SystemExit('Runtime already mounted; existing runtime preserved')
             try:
-                prepare()
+                prepare(sensor_only=args.action == 'up-sensors')
             except BaseException:
                 teardown()
                 raise

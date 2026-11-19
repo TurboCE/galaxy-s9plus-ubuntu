@@ -22,6 +22,7 @@ import time
 
 
 PROBE_LOCK_PATH = '/run/lock/g965n-ssp-probe.lock'
+SAMPLE_DELAY_MS = 200
 
 
 @contextmanager
@@ -138,7 +139,7 @@ def enable_sampling_phases(probe, selected, sensor_mask, enabled):
         if not sensor_mask & (1 << sensor):
             continue
         enabled.append(sensor)
-        probe.transaction(0xA1, struct.pack('<BiiB', sensor, 200, 0, 0))
+        probe.transaction(0xA1, struct.pack('<BiiB', sensor, SAMPLE_DELAY_MS, 0, 0))
     enable_samples = {sensor: list(probe.samples[sensor]) if sensor in enabled else []
                       for sensor in selected}
     for sensor in selected:
@@ -203,7 +204,9 @@ def disable_sensors(probe, enabled):
     errors = []
     for sensor in enabled:
         try:
-            probe.transaction(0xA2, struct.pack('<Bi', sensor, 0))
+            # Pinned ssp_remove_sensor sends the previous ADD delay, not zero.
+            # Transport consumption is not a semantic stop acknowledgment.
+            probe.transaction(0xA2, struct.pack('<Bi', sensor, SAMPLE_DELAY_MS))
         except (OSError, RuntimeError) as error:
             errors.append(sensor)
             print(json.dumps({'disable_failed': sensor, 'error': str(error)}), flush=True)

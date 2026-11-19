@@ -70,3 +70,65 @@ class OrientationTests(unittest.TestCase):
                 o.evaluate(data)
         with self.assertRaises(ValueError):
             o.evaluate(synthetic(), minimum=1)
+
+
+class HandheldOrientationTests(unittest.TestCase):
+    def tilted(self, degrees=10, magnitude=1.0):
+        import math
+        d = synthetic()
+        g = o.G_COUNTS*magnitude
+        major, minor = g*math.cos(math.radians(degrees)), g*math.sin(math.radians(degrees))
+        # Each opposite pair has equal common posture tilt, not sensor bias.
+        values = {'top-right':[major,0,minor], 'top-left':[-major,0,minor],
+                  'bottom-up':[0,major,minor], 'top-up':[0,-major,minor],
+                  'face-up':[minor,0,major], 'face-down':[minor,0,-major]}
+        d['poses'] = {p:[list(v) for _ in range(12)] for p,v in values.items()}
+        return d
+
+    def test_common_ten_degree_tilt_explicit_only_and_discrete_result(self):
+        data = self.tilted()
+        with self.assertRaises(ValueError):
+            o.evaluate(data)  # Strict original policy is unchanged.
+        result = o.evaluate(data, handheld=True)
+        self.assertEqual(result['mount_matrix'], '1,0,0;0,1,0;0,0,1')
+        self.assertEqual(result['qualification'], 'discrete axis assignment only')
+        self.assertEqual(result['capture_mode'], 'handheld-15deg')
+        self.assertAlmostEqual(result['capture_tilt_degrees']['top-up'], 10)
+        self.assertAlmostEqual(result['pair_fit']['top-right/top-left']['difference_axis_degrees'], 0)
+        self.assertGreater(result['pair_fit']['top-right/top-left']['common_off_axis_g'], .17)
+
+    def test_same_gravity_wrong_yaw_and_twenty_degree_capture_fail(self):
+        d = self.tilted(); d['poses']['top-left'] = copy.deepcopy(d['poses']['top-right'])
+        with self.assertRaisesRegex(ValueError,'opposite dominant signs'):
+            o.evaluate(d, handheld=True)
+        d = self.tilted(); d['poses']['top-right'] = copy.deepcopy(d['poses']['top-up'])
+        with self.assertRaisesRegex(ValueError,'dominant axes'):
+            o.evaluate(d, handheld=True)
+        with self.assertRaisesRegex(ValueError,'tilted'):
+            o.evaluate(self.tilted(20), handheld=True)
+
+    def test_pair_common_tilt_range_reference_and_stale_format_still_fail(self):
+        with self.assertRaisesRegex(ValueError,'common tilt'):
+            o.evaluate(self.tilted(14, 1.12), handheld=True)
+        d = self.tilted(); d['reference']['range_g'] = 4
+        with self.assertRaisesRegex(ValueError,'full-scale'):
+            o.evaluate(d, handheld=True)
+        d = self.tilted(); d['reference'].pop('z_basis')
+        with self.assertRaisesRegex(ValueError,'Z sign'):
+            o.evaluate(d, handheld=True)
+        d = self.tilted(); d['reference']['z_positive_pose'] = 'face-down'
+        with self.assertRaisesRegex(ValueError,'reflection'):
+            o.evaluate(d, handheld=True)
+        d = self.tilted(); d['poses'] = {'old_samples': d['poses']['top-up']}
+        with self.assertRaisesRegex(ValueError,'stable frames'):
+            o.evaluate(d, handheld=True)
+
+    def test_unstable_and_nonindependent_poses_not_relaxed(self):
+        d = self.tilted(); d['poses']['top-up'][0][1] += 500
+        with self.assertRaisesRegex(ValueError,'unstable'):
+            o.evaluate(d, handheld=True)
+        d = self.tilted()
+        d['poses']['face-up'] = copy.deepcopy(d['poses']['top-right'])
+        d['poses']['face-down'] = copy.deepcopy(d['poses']['top-left'])
+        with self.assertRaisesRegex(ValueError,'independent'):
+            o.evaluate(d, handheld=True)

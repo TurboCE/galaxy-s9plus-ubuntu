@@ -1,0 +1,29 @@
+# Source template only. No unit is installed or enabled by the helper.
+# Replace all three @...@ fields after private profile/package validation.
+[Unit]
+Description=Guarded G965N sensor runtime and single SSP broker
+After=local-fs.target dbus.service
+Requires=dbus.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=/usr/bin/python3 @SUPERVISOR@ run --profile @PROFILE@ --profile-sha256 @PROFILE_SHA256@ --model SM-G965N --confirm-backup-verified --consent-start-sensors
+Restart=no
+KillMode=mixed
+TimeoutStartSec=120
+TimeoutStopSec=210
+UMask=0077
+NoNewPrivileges=yes
+DevicePolicy=closed
+# Initial read-only partitions for exact BOOT guard and SYSTEM/VENDOR setup.
+# Exact sensor character nodes get temporary rwm only for private node setup,
+# then rw through SetUnitProperties before either child starts.
+DeviceAllow=/dev/sda10 r
+DeviceAllow=/dev/sda18 r
+DeviceAllow=/dev/sda19 r
+# Canonical runtime mounts must remain visible to the existing lease tools.
+PrivateMounts=no
+
+[Install]
+WantedBy=multi-user.target

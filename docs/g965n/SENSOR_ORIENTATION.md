@@ -79,3 +79,37 @@ passed those checks. `installed:false` is always present. Physical correctness,
 Linux service discovery and actual portrait/landscape behavior still require
 separate validation after the main operator reviews the candidate. Unqualified
 input produces no profile, and this tool offers no apply/install mode.
+
+## Explicit handheld 15-degree capture mode
+
+`--handheld-15deg` enables a separate capture policy for a phone held with a
+small common forward/backward tilt. The default strict policy above is
+unchanged. This mode assigns discrete axes only; it does not estimate a precise
+calibration rotation, remove sensor bias, or transform raw acceleration values.
+
+For each median, the angle between its dominant signed axis and its full vector
+must be at most15°, with dominant magnitude at least0.9g. The original minimum
+frame count, finite/signed16 checks, frame-to-median stability0.08g, per-frame
+magnitude0.85–1.15g, explicit verified8G range and right-handed/+Z reference
+requirements remain. Full six-pose input remains mandatory.
+
+Each opposite pair must have the same dominant axis, opposite dominant signs,
+and normalized dot product at most `-cos(30°)` (at least150° opposition). With
+positive and negative medians `p,n`, compute `d=(p-n)/2` and `c=(p+n)/2`.
+This cancels equal posture tilt in that pair without asserting it is an actual
+sensor offset. Require d magnitude0.85–1.15g and dominant-axis fit at most15°;
+c's dominant component must be at most0.15g, and its off-axis vector magnitude
+at most `sin(15°)*g`. The three pair-difference dominant axes must be distinct.
+The output remains a signed-permutation matrix with determinant+1, never an
+arbitrary fitted rotation. The strict mode's raw cross-pose dot-product check
+is deliberately replaced by these explicitly bounded paired/discrete checks;
+common tilt need not make raw median vectors perfectly orthogonal.
+
+Output includes `capture_mode`, per-pose `capture_tilt_degrees`, paired fit and
+common-component diagnostics, and `qualification:"discrete axis assignment
+only"`. Similar gravity from yaw-only turning fails opposite-sign/pair tests;
+ambiguous axes, too much tilt or inconsistent pairs fail instead of generating
+a best-effort matrix. Consistently incorrect physical pose labels cannot be
+proved false by geometry alone: operator verification of labels and reference
+provenance remains necessary. No measured handset input is stored in this
+repository; accepted/rejected regression fixtures are entirely synthetic.

@@ -126,3 +126,16 @@ For rotation, the source names the final unsigned byte `acc_rot` but forwards
 it unchanged. Observed byte246 has no established quality/radian/sentinel
 meaning in the pinned kernel. Treat it as uninterpreted raw status; no 0..3
 accuracy range or quaternion scale/normalization is asserted.
+
+
+A1 add and A2 remove now share `SAMPLE_DELAY_MS=200`. Pinned
+`ssp_sysfs.c:ssp_remove_sensor` captures the previous sensor delay, converts it
+to milliseconds and sends it as four bytes following the sensor ID; factory
+magnetic-raw paths likewise use their same delay for both commands. The former
+zero-delay A2 differed from this contract. All cleanup commands are still
+attempted after any failure. A successful write transaction confirms transport
+payload consumption, **not** a semantic sensor-stop acknowledgment. Whether
+samples stop must be established by a separate bounded post-remove observation;
+startup/backlog samples alone do not prove successful removal or its failure.
+The advertised F4 mask is not an active-enable mask. No new RETURN/ACK protocol,
+reset/remove-all command or hardware trial is introduced by this source fix.
