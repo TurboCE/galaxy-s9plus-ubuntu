@@ -2508,3 +2508,28 @@ ACK/queue/error review; the startup retries are not yet declared repaired.
 Native#29 built from9861b49,BOOT b22c443158bba817ec087ff2161758b9ce855e4f9bbac6110ba228ff10098a1c/27219984bytes. Fresh9backup,guardedBOOTwrite/readback and nativeboot passed. First recovery-to-native boot bound touch at8.325s after rail-on4.101s without the timeout. However two subsequent warm boots both timed out around8.44s and only bound around10.63s. Thus4s is NOT a verified general fix; no success label. Sensors/audio/BT start with exact29 package/profile; SSP ACK candidate was not installed. Investigating real boot-complete IRQ readiness rather than hiding the early I2C failure with a larger guessed delay.
 
 An opt-in strict_tx_ack source candidate now tracks positive acknowledgements, commits only those ring bytes, rejects exhausted/oversized ACKs, uses overlap-safe movement and bounded backpressure, and latches a failed stream instead of kernel replay/reset. Fault masks IRQ requeue, poll/write/read fail, and consumer readiness is invalidated without firmware reset. New exclusive LHD open is the only reset of this per-stream fault; strict close drains old work before releasing ownership. Default remains off pending bootstrap/data-contract qualification. Actual C ACK-state regression and full AArch64 module compile pass; no hardware improvement claimed. A first multi-file patch failed anchor validation and applied nothing, then corrected.
+
+## 2026-11-19 — Real IRQ trial narrows first-touch-access failure
+
+Added a separate opt-in bounded GPIO observation module using referenced
+gpio_device/gpiod raw reads, without pin request/mux/direction writes. Native
+read-only test reported idleIRQ1. Authorized exact29BOOT/backup-checked trial
+armed independent60s reboot recovery, unbound touch and repeated the existing
+LDO35/43 masked off2s/on sequence. Actual IRQ1→0 occurred at103ms after power
+restoration, yet first manual bind~1s later returnedETIMEDOUT. Kernel then
+registered touch input~160ms after that error; second manual bindEBUSY meant
+it was already bound, not another failed probe. Binding verified, diagnostic
+unloaded, fallback timer cancelled and sensor/audio/BT active. No fake ready
+value, IRQ/pin drive, persistent voltage change or original-partition write.
+
+An actual boot IRQ before first failure and immediate recovery following
+HSI2C's normal error reset suggest controller handover state rather than a
+long ASIC boot delay. Reverted failed4s experiment to original1s guard. Added
+a read-only ACPM power-generation API and a scoped first-transfer HSI2C reset
+after both clocks enabled, once per real touch rail cycle; only Star2 bus
+104b0000/address48. Other adapters, normal error propagation, voltage and
+retry budgets unchanged. This remains a hypothesis until new BOOT trials.
+Added optional strict-ACK supervisor policy inferred from pinned ELF modinfo:
+new-capability modules default to explicitN, preventing adoption of a loadedY
+trial under a default profile; old modules remain compatible and rejectY.
+Runtime18/C-ACK1 regressions pass. No strict-ACK hardware test yet.

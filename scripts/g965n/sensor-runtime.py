@@ -130,6 +130,7 @@ def validate_profile(profile):
         program=load_program(profile,'broker')
         program.magnetic_capture_policy(profile)
         program.magnetic_initialization(profile)
+    transport_policy(profile)
     if set(profile['identity'])!={'chip_id','firmware','sensor_mask'} or any(type(v)is not int or v<0 for v in profile['identity'].values()):
         raise RuntimeError('Expected pinned hub identity facts')
     for name in ('startup','cleanup'):
@@ -280,6 +281,23 @@ def ensure_module(entry,name,parameters,expected_parameters):
         if (directory/'parameters'/key).read_text().strip()!=value:raise RuntimeError('Newly loaded module parameters differ')
 
 
+def transport_policy(profile):
+    value=profile.get('transport',{'strict_tx_ack':False})
+    if not isinstance(value,dict) or set(value)!={'strict_tx_ack'} or type(value['strict_tx_ack'])is not bool:
+        raise RuntimeError('Expected explicit boolean SSI transport policy')
+    info=elf_section(pinned(profile['module'],64*1024*1024),'.modinfo')
+    capable=b'parmtype=strict_tx_ack:bool' in info.split(b'\0')
+    if value['strict_tx_ack'] and not capable:
+        raise RuntimeError('Selected transport module has no checked-ACK capability')
+    parameters=['enable_g965n=1']
+    expected={'enable_g965n':'Y','supply_cut':'N','bitbang':'N'}
+    if capable:
+        enabled=value['strict_tx_ack']
+        parameters.append('strict_tx_ack='+('1' if enabled else '0'))
+        expected['strict_tx_ack']='Y' if enabled else 'N'
+    return parameters,expected
+
+
 def drop_vendor_privileges():
     libc=ctypes.CDLL(None,use_errno=True)
     def check(result):
@@ -388,7 +406,8 @@ def supervise(profile,path,profile_sha):
             for vendor,key in [(LHD,'lhd_sha256'),(LHD_CONFIG,'config_sha256')]:
                 if digest(trusted_bytes(ROOT/vendor.lstrip('/')))!=profile['vendor'][key]:raise RuntimeError('Vendor input mismatch')
             check_stop()
-            ensure_module(profile['module'],'zrn_bbd',['enable_g965n=1'],{'enable_g965n':'Y','supply_cut':'N','bitbang':'N'})
+            parameters,expected=transport_policy(profile)
+            ensure_module(profile['module'],'zrn_bbd',parameters,expected)
             check_stop()
             params,expected=bridge_policy(profile)
             ensure_module(profile['iio_bridge'],'g965n_iio_bridge',params,expected)

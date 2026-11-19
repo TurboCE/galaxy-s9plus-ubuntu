@@ -16,6 +16,7 @@ int s9p_acpm_pmic_write(u8 reg, u8 val);
 int s9p_acpm_pmic_update(u8 reg, u8 val, u8 mask);
 bool s9p_acpm_is_ready(void);
 bool s9p_acpm_touch_ready(void);
+u32 s9p_acpm_touch_power_generation(void);
 
 /* Mali-G72 clock: 572000 / 455000 / 260000 kHz (stock points) */
 int s9p_g3d_set_khz(unsigned int khz);
@@ -34,6 +35,7 @@ static inline int s9p_acpm_pmic_update(u8 reg, u8 val, u8 mask)
 }
 static inline bool s9p_acpm_is_ready(void) { return false; }
 static inline bool s9p_acpm_touch_ready(void) { return false; }
+static inline u32 s9p_acpm_touch_power_generation(void) { return 0; }
 static inline int s9p_g3d_set_khz(unsigned int khz) { return -ENODEV; }
 static inline unsigned int s9p_g3d_get_khz(void) { return 0; }
 static inline void s9p_g3d_domain_lock(void) { }

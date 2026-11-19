@@ -1172,6 +1172,44 @@ else:
 
 print("PATCH_TREE_OK")
 
+# The TSP IRQ is ready before the first failing I2C access. The first error
+# resets HSI2C, after which an immediate reprobe works. Reinitialize only this
+# board's TSP bus once per actual ACPM rail cycle, after both clocks are on.
+# No error filtering, speculative extra transfer, other-bus reset or voltage
+# change. Keep the existing normal error/recovery path for a genuine fault.
+i2c_touch_path = src / 'drivers/i2c/busses/i2c-exynos5.c'
+i2c_touch = i2c_touch_path.read_text()
+if 'S9P_TOUCH_POST_POWER_RESET' not in i2c_touch:
+    pos = i2c_touch.index('#include')
+    i2c_touch = (i2c_touch[:pos] +
+                 '#include <linux/soc/samsung/s9p-acpm.h> /* S9P_TOUCH_POST_POWER_RESET */\n' +
+                 i2c_touch[pos:])
+    anchor = '\tunsigned int\t\tatomic;\n'
+    assert i2c_touch.count(anchor) == 1
+    i2c_touch = i2c_touch.replace(anchor, anchor + '\tu32 s9p_touch_generation;\n', 1)
+    anchor = '\tfor (i = 0; i < num; ++i) {\n'
+    assert i2c_touch.count(anchor) == 1
+    code = '''
+\tif (IS_ENABLED(CONFIG_S9P_ACPM) &&
+\t    of_machine_is_compatible("samsung,star2lte") &&
+\t    !strcmp(dev_name(i2c->dev), "104b0000.i2c") &&
+\t    num > 0 && msgs[0].addr == 0x48) {
+\t\tu32 generation = s9p_acpm_touch_power_generation();
+
+\t\tif (generation && generation != i2c->s9p_touch_generation) {
+\t\t\tu32 before = readl(i2c->regs + HSI2C_TRANS_STATUS);
+\t\t\texynos5_i2c_reset(i2c);
+\t\t\ti2c->s9p_touch_generation = generation;
+\t\t\tdev_info(i2c->dev,
+\t\t\t\t "TSP post-power bus reset generation=%u status=%08x->%08x\\n",
+\t\t\t\t generation, before,
+\t\t\t\t readl(i2c->regs + HSI2C_TRANS_STATUS));
+\t\t}
+\t}
+
+'''
+    i2c_touch_path.write_text(i2c_touch.replace(anchor, code + anchor, 1))
+
 # The G965N handover requires the ACPM LDO reset before the first touch I/O.
 # Defer only this board's probe; real I2C errors after readiness still propagate.
 touch_path = src / 'drivers/input/touchscreen/s6sy761.c'

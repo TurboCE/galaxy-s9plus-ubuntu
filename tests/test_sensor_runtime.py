@@ -27,6 +27,20 @@ V=module(ROOT/'scripts/g965n/vendor-runtime.py')
 
 
 class SensorRuntimeTests(unittest.TestCase):
+    def test_checked_ack_capability_and_default_parameters_cannot_adopt_enabled_trial(self):
+        profile={'module':{'path':'/private/transport'}}
+        with mock.patch.object(S,'pinned',return_value=b'module'),mock.patch.object(S,'elf_section',return_value=b'parmtype=strict_tx_ack:bool\0'):
+            params,expected=S.transport_policy(profile)
+            self.assertIn('strict_tx_ack=0',params);self.assertEqual(expected['strict_tx_ack'],'N')
+            params,expected=S.transport_policy({**profile,'transport':{'strict_tx_ack':True}})
+            self.assertIn('strict_tx_ack=1',params);self.assertEqual(expected['strict_tx_ack'],'Y')
+            for bad in (True,{}, {'strict_tx_ack':1},{'strict_tx_ack':False,'other':True}):
+                with self.assertRaises(RuntimeError):S.transport_policy({**profile,'transport':bad})
+        with mock.patch.object(S,'pinned',return_value=b'module'),mock.patch.object(S,'elf_section',return_value=b'vermagic=old\0'):
+            params,expected=S.transport_policy(profile)
+            self.assertNotIn('strict_tx_ack',' '.join(params));self.assertNotIn('strict_tx_ack',expected)
+            with self.assertRaisesRegex(RuntimeError,'capability'):S.transport_policy({**profile,'transport':{'strict_tx_ack':True}})
+
     def test_als_only_default_never_passes_matrix(self):
         for profile in [{},{'accel':{}},{'accel':{'enabled':False}}]:
             params,expected=S.bridge_policy(profile)
@@ -159,7 +173,7 @@ class SensorRuntimeTests(unittest.TestCase):
             self.assertTrue(all(child.poll()is not None for child in children));events.append('cleanup');state['owned']=False
         def ready(*args):S.STOP=True;events.append('ready')
         S.STOP=False
-        with mock.patch.object(S,'verify_service_unit'),mock.patch.object(S,'load_program',return_value=runtime),mock.patch.object(S,'lock_file',side_effect=lock),mock.patch.object(S,'mount_fingerprint',return_value=[]),mock.patch.object(S,'OWNER',types.SimpleNamespace(exists=lambda:state['owned'])),mock.patch.object(S,'trusted_bytes',return_value=b'vendor'),mock.patch.object(S,'write_owner',side_effect=owner),mock.patch.object(S,'ensure_module',side_effect=lambda *args:events.append('module checked')),mock.patch.object(S,'sensor_view'),mock.patch.object(S,'apply_device_policy',side_effect=lambda **kw:events.append(('policy',kw))),mock.patch.object(S.fcntl,'flock',side_effect=lambda fd,op:events.append(('flock',op))),mock.patch.object(S.subprocess,'Popen',side_effect=launch),mock.patch.object(S,'await_ready',side_effect=ready),mock.patch.object(S,'notify_ready'),mock.patch.object(S,'cleanup_owned',side_effect=cleanup):
+        with mock.patch.object(S,'transport_policy',return_value=(['enable_g965n=1'],{'enable_g965n':'Y'})),mock.patch.object(S,'verify_service_unit'),mock.patch.object(S,'load_program',return_value=runtime),mock.patch.object(S,'lock_file',side_effect=lock),mock.patch.object(S,'mount_fingerprint',return_value=[]),mock.patch.object(S,'OWNER',types.SimpleNamespace(exists=lambda:state['owned'])),mock.patch.object(S,'trusted_bytes',return_value=b'vendor'),mock.patch.object(S,'write_owner',side_effect=owner),mock.patch.object(S,'ensure_module',side_effect=lambda *args:events.append('module checked')),mock.patch.object(S,'sensor_view'),mock.patch.object(S,'apply_device_policy',side_effect=lambda **kw:events.append(('policy',kw))),mock.patch.object(S.fcntl,'flock',side_effect=lambda fd,op:events.append(('flock',op))),mock.patch.object(S.subprocess,'Popen',side_effect=launch),mock.patch.object(S,'await_ready',side_effect=ready),mock.patch.object(S,'notify_ready'),mock.patch.object(S,'cleanup_owned',side_effect=cleanup):
             if fail_nodes:
                 with self.assertRaisesRegex(RuntimeError,'node creation failed'):
                     S.supervise(profile,Path('/root/profile'),'sha')

@@ -235,3 +235,20 @@ and private own-backup calibration preparation, see
 [MAGNETIC_CALIBRATION.md](MAGNETIC_CALIBRATION.md). Native#28 real light-change
 control and electrical-response evidence are recorded there; optical
 luminance/color/flicker and compass heading quality remain unqualified.
+
+
+## Experimental checked SSI acknowledgements
+
+An optional `transport: {"strict_tx_ack": true}` policy requires the pinned
+module's real ELF modinfo to advertise that parameter. Default is false.
+For capable modules both requested arguments and loaded-module parameter
+checks explicitly pinN/Y; merely omitting the policy cannot adopt an enabled
+trial. Old modules without the capability remain compatible with default
+profiles and refuse strict activation before hardware access.
+
+The C candidate commits only positively acknowledged ring bytes, rejects
+oversized ACKs and exhausted retries, and invalidates readiness/stops the
+failed stream without kernel replay or reset in that TX-error path. A new
+exclusive LHD open explicitly starts a new stream. Bootstrap and streaming
+protocol semantics are not yet hardware-qualified. Do not enable this option
+as an alleged fix merely because host tests or module compilation pass.

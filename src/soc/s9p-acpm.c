@@ -294,18 +294,26 @@ EXPORT_SYMBOL_GPL(s9p_acpm_is_ready);
 #define S2MPS18_L43CTRL		0x74
 #define LDO_ON_MODE		0xc0
 #define TOUCH_LDO_OFF_MS	2000
-/* Native#28: first I/O at~1s after power-on timed out; a probe at~3.5s
- * bound successfully. Gate all probes for4s, including our own worker,
- * rather than deliberately issuing an early transaction and recovering.
- * This changes readiness timing, not voltage, off time or retry budgets.
+/* The actual BOOT IRQ asserted at~103ms in the bounded rail-cycle trial.
+ * A longer4s wait did not repair first-transfer failures on warm boots.
+ * Keep the original1s guard and let the bus reinitialize after each cycle.
  */
-#define TOUCH_POWER_ON_SETTLE_MS 4000
+#define TOUCH_POWER_ON_SETTLE_MS 1000
 #define TOUCH_APM_TRIES		30	/* one per second until the APM answers */
 #define TOUCH_PROBES_PER_CYCLE	12	/* every 2 s: 24 s per LDO cycle */
 #define TOUCH_MAX_CYCLES	3
 
 static bool touch_rails_cycled;
 static unsigned long touch_probe_after;
+static u32 touch_power_generation;
+
+u32 s9p_acpm_touch_power_generation(void)
+{
+	if (!smp_load_acquire(&touch_rails_cycled))
+		return 0;
+	return READ_ONCE(touch_power_generation);
+}
+EXPORT_SYMBOL_GPL(s9p_acpm_touch_power_generation);
 
 bool s9p_acpm_touch_ready(void)
 {
@@ -339,6 +347,7 @@ static int s9p_touch_ldo_power_cycle(void)
 	s9p_acpm_pmic_read(S2MPS18_L35CTRL, &v);
 	WRITE_ONCE(touch_probe_after,
 		   jiffies + msecs_to_jiffies(TOUCH_POWER_ON_SETTLE_MS));
+	WRITE_ONCE(touch_power_generation, READ_ONCE(touch_power_generation) + 1);
 	smp_store_release(&touch_rails_cycled, true);
 	pr_info("s9p-acpm: touch LDOs power-cycled (L35=%02x)\n", v);
 	return 0;
