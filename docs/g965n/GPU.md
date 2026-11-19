@@ -146,6 +146,15 @@ than framebuffer swapping. These measurements direct investigation
 toward shared overview transition work; they do not identify its
 specific CPU stack or measure physical scanout.
 
+Userspace perf sampling of the GNOME Shell main thread then resolved
+a common Mesa texture upload path. `convert_ubyte` accounted for
+7/73 window-picker and 9/86 app-grid opening samples. All 43 hits over
+the whole trace mapped to the byte-to-byte conversion branch reached
+from Cogl texture allocation. A standalone ARM SIMD prototype passed
+byte-accurate tests on the phone and reduced the synthetic conversion
+time. No integrated Mesa or actual-animation result follows from
+this standalone test.
+
 Kernel#13 additionally corrects the board's ACPM-owned supply description.
 The whole-boot missing-mali-regulator error is absent. Another full33-scene/
 100-frame exact pass reports0 matching errors.50ms sampling observes260/455/

@@ -5385,3 +5385,33 @@ app-grid relayout increase does not explain the shared slow paints.
 The test restored the desktop and removed the temporary input module.
 Sensors and Wi-Fi HTTPS204 passed, with no failed units or matching
 GPU/display faults in the surrounding three-minute window.
+
+### 2026-11-20 — Find the overview texture-conversion hotspot
+
+Extracted Ubuntu's ARM64 perf tools privately instead of installing
+system packages. The first launch reported three missing libraries;
+extracting the corresponding signed Ubuntu dependency packages
+allowed the profiler to run as the GNOME Shell user. Scoped the
+software CPU clock sampling to the Shell main thread and userspace.
+Captured 417 samples during six real opens/closes of each overview
+mode. Removed the temporary input module, verified the desktop was
+restored, and kept the raw capture private.
+
+In the first 400 ms after opening, `convert_ubyte` was the top
+resolved leaf symbol, with 7 of 73 window-picker samples and
+9 of 86 app-grid samples. Across the complete recording, all 43
+leaf hits of that symbol followed the same texture allocation and
+upload stack from Cogl into Mesa. The loaded Mesa's line table
+mapped all 43 to the byte-to-byte branch in `format_utils.c`.
+The dominant instructions advanced the source and destination by
+four bytes per pixel and individually selected the four channels.
+This identifies a CPU optimization candidate on the real path.
+
+An Intel Mac cannot execute the ARM SIMD candidate, so ran its
+standalone comparison as an ordinary user on the S9+. Address and
+undefined-behavior sanitizers passed all 1296 valid swizzles,
+both normalization modes, counts 0–33, unaligned buffers, and
+in-place conversion. A synthetic 1440x2960 buffer took 2.99 ms
+with the prototype versus 13.49 and 12.19 ms in the surrounding
+scalar runs. The prototype was not built into or installed as Mesa.
+Actual compositor improvement and integrated rendering remain open.
