@@ -3935,3 +3935,42 @@ failedunits0, strictACKY/faultN and4distinct accel triples. Full ring retains
 header/error1/warning63: one SSP initial zero-accepted-byte retry at9.543s;
 not a clean-error-log claim. Device baseline owner-confirmed audio/wireless
 functionality is retained. Metadata reload only, no general feature re-test.
+
+Prepared original dependency-only Bionic probe; it never calls RIL_Init or any
+radio request. Before dlopen it installs an architecture-checked deny-default
+syscall filter: read-only opens, writes only to stdio, no sockets/device ioctls/
+file mutations/exec/mount/ptrace. Local Linux self-test verifies rejected modem
+ioctls, writable open, non-stdio write, socket, unlink, F_SETOWN and pwrite.
+Native test remains pending. Owner libc startup ABI/fini offset16 verified
+privately; no startup implementation/header or owner ELF is copied into Git.
+
+Initial cross-build failed on missing ARM64 UAPI headers; raw kernel headers
+also correctly failed userspace checks. Generated proper headers_install output
+from the pinned kernel instead. Link requires owner Bionic libc/libdl and its
+ld-android loader exports; verified loader SONAME/shared-globals export and
+allowed only transitive shared-library unresolved symbols (own references still
+must resolve). Hardened PIE/RELRO/stack-protector build now passes. All owner
+inputs/binary/disassembly remain ignored/private; no image/firmware publishing.
+Preparing model/backup/BOOT checked module-off, read-only private-unit self-test
+BEFORE any owner-library load. No NV bindings, RIL initialization or CP controls.
+
+Native Bionic self-test passes on43 with modem absent and no private modem
+bindings. First library inspection fails on a denied fstatfs metadata query;
+added statfs/fstatfs read-only metadata calls while retaining all mutation,
+network and ioctl denials. Second version self-test passes; loading then fails
+because libandroidicu.so search path omitted the runtime APEX parent lib64.
+Including that read-only owner path fixes loading. Same hardened policy now
+loads owner libsec-ril and resolves RIL_Init, with entry explicitly NOT called.
+No controller transition, radio request, NV or original-partition write.
+
+Added reviewed-input build helper and guarded public native launcher: explicit
+model/current BOOT/backups/helper/binary hashes, module absent, bindings absent,
+root-private fresh evidence, same-boot self-test prerequisite and fixed boolean
+output. Five guard/privacy/tamper tests pass. Initial reuse of the board guard's
+optional opt-in-off check rejected because it refers to Wi-Fi P2P; corrected to
+preserve that working feature and check modem absence independently. No Wi-Fi
+setting changed. Public launcher itself passes both native phases with return0/
+verifiedtrue, not just the private orchestration. All failed trials preserved.
+Known build/search-path success route documented; no owner ELF, binary or raw
+log is added to Git, CI remains source-only. Full RIL initialization/LTE is still
+pending; loader success does not establish callbacks, services or connectivity.
