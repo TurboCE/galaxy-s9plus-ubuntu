@@ -155,6 +155,20 @@ byte-accurate tests on the phone and reduced the synthetic conversion
 time. No integrated Mesa or actual-animation result follows from
 this standalone test.
 
+The integrated Mesa swizzle candidate passed hardware readback and
+ran GNOME Shell's app-grid and window-picker animations on Panfrost
+in isolated 1440×2960 virtual-monitor sessions. Baseline/candidate/
+baseline app-grid opening paint p95 was 6.589/6.482/6.878 ms, while
+window-picker timing was 4.229/4.266/4.274 ms. Each phase measured six
+opens per mode after warmup. The app-grid opening duration median was
+258.875/262.268/263.615 ms. The candidate's small paint-time difference
+did not produce a consistent transition improvement.
+
+The virtual sessions lacked the physical desktop's DRM/KMS
+presentation path and had no opening paints above 16.7 ms. They
+therefore did not reproduce the behavior being investigated. The
+accepted Mesa remains active on the physical desktop.
+
 Kernel#13 additionally corrects the board's ACPM-owned supply description.
 The whole-boot missing-mali-regulator error is absent. Another full33-scene/
 100-frame exact pass reports0 matching errors.50ms sampling observes260/455/

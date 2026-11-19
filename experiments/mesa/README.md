@@ -110,6 +110,8 @@ python3 experiments/mesa/test_ubyte4_swizzle.py --mesa-source /path/to/mesa-25.2
 The native S9+ trial rebuilt the changed object, Mesa archive and
 Gallium shared library in a separate build copy. Standard EGL/GLES
 readback using the exact trial library passed 100 frames alternating
-RGBA and BGRA uploads, with 6,553,600 output bytes compared. The live
-GNOME session continues to use its accepted profile. Actual overview
-performance remains unqualified.
+RGBA and BGRA uploads, with 6,553,600 output bytes compared. A GNOME
+comparison on a virtual monitor showed no consistent animation
+improvement and did not reproduce the physical screen's stutter.
+The live GNOME session continues to use its accepted profile.
+See [the GPU notes](../../docs/g965n/GPU.md) for the timing results.

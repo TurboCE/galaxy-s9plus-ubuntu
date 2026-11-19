@@ -5435,3 +5435,22 @@ frames, with all 6,553,600 output bytes equal to expected. No matching
 GPU/display error appeared in the surrounding log window. The
 desktop remained on its accepted Mesa profile. Actual GNOME
 animation timing on the candidate remains pending.
+
+### 2026-11-20 — Compare the Mesa swizzle builds in isolated GNOME
+
+Ran three GNOME Shell 46 sessions on native #44 with a 1440×2960
+virtual monitor and three identical test windows in each session.
+Verified the exact mapped Gallium library and Panfrost renderer before
+timing six app-grid and six window-picker transitions per phase after
+warmup. Opening paint p95 in baseline/candidate/baseline order was
+6.589/6.482/6.878 ms for the app grid and 4.229/4.266/4.274 ms for
+the window picker. Opening duration medians remained within the
+range of the two baseline runs for the grid, and differed by less
+than 4 ms across all runs for the picker.
+
+The virtual session did not reproduce the physical desktop's
+over-budget opening paints. It provides no consistent evidence of a
+meaningful improvement or of physical presentation timing. No
+matching GPU/display kernel fault or failed system unit was found.
+The test sessions exited and the live desktop still mapped its
+original Gallium library. Physical desktop A/B remains pending.
