@@ -17,6 +17,7 @@ import time
 
 FRAME = struct.Struct('<IIQIIiiiIII')
 DEVICE = '/dev/g965n-iio-bridge'
+OPTIONAL_SENSORS = {'pressure': 5, 'proximity': 7, 'gyro': 1}
 
 
 def magnetic_capture_policy(profile):
@@ -189,7 +190,7 @@ def verify_profile(path):
             raise ValueError('Acceleration mounting evidence does not match')
     magnetic_capture_policy(profile)
     magnetic_initialization(profile)
-    for name in ('pressure', 'proximity'):
+    for name in OPTIONAL_SENSORS:
         optional_sensor_enabled(profile, name)
     return profile
 
@@ -215,6 +216,9 @@ class Feed:
         elif kind == 5:
             if values[0] not in (0, 1) or values[1:] != (0, 0):
                 raise ValueError('Invalid actual TMD4906 detection tuple')
+        elif kind == 6:
+            if any(not -0x80000000 <= value <= 0x7fffffff for value in values):
+                raise ValueError('Invalid actual LSM6DSL gyro tuple')
         elif kind != 3 or values != (0, 0, 0):
             raise ValueError('Invalid heartbeat')
         if self.seq == 0xffffffffffffffff:
@@ -234,6 +238,8 @@ def publish_actual(probe, selected, feed, seen, last_accel, now):
         if sensor == 0:
             feed.publish(1, latest)
             last_accel = now
+        elif sensor == 1:
+            feed.publish(6, latest)
         elif sensor == 9:
             feed.publish(2, (latest[0], 0, 0))
         elif sensor == 5:
@@ -316,7 +322,7 @@ def run(profile, ssp, ready_fd, stop_fd):
             if any(identity.get(k) != expected.get(k) for k in ('chip_id', 'firmware', 'sensor_mask')):
                 raise ValueError('Live hub identity differs from qualified profile')
             selected = [0, 9] if profile['accel']['enabled'] else [9]
-            for name, sensor in (('pressure', 5), ('proximity', 7)):
+            for name, sensor in OPTIONAL_SENSORS.items():
                 if optional_sensor_enabled(profile, name):
                     selected.append(sensor)
             capture_policy = magnetic_capture_policy(profile)

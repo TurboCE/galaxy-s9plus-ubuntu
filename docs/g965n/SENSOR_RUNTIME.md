@@ -245,6 +245,20 @@ The stock Ubuntu SensorProxy recognizes this IIO device. Its
 `monitor-sensor --proximity`. The interface represents the hub's
 near/far decision. Apps claim the sensor and choose how to respond.
 
+## Opt-in raw gyroscope on native #44
+
+Set `"gyro": {"enabled": true}` in the root-owned sensor profile for
+the pinned LSM6DSL SSP configuration. Use the matched broker,
+supervisor and bridge and update their receipt/profile/unit pins as
+above. The broker checks advertised ID 1 and forwards the signed
+three-axis vector as received. Applications can read
+`in_anglvel_{x,y,z}_raw` on `g965n-ssp-gyro`. Continuous samples
+expire when they are older than two seconds.
+
+This interface publishes unscaled hub data. An application requiring
+radians per second, screen-relative angular velocity, or synchronized
+high-rate sampling needs additional scale, mounting and buffering work.
+
 ## Native rotation lock
 
 Use GNOME's existing **Auto Rotate** tile in the top-right quick settings.

@@ -23,13 +23,16 @@ MODULE_PARM_DESC(enable_pressure, "Opt-in LPS22H pressure on the qualified SSP p
 static bool enable_proximity;
 module_param(enable_proximity, bool, 0444);
 MODULE_PARM_DESC(enable_proximity, "Opt-in TMD4906 proximity on the qualified SSP profile");
+static bool enable_gyro;
+module_param(enable_gyro, bool, 0444);
+MODULE_PARM_DESC(enable_gyro, "Opt-in raw LSM6DSL gyro samples on the qualified SSP profile");
 static int accel_matrix[9], accel_matrix_count;
 module_param_array_named(accel_mount_matrix, accel_matrix, int, &accel_matrix_count, 0444);
 MODULE_PARM_DESC(accel_mount_matrix, "Required explicit9-entry signed permutation, sensor to display axes");
 static DEFINE_MUTEX(lifecycle_lock);
 static DEFINE_MUTEX(sample_lock);
 static struct bridge_cache cache;
-static struct iio_dev *accel_dev, *light_dev, *pressure_dev, *proximity_dev;
+static struct iio_dev *accel_dev, *light_dev, *pressure_dev, *proximity_dev, *gyro_dev;
 static bool writer_open;
 static struct iio_mount_matrix mount;
 static struct miscdevice bridge_misc;
@@ -65,6 +68,11 @@ static const struct iio_chan_spec proximity_channels[] = {
  { .type=IIO_PROXIMITY, .info_mask_separate=BIT(IIO_CHAN_INFO_RAW),
    .ext_info=proximity_ext },
 };
+#define GYRO_CHANNEL(axis) { .type=IIO_ANGL_VEL, .modified=1, .channel2=IIO_MOD_##axis, \
+ .info_mask_separate=BIT(IIO_CHAN_INFO_RAW) }
+static const struct iio_chan_spec gyro_channels[] = {
+ GYRO_CHANNEL(X), GYRO_CHANNEL(Y), GYRO_CHANNEL(Z)
+};
 static int read_sample(struct iio_dev *dev,const struct iio_chan_spec *chan,
                        int *val,int *val2,long mask)
 {
@@ -76,6 +84,7 @@ static int read_sample(struct iio_dev *dev,const struct iio_chan_spec *chan,
  case IIO_LIGHT: type=G965N_IIO_LIGHT;break;
  case IIO_PRESSURE: type=G965N_IIO_PRESSURE;break;
  case IIO_PROXIMITY: type=G965N_IIO_PROXIMITY;break;
+ case IIO_ANGL_VEL: type=G965N_IIO_GYRO;axis=chan->channel2-IIO_MOD_X;break;
  default: return -EINVAL;
  }
  mutex_lock(&sample_lock);
@@ -122,6 +131,10 @@ static int register_sensor(u32 type)
  case G965N_IIO_PROXIMITY:
   if (!enable_proximity) return -EACCES;
   target=&proximity_dev;name="g965n-ssp-proximity";channels=proximity_channels;count=ARRAY_SIZE(proximity_channels);
+  break;
+ case G965N_IIO_GYRO:
+  if (!enable_gyro) return -EACCES;
+  target=&gyro_dev;name="g965n-ssp-gyro";channels=gyro_channels;count=ARRAY_SIZE(gyro_channels);
   break;
  default: return -EINVAL;
  }
@@ -181,6 +194,7 @@ static int bridge_close(struct inode *inode,struct file *file)
  if (accel_dev) {iio_device_unregister(accel_dev);iio_device_free(accel_dev);accel_dev=NULL;}
  if (pressure_dev) {iio_device_unregister(pressure_dev);iio_device_free(pressure_dev);pressure_dev=NULL;}
  if (proximity_dev) {iio_device_unregister(proximity_dev);iio_device_free(proximity_dev);proximity_dev=NULL;}
+ if (gyro_dev) {iio_device_unregister(gyro_dev);iio_device_free(gyro_dev);gyro_dev=NULL;}
  writer_open=false;
  mutex_unlock(&lifecycle_lock);return 0;
 }

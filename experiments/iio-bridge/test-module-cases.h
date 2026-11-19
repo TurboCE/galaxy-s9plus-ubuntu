@@ -11,6 +11,12 @@ static int iio_device_register(struct iio_dev *p)
   assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&v==0);
   assert(p->channels[0].ext_info->read(p,0,p->channels,buf)==2&&!strcmp(buf,"1\n"));
  }
+ else if(p->channels[0].type==IIO_ANGL_VEL){
+  assert(p->info->read_raw(p,&p->channels[0],&v,&v2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&v==-65536);
+  assert(p->info->read_raw(p,&p->channels[1],&v,&v2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&v==0);
+  assert(p->info->read_raw(p,&p->channels[2],&v,&v2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&v==131072);
+  assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_SCALE)==-EINVAL);
+ }
  else assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_PROCESSED)==IIO_VAL_INT);
  registrations++;return 0;
 }
@@ -50,9 +56,13 @@ int main(void)
  disabled=frame(G965N_IIO_PROXIMITY,2);
  assert(bridge_write(&file,(const char *)&disabled,48,NULL)==-EACCES);
  assert(cache.seq==1&&!cache.proximity.valid&&!proximity_dev);
+ disabled=frame(G965N_IIO_GYRO,2);
+ assert(bridge_write(&file,(const char *)&disabled,48,NULL)==-EACCES);
+ assert(cache.seq==1&&!cache.gyro.valid&&!gyro_dev);
  assert(!bridge_close(NULL,&file));bridge_exit();
  assert(frees==allocations);allocations=registrations=unregistrations=frees=0;
- enable_accel=true;enable_pressure=true;enable_proximity=true;assert(bridge_init()==-EINVAL);accel_matrix_count=9;accel_matrix[0]=accel_matrix[4]=accel_matrix[8]=1;assert(!bridge_init());assert(misc_registered==1&&!accel_dev&&!light_dev&&!pressure_dev&&!proximity_dev);
+ enable_accel=true;enable_pressure=true;enable_proximity=true;enable_gyro=true;
+ assert(bridge_init()==-EINVAL);accel_matrix_count=9;accel_matrix[0]=accel_matrix[4]=accel_matrix[8]=1;assert(!bridge_init());assert(misc_registered==1&&!accel_dev&&!light_dev&&!pressure_dev&&!proximity_dev&&!gyro_dev);
  unsigned int before_opens=stream_opens;
  cap=false;assert(bridge_open(NULL,&file)==-EPERM);cap=true;assert(bridge_open(NULL,&bad)==-EACCES);
  assert(stream_opens==before_opens);
@@ -80,14 +90,19 @@ int main(void)
  p=frame(G965N_IIO_PROXIMITY,5);p.value[0]=bridge_le32(1);
  assert(bridge_write(&file,(const char *)&p,48,NULL)==48);
  assert(read_sample(proximity_dev,proximity_channels,&val,&val2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&val==2);
+ p=frame(G965N_IIO_GYRO,6);p.flags=bridge_le32(1);
+ assert(bridge_write(&file,(const char *)&p,48,NULL)==-EINVAL&&!gyro_dev);
+ p.flags=0;p.value[0]=bridge_le32((u32)-65536);p.value[2]=bridge_le32(131072);
+ assert(bridge_write(&file,(const char *)&p,48,NULL)==48&&gyro_dev&&registrations==5);
  clock_ns+=G965N_FRESH_NS+1;
  assert(read_sample(accel_dev,accel_channels,&val,&val2,IIO_CHAN_INFO_RAW)==-ENODATA);
  assert(read_sample(light_dev,light_channels,&val,&val2,IIO_CHAN_INFO_PROCESSED)==-ENODATA);
  assert(read_sample(proximity_dev,proximity_channels,&val,&val2,IIO_CHAN_INFO_RAW)==-ENODATA);
- p=frame(3,6);assert(bridge_write(&file,(const char *)&p,48,NULL)==48);assert(read_sample(light_dev,light_channels,&val,&val2,IIO_CHAN_INFO_PROCESSED)==IIO_VAL_INT&&val==100);assert(read_sample(accel_dev,accel_channels,&val,&val2,IIO_CHAN_INFO_RAW)==-ENODATA);
+ p=frame(3,7);assert(bridge_write(&file,(const char *)&p,48,NULL)==48);assert(read_sample(light_dev,light_channels,&val,&val2,IIO_CHAN_INFO_PROCESSED)==IIO_VAL_INT&&val==100);assert(read_sample(accel_dev,accel_channels,&val,&val2,IIO_CHAN_INFO_RAW)==-ENODATA);
  assert(read_sample(pressure_dev,pressure_channels,&val,&val2,IIO_CHAN_INFO_RAW)==-ENODATA);
  assert(read_sample(proximity_dev,proximity_channels,&val,&val2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&val==2);
- assert(!bridge_close(NULL,&file));assert(!cache.connected&&!accel_dev&&!light_dev&&!pressure_dev&&!proximity_dev&&!writer_open);assert(unregistrations==4&&frees==allocations);
+ assert(read_sample(gyro_dev,gyro_channels,&val,&val2,IIO_CHAN_INFO_RAW)==-ENODATA);
+ assert(!bridge_close(NULL,&file));assert(!cache.connected&&!accel_dev&&!light_dev&&!pressure_dev&&!proximity_dev&&!gyro_dev&&!writer_open);assert(unregistrations==5&&frees==allocations);
  assert(!bridge_open(NULL,&file));assert(!cache.seq&&!cache.accel.valid&&!cache.light.valid);assert(!bridge_close(NULL,&file));
  bridge_exit();assert(!misc_registered);return 0;
 }

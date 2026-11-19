@@ -4816,3 +4816,25 @@ warning-priority kernel entries were logged after sensor readiness
 in the observation window. Earlier native #23 physical near/far tests
 covered the raw hub output. The new Ubuntu path's physical transitions,
 distinct boot and suspend/wake behavior remain pending.
+
+### 2026-11-20 — Raw LSM6DSL gyroscope IIO and sensor startup proof
+
+Added opt-in SSP ID 1. The broker forwards three signed 32-bit hub
+values and registers the IIO gyroscope only after an actual sample.
+The three raw attributes stop returning data when the stream is stale.
+The original stock sensor description identifies the LSM6DSL, but the
+hub's count-to-radians conversion and axis mapping still require
+qualification. The bridge publishes the original hub axes and values.
+
+Verified the native #44 BOOT and nine-partition backup, saved the
+previous sensor configuration, and hot-loaded the bridge. On a
+distinct ordinary boot, the gyro and proximity started automatically
+alongside acceleration, lux, and pressure. An ordinary Ubuntu user
+read 100 gyro vectors over 25 seconds, with 12/14/9 distinct counts
+by axis. Ubuntu's stock SensorProxy claimed proximity and showed far;
+the physical near/far transition was not repeated. Wi-Fi HTTPS204 and
+the Wi-Fi Direct control interface were present, with no failed units.
+The enabled LTE service completed its no-SIM cleanup at 69 seconds of
+uptime, just after the first observation, and passed the subsequent
+check. Physical gyro scale/mounting and Wi-Fi Direct peer transfer on
+this boot remain unqualified.

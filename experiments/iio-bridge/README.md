@@ -53,7 +53,7 @@ callback. The file's module reference prevents normal unload while a writer is o
 | --- | --- |
 | version / size | 1 / 48 |
 | seq | First accepted frame1, then strictly increasing unsigned64; no wrap |
-| type | 1 acceleration, 2 illuminance, 3 heartbeat, 4 pressure, 5 proximity |
+| type | 1 acceleration, 2 illuminance, 3 heartbeat, 4 pressure, 5 proximity, 6 gyroscope |
 | flags | Acceleration exactly1, otherwise0 |
 | value[3] | Signed32 encoding, constrained by sensor type |
 | reserved[3] | All zero |
@@ -92,6 +92,14 @@ unitless raw levels 0 (far) and 2 (near), with an integer near level of
 integer threshold and hysteresis. The separate ADC field remains
 available through the existing SSP diagnostic.
 
+The gyroscope is opt-in with `enable_gyro=1`. The broker forwards all
+three signed SSP ID 1 fields in hub axis order. The pinned Lineage IIO
+path forwards those same fields. The
+[LSM6DSL datasheet](https://www.st.com/resource/en/datasheet/lsm6dsl.pdf)
+specifies sensitivity at the chip register for each full-scale setting.
+The relationship between those register counts and the live hub output
+and the mapping from hub to display axes still require verification.
+
 ## Real IIO semantics and freshness
 
 No IIO device is registered until that sensor's first valid real frame. This
@@ -103,9 +111,11 @@ verified. Registration exposes:
 - `g965n-ssp-light`: processed `in_illuminance_input`, integer lux.
 - `g965n-ssp-pressure`: `in_pressure_raw` and `in_pressure_scale`, yielding kPa.
 - `g965n-ssp-proximity`: `in_proximity_raw` and `in_proximity_nearlevel`.
+- `g965n-ssp-gyro`: `in_anglvel_x_raw`, `in_anglvel_y_raw` and
+  `in_anglvel_z_raw`, without a scale or mount matrix.
 
 Before the first reading, cache reads return `ENODATA` rather than a fabricated
-sample. Acceleration and pressure each require both their own sample age and
+sample. Acceleration, pressure and angular velocity each require both their own sample age and
 broker heartbeat age to be at most two seconds. A newer heartbeat does not
 revive an old sample. On-change light and proximity readings remain valid while broker heartbeat is fresh;
 the broker must monitor transport/daemon health, not blindly heartbeat through
@@ -117,7 +127,8 @@ the IIO devices, and resets the session for the next exclusive writer.
 Lifecycle operations serialize open/write/registration/close. Separate sample
 locking protects reads and cache updates. Sample locking is released before
 IIO/kernfs unregister, so an active `read_raw` cannot deadlock removal. There
-are no trigger, buffer, compass, magnetometer or gyroscope claims.
+are no triggers or buffered motion capture. Compass and magnetometer
+integration remain pending.
 
 ## Standard Ubuntu integration
 

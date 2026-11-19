@@ -26,6 +26,7 @@
 #define IIO_LIGHT 2
 #define IIO_PRESSURE 3
 #define IIO_PROXIMITY 4
+#define IIO_ANGL_VEL 5
 #define IIO_MOD_X 1
 #define IIO_MOD_Y 2
 #define IIO_MOD_Z 3

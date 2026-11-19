@@ -21,7 +21,11 @@ typedef uint32_t u32; typedef uint64_t u64; typedef int32_t s32;
 #endif
 #define G965N_FRESH_NS 2000000000ULL
 struct bridge_sample { bool valid; s32 value[3]; u64 when; };
-struct bridge_cache { struct bridge_sample accel, light, pressure, proximity; u64 heartbeat, seq; bool connected; };
+struct bridge_cache {
+ struct bridge_sample accel, light, pressure, proximity, gyro;
+ u64 heartbeat, seq;
+ bool connected;
+};
 struct bridge_decoded { u64 seq; u32 type; s32 value[3]; };
 static inline int bridge_decode(const struct g965n_iio_frame *p, unsigned int bytes,
                                 u64 last, struct bridge_decoded *out)
@@ -54,6 +58,9 @@ static inline int bridge_decode(const struct g965n_iio_frame *p, unsigned int by
  case G965N_IIO_HEARTBEAT:
   if (flags || out->value[0] || out->value[1] || out->value[2]) return -EINVAL;
   break;
+ case G965N_IIO_GYRO:
+  if (flags) return -EINVAL;
+  break;
  default:return -EINVAL;
  }
  return 0;
@@ -83,6 +90,7 @@ static inline void bridge_update(struct bridge_cache *c,const struct bridge_deco
  case G965N_IIO_LIGHT: s=&c->light; break;
  case G965N_IIO_PRESSURE: s=&c->pressure; break;
  case G965N_IIO_PROXIMITY: s=&c->proximity; break;
+ case G965N_IIO_GYRO: s=&c->gyro; break;
  default: s=NULL; break;
  }
  if (s) {
@@ -94,16 +102,17 @@ static inline void bridge_update(struct bridge_cache *c,const struct bridge_deco
 static inline int bridge_read(const struct bridge_cache *c,u32 type,unsigned int axis,u64 now,s32 *value)
 {
  const struct bridge_sample *s;
- if (axis>2 || (type!=G965N_IIO_ACCEL && axis)) return -EINVAL;
+ if (axis>2 || (type!=G965N_IIO_ACCEL && type!=G965N_IIO_GYRO && axis)) return -EINVAL;
  switch (type) {
  case G965N_IIO_ACCEL: s=&c->accel; break;
  case G965N_IIO_LIGHT: s=&c->light; break;
  case G965N_IIO_PRESSURE: s=&c->pressure; break;
  case G965N_IIO_PROXIMITY: s=&c->proximity; break;
+ case G965N_IIO_GYRO: s=&c->gyro; break;
  default: return -EINVAL;
  }
  if (!c->connected || !bridge_fresh(c->heartbeat,now) || !s->valid) return -ENODATA;
- if ((type==G965N_IIO_ACCEL || type==G965N_IIO_PRESSURE) &&
+ if ((type==G965N_IIO_ACCEL || type==G965N_IIO_PRESSURE || type==G965N_IIO_GYRO) &&
      !bridge_fresh(s->when,now)) return -ENODATA;
  *value=s->value[axis];return 0;
 }
