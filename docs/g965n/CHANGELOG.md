@@ -2543,3 +2543,29 @@ New exact30 sensor profile pins supervisor policy and explicitly selects strict_
 WiFiP2P source review found required DOWN/APSTA/UP/discovery-disable errors were ignored by setup and the caller. Added exact-source-pinned Star2/4361/primary-only checks with numeric step diagnostics, preserve normal UP restoration on APSTA rejection, and propagate errors before IF_ADD wait. Other boards retain old behavior, no fabricated interface or capability suppression. ActualC failure injection2tests and full AArch64p2p.o compile passed. First test logging stub discarded arguments and failedWerror; fixed stub only. This candidate is not in native30 and does not establish working P2P.
 
 Checked-ACK unattended-trial preparation on native30: preserved root-onlyNprofile/unit snapshots with exact state/profile/unit/BOOT/kernel pins. Added read-only rollback preflight mode. An actual transient unit using the same NoNewPrivileges/PrivateTmp/closed-device policy (onlyBOOTread) passed baseline/BOOT verification without actions. Inert90s-onboot recovery units staged but not yet armed; no success of restoration claimed until a real trial.
+
+## 2026-11-19 — Checked SSI native boot observations and real recovery
+
+Exact kernel30 checked-ACK profile trial boot reached sensor readiness and
+published621 real frames before the independent90s recovery restored the
+pinned non-trial configuration and rebooted. Actual recovery journal confirms
+restore, timer disable and reboot; subsequent N/N parameters, accel/ALS reads
+and sensor/audio/BT services active. USB SSH address temporarily timed out;
+alternate authenticated remote connection recovered access without partition
+writes. Initial post-handoff journal indexing returned an earlier warm boot;
+whole-journal time filtering resolved the actual recovery events. No failed
+trial inference was made from that unrelated shutdown-readiness traceback.
+
+Repeated live checked-ACK trial plus two further warm boots observed strict=Y,
+fault=N, sensor readiness and actual accel/ALS reads. Each repeat armed the
+exact-BOOT fallback before reboot and cancelled it only after live checks.
+A single initial0-of36 ACK retry remains in these observations; unlike the
+prior three exhausted retries it did not latch the strict stream fault.
+This establishes bounded startup/data-feed evidence, not full packet integrity,
+long-term stability, compass qualification or elimination of all SSP errors.
+General default remains off; the experimental handset profile explicitly opts
+in. Fallback remains disabled after successful tests. No firmware published.
+
+Kernel31 built successfully from224a67d with the previously source-tested
+required P2P setup checks. BOOT ba4e4a88de19a85cae3f49248a5a9b6adcb0d529cbd6c753cf386d6135455d00,
+27219984bytes; native boot and P2P behavior are pending. Build is not boot.

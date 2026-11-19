@@ -147,3 +147,9 @@ and3warmboots passed with no initial touch error; warm controller status
 000a0006→00080001 was observed. Suspend/cold/endurance remain unqualified.
 Native30 explicitly keeps checkedSSIACK modeN; its hardware trial is pending.
 P2P required-step checks are source/C-object tested only, not in this BOOT.
+
+CheckedSSIACK exact30 opt-in: live initial+2warmboots reached sensor readiness,
+actualaccel/ALS, strictY/faultN; independent pinned-baseline recovery also
+actually restoredN and rebooted in a separate timed trial. One initial0/36
+retry remains. Defaultoff; end-to-end integrity/endurance and fullhub parity
+are not qualified. Kernel31 P2P build passed, native behavior still pending.
