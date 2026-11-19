@@ -5,7 +5,11 @@ static int iio_device_register(struct iio_dev *p)
  if(registration_fail)return -EIO;
  /* Device cannot advertise data/scale until its first real sample is ready. */
  if(p->channels[0].type==IIO_ACCEL){assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT);assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_SCALE)==IIO_VAL_INT_PLUS_NANO&&v==0&&v2==2394202);}
- else if(p->channels[0].type==IIO_PRESSURE){assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&v==4161524);assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_SCALE)==IIO_VAL_FRACTIONAL&&v==1&&v2==40960);}
+ else if(p->channels[0].type==IIO_PRESSURE){
+  assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&v==4161524);
+  assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_SCALE)==IIO_VAL_FRACTIONAL&&v==1&&v2==40960);
+  assert(p->info->read_raw(p,&p->channels[1],&v,&v2,IIO_CHAN_INFO_PROCESSED)==-ENODATA);
+ }
  else if(p->channels[0].type==IIO_PROXIMITY){
   char buf[16];
   assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&v==0);
@@ -121,6 +125,22 @@ int main(void)
  clock_ns=cache.thermistor.when+G965N_THERMISTOR_FRESH_NS+1;
  p=frame(3,9);assert(bridge_write(&file,(const char *)&p,48,NULL)==48);
  assert(read_sample(thermistor_dev,thermistor_channels,&val,&val2,IIO_CHAN_INFO_PROCESSED)==-ENODATA);
+ p=frame(G965N_IIO_PRESSURE,10);p.value[0]=bridge_le32(4161524);
+ p.flags=bridge_le32(G965N_IIO_PRESSURE_TEMP_PRESENT);
+ p.value[1]=bridge_le32((u32)-325);
+ assert(bridge_write(&file,(const char *)&p,48,NULL)==48);
+ assert(read_pressure(pressure_dev,&pressure_channels[1],&val,&val2,IIO_CHAN_INFO_PROCESSED)==IIO_VAL_INT&&val==-3250);
+ p.seq=bridge_le64(11);p.value[1]=bridge_le32(8501);
+ assert(bridge_write(&file,(const char *)&p,48,NULL)==-ERANGE);
+ p.value[1]=0;assert(bridge_write(&file,(const char *)&p,48,NULL)==48);
+ assert(read_pressure(pressure_dev,&pressure_channels[1],&val,&val2,IIO_CHAN_INFO_PROCESSED)==IIO_VAL_INT&&val==0);
+ clock_ns+=G965N_FRESH_NS+1;
+ p=frame(3,12);assert(bridge_write(&file,(const char *)&p,48,NULL)==48);
+ assert(read_pressure(pressure_dev,&pressure_channels[1],&val,&val2,IIO_CHAN_INFO_PROCESSED)==-ENODATA);
+ p=frame(G965N_IIO_PRESSURE,13);p.value[0]=bridge_le32(4161524);
+ assert(bridge_write(&file,(const char *)&p,48,NULL)==48);
+ assert(read_pressure(pressure_dev,pressure_channels,&val,&val2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&val==4161524);
+ assert(read_pressure(pressure_dev,&pressure_channels[1],&val,&val2,IIO_CHAN_INFO_PROCESSED)==-ENODATA);
  assert(!bridge_close(NULL,&file));assert(!cache.connected&&!accel_dev&&!light_dev&&!pressure_dev&&!proximity_dev&&!gyro_dev&&!thermistor_dev&&!writer_open);assert(unregistrations==6&&frees==allocations);
  assert(!bridge_open(NULL,&file));assert(!cache.seq&&!cache.accel.valid&&!cache.light.valid);assert(!bridge_close(NULL,&file));
  bridge_exit();assert(!misc_registered);return 0;

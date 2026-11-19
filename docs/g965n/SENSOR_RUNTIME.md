@@ -226,9 +226,13 @@ the existing sensor selection.
 
 Ordinary Linux clients can read `in_pressure_raw` and `in_pressure_scale` on
 the IIO device named `g965n-ssp-pressure`. Their product is pressure in kPa.
-No gesture or GNOME setting is needed. Temperature from ID 5 remains a
-diagnostic field. Pressure accuracy against a reference and stock per-device
-compensation still need qualification. See the
+The same device reports its die temperature through `in_temp_input` in
+millicelsius when the frame includes a valid temperature. The unit follows
+the pinned SSP factory formatting path and the chip's
+[temperature specification](https://www.st.com/resource/en/datasheet/lps22hb.pdf).
+Pressure-only frames continue to work and return `ENODATA` for temperature.
+Pressure and temperature accuracy against references, and the stock
+per-device pressure compensation, still need qualification. See the
 [bridge documentation](../../experiments/iio-bridge/README.md).
 
 ## Opt-in proximity IIO on native #44

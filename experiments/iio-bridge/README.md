@@ -54,7 +54,7 @@ callback. The file's module reference prevents normal unload while a writer is o
 | version / size | 1 / 48 |
 | seq | First accepted frame1, then strictly increasing unsigned64; no wrap |
 | type | 1 acceleration, 2 illuminance, 3 heartbeat, 4 pressure, 5 proximity, 6 gyroscope, 7 thermistor pair |
-| flags | Acceleration exactly1, otherwise0 |
+| flags | Acceleration exactly1. Pressure bit0 indicates its temperature field is present. Other sensors use0 |
 | value[3] | Signed32 encoding, constrained by sensor type |
 | reserved[3] | All zero |
 
@@ -77,7 +77,9 @@ previous cache/sequence, allowing a valid frame to be retried.
 Pressure is opt-in with `enable_pressure=1`. The broker takes the first
 field of an actual SSP ID 5 sample from the pinned LPS22H configuration.
 Frame value 0 contains positive raw counts within the signed 24-bit range.
-The other fields and flags are zero. Based on the
+When bit 0 is set, value 1 holds that sample's signed die temperature in
+hundredths of a degree Celsius. A legacy pressure-only frame keeps the
+other fields and flags at zero and leaves temperature unavailable. Based on the
 [ST LPS22HB datasheet](https://www.st.com/resource/en/datasheet/lps22hb.pdf),
 4096 counts/hPa becomes 1/40960 kPa per count for the
 [Linux IIO ABI](https://www.kernel.org/doc/html/v5.16/admin-guide/abi-testing.html).
@@ -115,6 +117,7 @@ verified. Registration exposes:
   scale and standard `in_accel_mount_matrix` through `IIO_MOUNT_MATRIX`.
 - `g965n-ssp-light`: processed `in_illuminance_input`, integer lux.
 - `g965n-ssp-pressure`: `in_pressure_raw` and `in_pressure_scale`, yielding kPa.
+  `in_temp_input` reports the same chip's die temperature in millicelsius.
 - `g965n-ssp-proximity`: `in_proximity_raw` and `in_proximity_nearlevel`.
 - `g965n-ssp-gyro`: `in_anglvel_x_raw`, `in_anglvel_y_raw` and
   `in_anglvel_z_raw`, without a scale or mount matrix.

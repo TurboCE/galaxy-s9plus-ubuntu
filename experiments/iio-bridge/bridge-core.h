@@ -25,9 +25,9 @@ struct bridge_sample { bool valid; s32 value[3]; u64 when; };
 struct bridge_cache {
  struct bridge_sample accel, light, pressure, proximity, gyro, thermistor;
  u64 heartbeat, seq;
- bool connected;
+ bool connected, pressure_temp_valid;
 };
-struct bridge_decoded { u64 seq; u32 type; s32 value[3]; };
+struct bridge_decoded { u64 seq; u32 type, flags; s32 value[3]; };
 static inline int bridge_decode(const struct g965n_iio_frame *p, unsigned int bytes,
                                 u64 last, struct bridge_decoded *out)
 {
@@ -38,7 +38,7 @@ static inline int bridge_decode(const struct g965n_iio_frame *p, unsigned int by
  for (i=0;i<3;i++) if (bridge_le32(p->reserved[i])) return -EINVAL;
  out->seq=bridge_le64(p->seq);out->type=bridge_le32(p->type);
  if (!out->seq || (!last && out->seq!=1) || out->seq<=last) return -ERANGE;
- flags=bridge_le32(p->flags);
+ flags=bridge_le32(p->flags);out->flags=flags;
  for (i=0;i<3;i++) out->value[i]=(s32)bridge_le32(p->value[i]);
  switch (out->type) {
  case G965N_IIO_ACCEL:
@@ -49,8 +49,11 @@ static inline int bridge_decode(const struct g965n_iio_frame *p, unsigned int by
   if (flags || out->value[0]<0 || out->value[1] || out->value[2]) return -EINVAL;
   break;
  case G965N_IIO_PRESSURE:
-  if (flags || out->value[1] || out->value[2]) return -EINVAL;
+  if ((flags & ~G965N_IIO_PRESSURE_TEMP_PRESENT) || out->value[2]) return -EINVAL;
   if (out->value[0]<=0 || out->value[0]>0x7fffff) return -ERANGE;
+  if (flags & G965N_IIO_PRESSURE_TEMP_PRESENT) {
+   if (out->value[1]<-4000 || out->value[1]>8500) return -ERANGE;
+  } else if (out->value[1]) return -EINVAL;
   break;
  case G965N_IIO_PROXIMITY:
   if (flags || out->value[1] || out->value[2]) return -EINVAL;
@@ -94,7 +97,10 @@ static inline void bridge_update(struct bridge_cache *c,const struct bridge_deco
  switch (p->type) {
  case G965N_IIO_ACCEL: s=&c->accel; break;
  case G965N_IIO_LIGHT: s=&c->light; break;
- case G965N_IIO_PRESSURE: s=&c->pressure; break;
+ case G965N_IIO_PRESSURE:
+  s=&c->pressure;
+  c->pressure_temp_valid=!!(p->flags & G965N_IIO_PRESSURE_TEMP_PRESENT);
+  break;
  case G965N_IIO_PROXIMITY: s=&c->proximity; break;
  case G965N_IIO_GYRO: s=&c->gyro; break;
  case G965N_IIO_THERMISTOR: s=&c->thermistor; break;
@@ -113,7 +119,11 @@ static inline int bridge_read(const struct bridge_cache *c,u32 type,unsigned int
  switch (type) {
  case G965N_IIO_ACCEL: s=&c->accel; break;
  case G965N_IIO_LIGHT: if (axis) return -EINVAL; s=&c->light; break;
- case G965N_IIO_PRESSURE: if (axis) return -EINVAL; s=&c->pressure; break;
+ case G965N_IIO_PRESSURE:
+  if (axis>1) return -EINVAL;
+  if (axis==1 && !c->pressure_temp_valid) return -ENODATA;
+  s=&c->pressure;
+  break;
  case G965N_IIO_PROXIMITY: if (axis) return -EINVAL; s=&c->proximity; break;
  case G965N_IIO_GYRO: s=&c->gyro; break;
  case G965N_IIO_THERMISTOR: if (axis>1) return -EINVAL; s=&c->thermistor; break;

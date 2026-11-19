@@ -4908,3 +4908,26 @@ throughout. Wi-Fi HTTPS204 passed and there were no thermistor retry
 messages or new sensor kernel warnings following readiness in
 this window. Absolute accuracy, a distinct restart and thermal
 or charging policy behavior remain separate verification items.
+
+### 2026-11-20 — LPS22H die temperature and thermistor startup
+
+The pressure sensor's SSP sample now supplies its signed temperature
+alongside pressure on the same IIO device. The broker keeps forwarding
+pressure when the temperature is unavailable. The bridge accepts
+legacy pressure-only frames, and rejects or expires invalid or stale
+temperature instead of substituting a value. The pinned factory code
+formats the SSP field as hundredths of a degree Celsius. The IIO
+`in_temp_input` attribute reports millicelsius.
+
+Verified the running #44 BOOT and backup and staged a matching
+broker and bridge with the original profile preserved. The first
+local staging command stopped on a path mismatch before reaching
+the handset; the corrected staging and normal reboot passed.
+An ordinary Ubuntu user read the new die channel 160 times over
+40 seconds. It reported 38.00–38.27 °C with 28 distinct values.
+Pressure continued to read 101.3816–101.3856 kPa. The board
+thermistors started on the same boot and produced nine distinct
+pairs. All six IIO devices were readable, Wi-Fi HTTPS204 and no-SIM
+cleanup passed, and no systemd unit failed. No thermistor read
+failure was logged in the observed boot. Reference calibration
+and thermal/charging policy remain unqualified.

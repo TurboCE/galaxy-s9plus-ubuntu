@@ -113,10 +113,20 @@ class BrokerTests(unittest.TestCase):
         self.assertEqual(len(frames[0]),48)
         self.assertEqual(decoded[0],(1,48,1,2,0,391,0,0,0,0,0))
         self.assertEqual(decoded[2][2:8],(3,1,1,-32768,0,32767))
-        self.assertEqual(decoded[3],(1,48,4,4,0,4161524,0,0,0,0,0))
+        self.assertEqual(decoded[3],(1,48,4,4,1,4161524,2934,0,0,0,0))
         self.assertEqual(decoded[4],(1,48,5,5,0,1,0,0,0,0,0))
         self.assertEqual(decoded[5],(1,48,6,6,0,-65536,0,131072,0,0,0))
         self.assertEqual(seen,{1,5,7})
+
+    def test_missing_temperature_does_not_discard_pressure(self):
+        feed=types.SimpleNamespace(publish=unittest.mock.Mock())
+        for temp in (-4001, 8501):
+            probe=types.SimpleNamespace(samples={5:[(4161524,temp)]})
+            b.publish_actual(probe,[5],feed,set(),None,1)
+            feed.publish.assert_called_with(4,(4161524,0,0))
+        probe=types.SimpleNamespace(samples={5:[(4161524,0)]})
+        b.publish_actual(probe,[5],feed,set(),None,1)
+        feed.publish.assert_called_with(4,(4161524,0,0),pressure_temp=True)
 
     def test_invalid_or_short_frame_does_not_advance(self):
         f=b.Feed(1)

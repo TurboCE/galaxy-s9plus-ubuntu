@@ -221,10 +221,12 @@ class Feed:
         self.fd = fd
         self.seq = 0
 
-    def publish(self, kind, values=(0, 0, 0)):
+    def publish(self, kind, values=(0, 0, 0), *, pressure_temp=False):
         values = tuple(values)
         if len(values) != 3 or any(type(v) is not int for v in values):
             raise ValueError('Feed fields must be three actual integers')
+        if type(pressure_temp) is not bool or (pressure_temp and kind != 4):
+            raise ValueError('Temperature flag requires a pressure frame')
         if kind == 1:
             if len(values) != 3 or any(type(v) is not int or not -32768 <= v <= 32767 for v in values):
                 raise ValueError('Invalid actual acceleration tuple')
@@ -232,7 +234,8 @@ class Feed:
             if len(values) != 3 or type(values[0]) is not int or not 0 <= values[0] <= 0x7fffffff or values[1:] != (0, 0):
                 raise ValueError('Invalid actual illuminance tuple')
         elif kind == 4:
-            if not 0 < values[0] <= 0x7fffff or values[1:] != (0, 0):
+            if (not 0 < values[0] <= 0x7fffff or values[2] or
+                    not (-4000 <= values[1] <= 8500 if pressure_temp else values[1] == 0)):
                 raise ValueError('Invalid actual LPS22H pressure tuple')
         elif kind == 5:
             if values[0] not in (0, 1) or values[1:] != (0, 0):
@@ -247,7 +250,8 @@ class Feed:
             raise ValueError('Invalid heartbeat')
         if self.seq == 0xffffffffffffffff:
             raise OverflowError('Feed sequence exhausted')
-        frame = FRAME.pack(1, FRAME.size, self.seq + 1, kind, 1 if kind == 1 else 0, *values, 0, 0, 0)
+        flags = int(kind == 1 or pressure_temp)
+        frame = FRAME.pack(1, FRAME.size, self.seq + 1, kind, flags, *values, 0, 0, 0)
         if os.write(self.fd, frame) != len(frame):
             raise RuntimeError('Incomplete IIO feed write')
         self.seq += 1
@@ -267,7 +271,11 @@ def publish_actual(probe, selected, feed, seen, last_accel, now):
         elif sensor == 9:
             feed.publish(2, (latest[0], 0, 0))
         elif sensor == 5:
-            feed.publish(4, (latest[0], 0, 0))
+            pressure, temperature = latest
+            if -4000 <= temperature <= 8500:
+                feed.publish(4, (pressure, temperature, 0), pressure_temp=True)
+            else:
+                feed.publish(4, (pressure, 0, 0))
         elif sensor == 7:
             feed.publish(5, (latest[0], 0, 0))
         elif sensor == 4:

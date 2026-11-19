@@ -58,7 +58,8 @@ static const struct iio_chan_spec light_channels[] = {
 };
 static const struct iio_chan_spec pressure_channels[] = {
  { .type=IIO_PRESSURE, .info_mask_separate=BIT(IIO_CHAN_INFO_RAW),
-   .info_mask_shared_by_type=BIT(IIO_CHAN_INFO_SCALE) }
+   .info_mask_shared_by_type=BIT(IIO_CHAN_INFO_SCALE) },
+ { .type=IIO_TEMP, .info_mask_separate=BIT(IIO_CHAN_INFO_PROCESSED) },
 };
 static ssize_t read_nearlevel(struct iio_dev *dev, uintptr_t private,
                              const struct iio_chan_spec *chan, char *buf)
@@ -119,6 +120,20 @@ static int read_sample(struct iio_dev *dev,const struct iio_chan_spec *chan,
  return ret;
 }
 static const struct iio_info sample_info = { .read_raw=read_sample };
+static int read_pressure(struct iio_dev *dev,const struct iio_chan_spec *chan,
+                         int *val,int *val2,long mask)
+{
+ s32 sample;int ret;
+ if (chan->type==IIO_PRESSURE) return read_sample(dev,chan,val,val2,mask);
+ if (chan->type!=IIO_TEMP || mask!=IIO_CHAN_INFO_PROCESSED) return -EINVAL;
+ mutex_lock(&sample_lock);
+ ret=bridge_read(&cache,G965N_IIO_PRESSURE,1,ktime_get_boottime_ns(),&sample);
+ mutex_unlock(&sample_lock);
+ if (ret) return ret;
+ *val=sample*10; /* SSP centi-C to IIO millicelsius. */
+ return IIO_VAL_INT;
+}
+static const struct iio_info pressure_info = { .read_raw=read_pressure };
 static int register_sensor(u32 type)
 {
  struct iio_dev *dev, **target;
@@ -156,7 +171,8 @@ static int register_sensor(u32 type)
  dev=iio_device_alloc(bridge_misc.this_device,0);
  if (!dev) return -ENOMEM;
  dev->name=name;
- dev->info=&sample_info;dev->modes=INDIO_DIRECT_MODE;
+ dev->info=type==G965N_IIO_PRESSURE?&pressure_info:&sample_info;
+ dev->modes=INDIO_DIRECT_MODE;
  dev->channels=channels;
  dev->num_channels=count;
  ret=iio_device_register(dev);

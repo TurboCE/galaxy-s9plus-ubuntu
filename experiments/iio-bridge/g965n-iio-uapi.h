@@ -20,13 +20,16 @@ typedef uint64_t g965n_le64;
 #define G965N_IIO_GYRO 6U
 #define G965N_IIO_THERMISTOR 7U
 #define G965N_IIO_RANGE_8G_CONFIRMED 1U
+#define G965N_IIO_PRESSURE_TEMP_PRESENT 1U
 /* Little endian, exactly48bytes. value[] encodes signed32-bit integers.
  * seq starts at1, strictly increases within an exclusive writer session.
  * ACCEL: three signed16-bit raw counts, RANGE_8G_CONFIRMED mandatory.
  * LIGHT: nonnegative integer lux in value[0]; other values/flags zero.
  * HEARTBEAT: all values/flags zero. reserved[] always zero.
  * PRESSURE: positive LPS22H raw counts (24-bit signed range) in value[0].
- * The other values and flags are zero.
+ * Without flags, value[1] and value[2] are zero. TEMP_PRESENT makes
+ * value[1] the same frame's signed temperature in hundredths of a degree
+ * Celsius (-4000..8500). value[2] is always zero.
  * PROXIMITY: firmware detection bit in value[0]; other values/flags zero.
  * GYRO: three signed32 SSP samples in hub axes; flags zero.
  * THERMISTOR: two signed millicelsius values in channel order, third/flags zero.
