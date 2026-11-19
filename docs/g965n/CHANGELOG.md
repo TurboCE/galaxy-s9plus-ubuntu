@@ -3127,3 +3127,23 @@ reboot target ("Too many arguments", no reboot). Inspected actual login1 API:
 SetRebootParameter is supported. Using its recovery parameter + normal login1
 Reboot for orderly shutdown and the board's volatile syscon reboot-mode, rather
 than direct forced reboot or a MISC/bootloader write.
+
+Fresh nine-partition recovery backup37 completed. An initial strict preinstall
+comparison stopped before writing because PARAM differed. Byte-level review
+identifies only six appended N/R timestamp reboot-history records in its existing
+log region; every byte outside that append is identical. This is not an arbitrary
+PARAM relaxation or a PARAM write. DTB/DTBO/CPEFS/RADIO/MISC/RECOVERY unchanged;
+EFS accepts the bounded four-field metadata proof. All nine backup files and
+rollback native36 BOOT prefix/new37 image hashes reverified before installation.
+
+Native37 BOOT-only write/readback and actual USB SSH boot passed. Preserved old
+sensor profile/pins and all three startup units root-private, staged exactly
+pinned package37/fresh nine-backup metadata, changed only receipt/BOOT/module
+profile fields and the matching unit pin. Qualified orientation, vendor/program
+pins and user settings retained. Audio/Bluetooth/sensor startup services active,
+matching four modules loaded, BOOT/profile hash readback passed. Three actual
+IIO accel samples vary; ALS400lux, checked SSI faultN. Bound primary Wi-FiHTTPS204,
+failed units0 and full unfiltered error-priority kernel stream0 at this initial
+post-stage observation. No chanspec/IF_ADD/CallTrace/SError/GPUfault in this bounded
+baseline. P2P group teardown and new modem module/cold path still need separate
+hardware tests; no whole-device or LTE success inferred from a clean baseline.
