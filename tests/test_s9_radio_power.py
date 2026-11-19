@@ -11,6 +11,16 @@ ril=importlib.util.module_from_spec(spec);spec.loader.exec_module(ril)
 
 
 class RadioWireFacts(unittest.TestCase):
+    def test_phonebook_completion_preserves_only_existing_sim_readiness(self):
+        ready = False
+        for status in (0, 130, 0, 130, 131):
+            ready = ril.sim_ready_after_status(ready, status)
+            self.assertTrue(ready)
+        self.assertFalse(ril.sim_ready_after_status(False, 131))
+        for status in (1, 3, 5, 128, 129, 255):
+            self.assertFalse(ril.sim_ready_after_status(True, status))
+            self.assertFalse(ril.sim_ready_after_status(False, status))
+
     def test_own_stock_radio_normal_exec_frame(self):
         command,body,kind=ril.s9_radio_normal()
         frame=struct.pack('<HBBBBB',len(body)+7,1,255,command>>8,command&255,kind)+body

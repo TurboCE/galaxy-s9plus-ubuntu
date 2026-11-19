@@ -45,6 +45,18 @@ def s9_radio_normal():
     return (0x0107, b'\x02\x02', 1)
 
 
+def sim_ready_after_status(previous, status):
+    """Phonebook completion is not removal of an already initialized SIM.
+
+    Lineage libsamsung-ipc sec.h: READY0, INIT_COMPLETE0x82,
+    PB_INIT_COMPLETE0x83. Phonebook completion alone does not grant readiness;
+    PIN/lock/error/removal and unknown states still fail closed.
+    """
+    if status == 0x83:
+        return bool(previous)
+    return status in (0, 0x82)
+
+
 def s9_ps_attach():
     """Own stock IpcTxPsAttach: SET0d03, attach=true, no detach flags/reason."""
     return (0x0D03, b'\x01\x00\x00', 3)
@@ -685,7 +697,7 @@ def main():
                                     event['pdp_status_validation_failed'] = True
                         elif code == 0x0501 and length > 7:
                             event['sim_status_code'] = message[7]
-                            sim_ready = message[7] in (0, 130)
+                            sim_ready = sim_ready_after_status(sim_ready, message[7])
                         elif code == 0x0107 and length > 7:
                             event['phone_state_code'] = message[7]
                             phone_normal = message[7] == 2

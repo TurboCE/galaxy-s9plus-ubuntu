@@ -12,7 +12,7 @@ The complete warning stream is preserved privately rather than suppressed.
 | MAX77705 RGB/haptic missing OF node |One warning each. These functions remain unconfigured/unqualified; prototype source tests do not establish safe physical clock/current/supply behavior. |
 | Alternate GPT |Read-only audit finds sda primary header and entries CRC valid, alternate header invalid at its expected in-range finalLBA; sdd primary/alternate headers valid. Logical sectors4096bytes. No partition-table writes. A reviewed metadata repair requires dedicated table backup/layout review and is separate from a driver fix. |
 | Hub MCU_RESP reset uncertainty |One warning; real firmware readiness, pinned identity and accel/ALS feeds subsequently pass. A successful feed does not prove a hard reset or suspend/resume parity. |
-| Bluetooth advertised transmit-power command unsupported |One warning from controller capability probing. Discovery/startup evidence does not establish pairing/audio or vendor-command parity. |
+| Bluetooth advertised transmit-power command unsupported |Existing board-scoped BROKEN_READ_TRANSMIT_POWER quirk is announced by hci_broken_table; hci_le_read_tx_power_sync skips that unsupported optional query. Keep the capability notice. Discovery/startup evidence does not establish pairing/audio or vendor-command parity. |
 | Experimental module taint |Expected out-of-tree driver notice; not evidence of full functional correctness. |
 
 Historical SSP zero-ACK retries remain in earlier boot records. Checked mode

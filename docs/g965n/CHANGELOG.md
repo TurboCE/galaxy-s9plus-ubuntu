@@ -3167,3 +3167,52 @@ receiver started); corrected to an exclusive private helper, then verified
 clearing only its failed state. Removed owned services/profile and Fold7 test
 files. Full boot log still has action-frame retry batch1, chanspec0, IF_ADD
 timeout0; no additional AF error on this repeat. STA HTTPS204, failed units0.
+
+Preparing native37 one bounded cold RIL-before-CBD initialization with private
+OPEN/CLOSE capture. Reverified all nine fresh backup hashes and exact old EFS,
+current source uploads and wrapper syntax. Exact model/BOOT/module/overlay
+guards, exclusive runtime ownership, ordinary four-field EFS maintenance and
+working-NV preservation remain required. Only the reviewed opt-in module is
+loaded; no module unload or forced CP reset loop. Sensor-only runtime will be
+stopped during this incompatible vendor runtime and restored after cleanup.
+This preparation does not establish modem startup or network registration.
+
+Native37 guarded opt-in modem load and ordinary EFS metadata revalidation
+passed with private working NV/RADIO preserved. One cold RIL-before-CBD trial
+completed; root-private bounded RFS capture contains five OPENs/two CLOSEs,
+only known optional audio/learned-frequency/diagnostic filenames, consistent
+with upstream's documented denied-open behavior. No arbitrary file access
+was added. SIM READY/init/phonebook-complete and AT CPIN READY observed;
+network450/08, CSQ18, CEREG0,2/search, CGATT0. Phone state2; profile/mode/domain
+ACK8000, redundant radio/PS attach returned8005. No registration/PDP/internet
+claim. Subscriber digits absent from journal. Invalid IRQ type/GIC translation
+WARNs0, SError0, CallTrace0. Own clients stopped, runtime cleaned, all three
+audio/BT/sensor services active again.
+
+Found an actual status bookkeeping defect in that trace: SIM phonebook
+completion0x83 cleared readiness after READY/init. Lineage sec.h identifies
+it as PB_INIT_COMPLETE, not removal/error. Preserve an existing ready state
+for that notification only; it cannot grant readiness on its own, and all
+lock/removal/error/unknown states remain fail-closed. Eight radio/privacy/state
+tests pass. Runtime deployment/live status validation pending; this fix is not
+a demonstrated cause or solution of LTE registration failure.
+
+Deployed current lab source for a bounded existing-online observe-only trial
+(no CBD/reset/radio configuration). On-device replay of all11 captured cold
+SIM statuses now ends ready after phonebook completion, where the previous
+assignment cleared it. This is replay evidence, not a fresh live0x83 event or
+LTE data proof. A specifically prefixed +CGSN response candidate passed
+synthetic tests but did not resolve the native unknown result; removed that
+unsubstantiated parser expansion. No invalid-device conclusion is drawn.
+Observed startup-unit cache warning left by kernel37 manual profile staging;
+reloaded systemd unit definitions and verified NeedDaemonReload=no. No unit
+content or driver was changed merely to hide the warning.
+
+Existing-online observe-only60s completed without a CBD/reset request; EPS
+still searching and packet attach0. No subscriber digits leaked. Runtime
+cleanup finished and all three driver services active. Reviewed the Bluetooth
+transmit-power warning against the actual kernel: it is hci_broken_table's
+announcement of the deliberately set BROKEN_READ_TRANSMIT_POWER quirk, and
+hci_le_read_tx_power_sync skips the unsupported operation when that bit is set.
+The existing board-scoped patch already implements this safeguard. Retain the
+notice; no log suppression or speculative Bluetooth capability claim.
