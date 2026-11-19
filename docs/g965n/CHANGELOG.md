@@ -5572,3 +5572,19 @@ remain visible as before. Built and inspected the ARM64 module with
 the same release, config and module-symbol table as #44. The
 candidate has only build evidence. SIM-present reconnection and
 current-build LTE data still require a physical SIM test.
+
+### 2026-11-20 — Verify automatic and manual Wi-Fi Direct discovery stop
+
+On verified #44, issued NetworkManager discovery requests with
+5-, 8- and 12-second timeouts. Observed the corresponding
+`FindStopped` signal from the actual wpa_supplicant station
+interface after 5.024, 8.024 and 12.028 seconds. A separate
+10-second request stopped after 2.040 seconds when explicitly
+canceled. Each stop left the P2P device disconnected and allowed
+the next discovery request to start.
+
+The original station connection and interface index held, with
+eight Wi-Fi-bound HTTPS204 responses during and after the scans.
+The kernel logged no new matching Wi-Fi/P2P warning or error and
+no systemd unit failed. This trial covered the discovery lifecycle.
+Active peer negotiation and file transfer on #44 remain pending.
