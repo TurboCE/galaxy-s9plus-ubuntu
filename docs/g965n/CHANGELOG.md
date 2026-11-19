@@ -2733,3 +2733,22 @@ S9_EXPERIMENTAL_P2P_CONTROL=1 only adds the explicit kernel opt-in; defaultoff.
 No native control-path success claimed. First kernel trial will keep opt-in off
 until independently guarded runtime testing; full P2P RF/group traffic remains
 unqualified even if context creation succeeds.
+
+## 2026-11-19 — Native34 baseline and bounded control trial preparation
+
+Full kernel34 from44d48b9, #34 SMP PREEMPT Thu Nov19 06:16:17 UTC2026,
+BOOTd77b39664d0c4069fd0b0e55a16c05b0986c2ec7b9d5055ad4e7de22d9bae593/
+27219984bytes passed fresh9backup, fail-fast protected payload comparison,
+guardedBOOT-only write/readback/nativeboot. Control opt-in=N as intended;
+sensors/audio/BT active, real accel/ALS, touch reset5.269s/no initial-110.
+Real P2P query again BSS2. No control-path success yet; default-off trial build
+continues to expose the old event timeout until explicitly selected.
+
+Added a root/model/exact-BOOT/kernel/private-receipt+backup-pin trial helper:
+refuses existing P2P ownership, arms its own90s reboot fallback only after
+prechecks and successful Wi-Fi HTTPS, switches runtime opt-in only, creates/
+starts/optionally scans/stops/deletes only its test-owned wdev, checks primary
+identity and post-delete HTTPS. Cleanup resets runtime opt-in; failure leaves
+fallback armed, never guesses ownership; private0600 logs remain excluded.
+No partition/firmware writes. Inventory/guard host tests2passed; iw on native34
+contains required __p2pdev syntax. Actual trial is still pending.
