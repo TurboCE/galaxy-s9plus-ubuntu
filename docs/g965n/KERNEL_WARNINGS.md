@@ -1,4 +1,4 @@
-# Remaining kernel warnings through native38
+# Remaining kernel warnings through native41
 
 Evidence date2026-11-19, one experimental SM-G965N rev26. The initial pair of observed native36
 boots had zero error-priority lines and zero failed units; later trial results
@@ -63,3 +63,11 @@ plus their unsupported-feature notice, cache hierarchy1, RGB/haptic2, GPT1,
 4initramfs banners, taint1, Bluetooth quirk1 and hub reset1. The collector
 preserves all original priorities/private raw logs and reports incomplete
 coverage rather than asserting every hardware function is qualified.
+
+Native41 is not error-free: initial ABOX send failures5/234 (ERAP extra) and
+2/16 (PCM prepare) account for two error-priority lines and20IPC retries.
+Later one-second silent playback and exact capture pass without new retries
+or pointer stalls; this does not erase or repair startup errors. Sensor
+held-state comparison39/40 failed to confirm the powered-CS hypothesis, so
+41 restores the qualified control sequence and retains observations only.
+MCU_RESP reset uncertainty and CPU/cache/GPT/unconfigured modules remain open.

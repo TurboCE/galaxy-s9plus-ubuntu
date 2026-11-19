@@ -3451,3 +3451,29 @@ three services active. Reverted the unproven functional CS/pre-power changes
 to the qualified38/39 control sequence; retained only numeric held-phase
 CS/GPS level observation. No speculative pull/supply-cut experiment follows.
 Preparing41 as the reproducible reverted-control build; reset remains open.
+
+Kernel41 reverted-control build completed: #41 SMP PREEMPT Thu Nov 19 10:23:14 UTC 2026, source78a38db,
+BOOT90ccc1300f2791db872ad13da006030081be89828f1786326ebe84299bc95231/27219984bytes.
+Frozen package; build-only, actual reboot/driver feed evidence pending.
+
+Fresh41 recovery backup completed and all nine hashes passed. Six protected
+partitions unchanged, EFS four allowed metadata fields only, PARAM bounded
+reboot history only. Preserved40 evidence/rollback bytes; verified41 artifact
+before BOOT-only installation of reverted control plus held-pin diagnostics.
+
+Native41 BOOT write/readback and actual USB SSH boot/staging passed. The
+qualified38/39 control path is restored: held phases confirm CS0/GPS_PWR_EN0
+with MCU_RESP1, so standby/reset warning remains unresolved. Fresh accel
+samples vary, ALS0, SSI faultN, three services active and STA HTTPS204.
+New full ring capture reports error2/warning65 (not a clean baseline): ABOX
+DSP did not take messages5/234 and2/16 during startup, ipc_retries20.
+No SError/CallTrace/Wi-Fi/PMIC failure, failed units0. Investigate DSP startup
+separately; active services do not establish an error-free audio initialization.
+
+A bounded nonpersistent audio flow check then passed one second of silent
+Pulse playback and exact96000-byte/one-second mono capture. Frames retained
+only in process memory, no recording or mixer setting saved/changed. Capture
+IRQ+223, new IPC retries0, pointer stalls/backsteps0; aggregate RMS1771.99/
+peak15453 are not speech/acoustic-quality proof. Historical startup errors
+remain visible. This qualifies present basic flows only; startup race/firmware
+message handling remains open.
