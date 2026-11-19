@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Desktop Entry]
+Type=Application
+Name=Tilt, Light and Proximity
+Name[ko]=기울기·조도·근접
+Exec=/usr/bin/env QT_QUICK_BACKEND=software QT_QPA_PLATFORM=wayland /usr/lib/aarch64-linux-gnu/qt5/examples/sensors/qmlqtsensors/qmlqtsensors
+Icon=applications-science
+Terminal=false
+Categories=Utility;

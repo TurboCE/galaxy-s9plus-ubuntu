@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Desktop Entry]
+Type=Application
+Name=Sensor Explorer
+Name[ko]=센서 탐색기
+Exec=/usr/bin/env QT_QUICK_BACKEND=software QT_QPA_PLATFORM=wayland /usr/lib/aarch64-linux-gnu/qt5/examples/sensors/sensor_explorer/sensor_explorer
+Icon=applications-science
+Terminal=false
+Categories=Utility;

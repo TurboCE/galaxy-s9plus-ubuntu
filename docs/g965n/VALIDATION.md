@@ -99,3 +99,9 @@ CLKOUT parent/probe errors absent with two registered providers; inherited
 output0 unknown parent/rate0 is preserved, so output qualification remains
 open. Wi-Fi policy5 read succeeded and legacy trigger still BADOPTION; fix
 under source review. No new desktop sensor integration/autostart is enabled.
+
+Sensor application checkpoint: native#25 optional Qt sensor explorer/demo,
+Psensor and local Compass frontend installed; real Wayland launches verified.
+No standard IIO/hwmon sensor backend exists. Proxy's no-device exit is normal.
+Compass intentionally waits without a real reading; GNOME automatic screen
+rotation/brightness remain unimplemented. App installation is not parity.

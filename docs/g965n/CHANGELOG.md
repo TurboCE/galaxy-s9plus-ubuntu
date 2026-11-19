@@ -2178,3 +2178,27 @@ BUG/WARNING signatures in this boot observation. Sensors/modem not started
 in #25. RGB/haptic missing child nodes and P2P IF_ADD timeout remain; CPU/cache
 limitations and desktop sensor integration remain documented. No all-feature,
 roaming,endurance,heading,absolute-temperature or suspend success claimed.
+
+
+## 2026-11-19 — Install requested sensor frontends; integration remains absent
+
+Owner requested sensor apps and asked whether GNOME already consumes sensors.
+Read-only native#25 inspection found no IIO devices, no loaded hub transport
+and no prior iio-sensor-proxy installation. Installed Ubuntu repository sensor
+explorer/demonstration,Psensor/lm-sensors,Qt runtime and iio-sensor-proxy. No
+package upgrades/removals or kernel/firmware writes were requested. Added
+phone-sized desktop launchers and an original minimal Qt Compass frontend
+that never synthesizes headings and stays waiting without fresh real readings.
+Upstream third-party Compass source was inspected on the host only; its device
+whitelist/demo fallback was not installed or redistributed. The local frontend
+and launchers are recorded separately under experiments/sensor-apps for reuse.
+
+Desktop entries validate; Compass/Explorer/sensor-demo processes remain active
+in the real ordinary-user Wayland session without initial QML failure. Launch
+checks are not sensor-reading qualification. A Psensor launch found an already
+running instance, which was preserved. iio-sensor-proxy exits successfully
+without IIO devices; attempted DBus property queries lost their recipient,
+not a service crash. lm-sensors reports no hwmon devices. GNOME orientation/
+brightness settings, SSP autostart and driver configuration were not changed.
+Automatic rotation/brightness and application compass readings remain absent;
+previous raw sensor tests are not system integration. No FUSE/portal changes.
