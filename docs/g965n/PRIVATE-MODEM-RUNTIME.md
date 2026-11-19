@@ -595,3 +595,15 @@ from the subsequent LPM sequence. On the tested native44 CP, release
 returned generic success 0x8000 and reported state 3 for the same CID
 within three seconds, followed by a separate successful LPM response.
 The reported state is retained as a raw firmware value.
+
+
+### Explicit one-shot reconnect test
+
+For a held cold trial using the isolated modem runtime, add
+`--cycle-qualified-pdp`. After source-policy probe 1 returns with the previous
+route state restored, create the empty root-private `cycle-requested` marker in
+the validated lab directory. The RIL invalidates generation 1 and observes the
+release before considering a new activation. Reuse requires the tested success
+and same-CID state, as well as new CEREG and CGATT replies after release. Use
+`--pdp-generation 1` and `--pdp-generation 2` for the two network probes. The
+marker is processed at most once. This test does not trigger on unplanned loss.

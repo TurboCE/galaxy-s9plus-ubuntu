@@ -46,5 +46,18 @@ class DataTrialTests(unittest.TestCase):
                 {'dns4':[]},{'dns4':['0.0.0.0']},{'dns4':['192.0.2.1']*3},{'mtu':0},{'mtu':True}):
             with self.assertRaises(ValueError):trial.candidate_from([{'pdp_state':'candidate-ip'},{'pdp_candidate':{**config,**patch}}])
 
+    def test_reconnect_requires_a_new_live_candidate_in_the_expected_generation(self):
+        config = {'cid': 1, 'ipv4': '192.0.2.3', 'dns4': ['192.0.2.53'], 'mtu': 1450}
+        online = [{'pdp_state': 'candidate-ip'}, {'pdp_candidate': config}]
+        first = [{'pdp_generation': 1}, *online]
+        released = [*first, {'pdp_cleanup': 'cycle-release-requested'}]
+        next_plan = [*released, {'pdp_generation': 2}]
+        self.assertEqual(trial.candidate_from(first, 1), config)
+        self.assertEqual(trial.candidate_from(next_plan + online, 2), config)
+        for events, expected in ((first, 2), (released, 1), (next_plan, 2),
+                                 (next_plan + online, 1), (first + [{'pdp_generation': 2}] + online, 2)):
+            with self.assertRaises(ValueError):
+                trial.candidate_from(events, expected)
+
 
 if __name__=='__main__':unittest.main()

@@ -110,6 +110,21 @@ class QuiesceTests(unittest.TestCase):
         self.assertIn('"pdp_release_raw_states": [3]', log.getvalue())
         self.assertTrue(result['radio_lpm_confirmed'])
 
+    def test_cycle_requires_one_success_and_reviewed_same_cid_state(self):
+        ok = ipc(0x8001, struct.pack('<BBBH', 0x0D, 4, 3, 0x8000))
+        released = ipc(0x0D10, bytes((1, 3)) + bytes(7))
+        for frames in ((ok,), (released,), (ok, released, ok), (ok, released, ipc(0x0101)),
+                       (ok, ipc(0x0D10, bytes((2, 3)) + bytes(7))),
+                       (ok, ipc(0x0D10, bytes((1, 10)) + bytes(7)))):
+            observer = ril.PDPReleaseObservation(1)
+            for frame in frames:
+                observer.event(frame, 0)
+            self.assertFalse(observer.qualified())
+        observer = ril.PDPReleaseObservation(1)
+        observer.event(ok, 0)
+        observer.event(released, 1)
+        self.assertTrue(observer.qualified())
+
     def test_existing_online_and_observe_only_rejected_before_io(self):
         for online,observe in ((True,False),(False,True),(True,True)):
             args=SimpleNamespace(quiesce_radio_on_exit=True,attach_online=online,observe_only=observe)

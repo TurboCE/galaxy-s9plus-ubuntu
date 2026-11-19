@@ -42,12 +42,23 @@ def dns_a(packet,ident):
     raise ValueError('No DNS A answer')
 
 
-def candidate_from(events):
+def candidate_from(events, expected_generation=None):
     candidate=None;state=None;cleanup=False
+    generation = 0
     for event in events:
+        if 'pdp_generation' in event:
+            next_generation = event['pdp_generation']
+            if type(next_generation) is not int or next_generation != generation + 1:
+                raise ValueError('Invalid PDP generation sequence')
+            if generation and not cleanup:
+                raise ValueError('Prior PDP generation was not invalidated')
+            generation = next_generation
+            candidate, state, cleanup = None, None, False
         if 'pdp_candidate' in event:candidate=event['pdp_candidate']
         if 'pdp_state' in event:state=event['pdp_state']
         if 'pdp_cleanup' in event:cleanup=True
+    if generation != (expected_generation or 0):
+        raise ValueError('Unexpected PDP generation')
     if not candidate or state!='candidate-ip' or cleanup:raise ValueError('No live qualified PDP candidate')
     if candidate['cid']!=1 or type(candidate['cid']) is not int:raise ValueError('Expected CID1')
     ip=ipaddress.IPv4Address(candidate['ipv4'])
@@ -193,6 +204,7 @@ def main():
     p.add_argument('--consent-pdp-network-test',action='store_true')
     p.add_argument('--policy-route', action='store_true',
                    help='Verify a temporary source rule and separate modem routing table')
+    p.add_argument('--pdp-generation', type=int, choices=(1, 2))
     args=p.parse_args();os.umask(0o077)
     if os.geteuid()!=0 or not args.confirm_backup_verified or not args.consent_pdp_network_test:
         raise ValueError('Root, verified backup and network-test consent required')
@@ -212,7 +224,9 @@ def main():
         except ValueError:pass
     def interrupted(number,frame):raise InterruptedError('Bounded network trial interrupted')
     signal.signal(signal.SIGTERM,interrupted)
-    result=network_trial(candidate_from(events), policy_route=args.policy_route)
+    result=network_trial(candidate_from(events, args.pdp_generation), policy_route=args.policy_route)
+    if args.pdp_generation is not None:
+        result['pdp_generation'] = args.pdp_generation
     out=args.trial/'network-test-private.json'
     with out.open('x') as f:json.dump(result,f,indent=2)
     out.chmod(0o600);print(json.dumps(result))

@@ -534,6 +534,9 @@ class PDPReleaseObservation:
         return {'pdp_release_ack_codes': self.results, 'pdp_release_raw_states': self.states,
                 'cp_restarted_during_release': self.cp_restarted}
 
+    def qualified(self):
+        return not self.cp_restarted and self.results == [0x8000] and self.states == [3]
+
 
 class S9PDPPlan:
     """One activation, pure transitions; candidate IP is never internet proof."""
@@ -747,6 +750,8 @@ def main():
     parser.add_argument('--pdp-seconds', type=int, choices=range(10,61), default=30)
     parser.add_argument('--hold-qualified-pdp', action='store_true',
                         help='Hold an already-qualified context until this bounded cold trial ends')
+    parser.add_argument('--pdp-cycle-request', type=Path,
+                        help='Explicit one-shot release and reactivation request in a private lab')
     parser.add_argument('--attach-online', action='store_true')
     parser.add_argument('--diagnostic-status', action='store_true',
                         help='Query signal, functionality, operator and registration without changing them')
@@ -774,6 +779,8 @@ def main():
     if args.hold_qualified_pdp and (not pdp_opt_in or args.attach_online or
                                     not args.quiesce_radio_on_exit):
         parser.error('Held PDP requires a bounded cold PDP trial with radio cleanup')
+    if args.pdp_cycle_request and (not args.hold_qualified_pdp or not args.isolated_modem_runtime):
+        parser.error('PDP cycle requires a held cold trial in an isolated modem runtime')
     if b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):
         raise SystemExit('Expected star2lte')
     os.umask(0o077)
@@ -788,6 +795,10 @@ def main():
             runtime.select_modem_runtime()
         stack.enter_context(runtime.shared_runtime_lock())
         runtime.validate_launch_state(args.expected_receipt_sha256)
+        if args.pdp_cycle_request:
+            runtime.safe_components(args.pdp_cycle_request.parent)
+            if args.pdp_cycle_request.exists() or args.pdp_cycle_request.is_symlink():
+                raise RuntimeError('PDP cycle request must be created after the trial starts')
         capture = None
         if args.private_rfs_capture:
             runtime.safe_components(args.private_rfs_capture.parent)
@@ -828,6 +839,11 @@ def main():
         registration_at = None
         pdp_plan = None
         pdp_previous_state = None
+        pdp_generation = 0
+        cycle_observer = None
+        cycle_deadline = None
+        cycle_released_at = None
+        cycle_used = False
         stop_requested = False
         at_queue = deque()
         at_active = None
@@ -934,7 +950,26 @@ def main():
                     at_queue.extend(['AT+CIMI', 'AT+CGSN', 'AT+CSQ', 'AT+CESQ', 'AT+CFUN?', 'AT+CPIN?', 'AT+COPS?',
                                      'AT+CGATT?', 'AT+CGREG?', 'AT+CREG?', 'AT+CEER', 'AT+CEREG=?'])
                 diagnostic_queued = True
-            if pdp_opt_in and pdp_plan is None and registered and registration_at is not None and now-registration_at <= 15 and sim_ready and radio_asked and packet_attachment_ready(ps_attach_acknowledged, ps_attach_query, ps_attach_query_at, now) and at_ready and not at_failed:
+            if cycle_observer is not None and now >= cycle_deadline:
+                print(json.dumps({'pdp_cycle_release': cycle_observer.report(),
+                                  'pdp_cycle_release_qualified': cycle_observer.qualified()}), flush=True)
+                if cycle_observer.qualified():
+                    cycle_released_at = now
+                cycle_observer = None
+            fresh_link = (registered and registration_at is not None and now-registration_at <= 15
+                          and sim_ready and radio_asked and at_ready and not at_failed)
+            first_attachment = pdp_plan is None and packet_attachment_ready(
+                ps_attach_acknowledged, ps_attach_query, ps_attach_query_at, now)
+            cycle_attachment = (pdp_generation == 1 and cycle_released_at is not None
+                                and registration_at is not None and registration_at > cycle_released_at
+                                and ps_attach_query is True and ps_attach_query_at is not None
+                                and cycle_released_at < ps_attach_query_at <= now
+                                and now - ps_attach_query_at <= 15)
+            if pdp_opt_in and fresh_link and (first_attachment or cycle_attachment):
+                pdp_generation += 1
+                if args.pdp_cycle_request:
+                    print(json.dumps({'pdp_generation': pdp_generation}), flush=True)
+                pdp_previous_state = None
                 pdp_plan = S9PDPPlan(args.apn, args.pdp_cid, now, timeout=args.pdp_seconds,
                                      hold_qualified=args.hold_qualified_pdp)
                 request = pdp_plan.registered(True, now)
@@ -953,6 +988,18 @@ def main():
                 report = pdp_plan.candidate_report()
                 if report is not None:
                     print(json.dumps(report), flush=True)
+                if (args.pdp_cycle_request and not cycle_used and pdp_plan.state == 'candidate-ip'
+                        and (args.pdp_cycle_request.exists() or args.pdp_cycle_request.is_symlink())):
+                    marker = runtime.regular_info(args.pdp_cycle_request, size=0)
+                    if marker.st_uid != 0 or marker.st_mode & 0o077:
+                        raise RuntimeError('Expected an empty root-private PDP cycle request')
+                    cycle_used = True
+                    request = pdp_plan.cleanup()
+                    pdp_plan.fail('operator-requested-cycle')
+                    print(json.dumps({'pdp_cleanup': 'cycle-release-requested'}), flush=True)
+                    cycle_observer = PDPReleaseObservation(pdp_plan.cid)
+                    cycle_deadline = time.monotonic() + 3
+                    send(*request)
             if args.configure_radio and not configured and saw_boot and sim_ready:
                 send(0x0D14, s9_lte_attach_profile(args.apn))
                 send(0x080A, b'\x0b')  # LTE/WCDMA/GSM
@@ -1064,7 +1111,10 @@ def main():
                         _, _, _, group, command, kind = struct.unpack_from('<HBBBBB', message)
                         code = group << 8 | command
                         event = {'command': hex(code), 'kind': kind, 'bytes': length - 7}
+                        if cycle_observer is not None:
+                            cycle_observer.event(message, time.monotonic())
                         if code == 0x0101:
+                            cycle_released_at = None
                             if pdp_plan is not None:
                                 pdp_plan.cp_reset()
                             saw_boot = True

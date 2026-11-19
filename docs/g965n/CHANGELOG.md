@@ -4226,3 +4226,26 @@ After the release trial, the distinct cleanup reboot restored the
 modem-off state, all three driver services and readable accel/ALS.
 No failed units or error-priority lines appeared. The ring contained
 63 warnings and no SSP zero-ACK retry in this boot.
+
+### 2026-11-20 — One controlled LTE reconnection in the same CP session
+
+Added a one-shot, opt-in request for a qualified held cold trial. It invalidates
+the current route candidate before issuing the release. The next activation
+requires a single matching release success and the same CID's observed state 3,
+then fresh registration and packet attachment queries after the release window.
+The network helper requires an explicit matching generation for each probe and
+refuses a stale candidate from the previous context.
+
+On native44, generation 1 and generation 2 both passed actual modem DNS and
+certificate-verified HTTPS204 using the source-policy route. Each direction
+recorded RX10/TX9 and zero interface errors in each probe. Both temporary route
+configurations were restored and the Wi-Fi default did not change. The same
+RIL invocation stayed live and the independent sensor service did not restart.
+Release returned 0x8000 and same-CID state 3 before the second activation. The
+second context was released and RF low power was confirmed on exit. This was an
+operator-requested reconnection, so unattended loss recovery, reboot startup and
+application fallback are still unqualified.
+
+The distinct cleanup boot returned to modem off with all three driver
+services active and both sensor feeds readable. Zero failed units or error
+lines, 63 warnings and zero SSP retries were observed on that boot.
