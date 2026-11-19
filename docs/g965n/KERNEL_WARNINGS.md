@@ -1,4 +1,4 @@
-# Remaining kernel warnings through native41
+# Remaining kernel warnings through native42
 
 Evidence date2026-11-19, one experimental SM-G965N rev26. The initial pair of observed native36
 boots had zero error-priority lines and zero failed units; later trial results
@@ -71,3 +71,19 @@ or pointer stalls; this does not erase or repair startup errors. Sensor
 held-state comparison39/40 failed to confirm the powered-CS hypothesis, so
 41 restores the qualified control sequence and retains observations only.
 MCU_RESP reset uncertainty and CPU/cache/GPT/unconfigured modules remain open.
+
+Native42 corrects saved DSM diagnostic replay at the ALSA interface. The same
+isolated old saved state sends one write ioctl on41 and zero on42, original
+state unchanged. Initial plus distinct normal warm42 boots retain full early
+rings: error0/warning64, audio retry counters0. This is bounded before/after
+evidence, not proof that every possible ABOX timeout is eliminated.
+
+Read-only42 cache audit exposes a concrete topology limitation: all eight
+CPUs report L2 shared_cpu_list0-7; only M3 CPUs4-7 report L3 shared4-7. Cache
+size/line/set/way fields are absent. The pinned SoC DT defines CPUs and a
+cpu-map but no next-level-cache/cache nodes. In the actual built kernel,
+cache_setup_properties failure selects use_arch_info, whose fallback assumes
+all same-level caches above L1 are system-wide shared. This explains the
+reported L2 map without demonstrating physical sharing. No cache geometry,
+capability registers or scheduler topology is fabricated. A correction needs
+SoC-specific cache ownership/geometry evidence before a DT change or reboot.

@@ -3527,3 +3527,10 @@ failure; primary HTTPS204 and failed units0. Both initial/warm observations
 qualify the saved diagnostic replay correction and bounded startup only, not
 all audio routes, endurance, LTE or full hardware parity. Remaining64 warning
 lines retain CPU variation/cache, optional-device/GPT and MCU reset issues.
+
+Native42 read-only cache audit: all eight L2 shared maps are0-7, M3 L3 maps
+4-7, geometry attributes absent. Actual source DT has CPU map but no cache
+links; generic kernel fallback after DT cache setup failure assumes global
+sharing above L1. This is a source-correlated metadata deficiency, not proof
+of actual cache wiring. No guessed geometry/topology patch applied. Fresh
+post-warm IIO accel samples vary; physical pose was not requested.
