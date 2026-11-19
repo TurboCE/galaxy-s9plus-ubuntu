@@ -5165,3 +5165,27 @@ Restored the saved sensor profile and verified prescaler 3 and
 diagnostics off on a distinct warm boot using the same module. One
 zero ACK recurred. Firmware startup, 80 reads from each of six IIO
 devices, Wi-Fi HTTPS204 and no-SIM cleanup passed with no failed units.
+
+### 2026-11-20 — Test the CHUB USI00 clock management divider
+
+A read-only snapshot on the running #44 handset showed the CHUB USI00
+divider field at 0, mux select 1, and the input-clock gate at 0x00300000.
+The local SPI clock register read zero. The model, BOOT and backup
+checks passed before the existing sensor module and profile were
+saved for a bounded trial. The first test module build hit a kernel
+macro name collision; renaming the local readback variable fixed it.
+
+The trial module changed only the identified USI00 divider field from
+0 to 1 during board setup. The field was stable on repeated setup and
+on an independent live read. This boot still had two zero ACKs in one
+36-byte transaction; the third attempt accepted all bytes. The first
+two SPI calls took 44.3 and 41.9 us, comparable to the earlier
+39.8 us reference. The physical SCK rate was not measured. Firmware
+startup, six IIO devices, Wi-Fi HTTPS204 and no-SIM cleanup passed,
+with no failed units. No production clock change was selected.
+
+Reinstalled the saved module configuration and verified a distinct
+warm boot with the USI00 divider field back at 0, diagnostics off, and
+the original module build ID. One 36-byte zero ACK recovered. The
+firmware watchdog canceled normally, all six IIO devices delivered
+80 reads, Wi-Fi HTTPS204 and no-SIM cleanup passed, and no units failed.

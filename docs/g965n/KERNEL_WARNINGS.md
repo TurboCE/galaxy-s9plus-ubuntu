@@ -57,8 +57,12 @@ The observations do not resolve the remote firmware's state.
 Another native44 boot requested SPI prescaler 7, but the controller
 register read back zero. The 36-byte zero ACK and recovery recurred.
 The changed module parameter did not verify a changed bus rate. The
-Exynos9810 CHUB clock management divider is the next candidate for
-read-only validation and is identified in the changelog.
+Exynos9810 CHUB clock management divider was then independently read
+and changed from field 0 to 1 on a bounded #44 trial. The same 36-byte
+transaction needed two retries, with host-observed transfer times
+comparable to the baseline and no direct SCK measurement. The trial
+does not establish an effective bus-rate change or a fix for the
+remaining zero ACK.
 
 A later native44 startup profile explicitly selects one standby
 attempt. The driver still records a high MCU_RESP as an unconfirmed
