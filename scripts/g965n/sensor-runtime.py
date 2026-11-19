@@ -84,6 +84,8 @@ def validate_matrix(matrix):
 
 def validate_profile(profile):
     if profile.get('schema')!=1 or profile.get('model')!='SM-G965N':raise RuntimeError('Expected G965N profile')
+    if profile.get('runtime_view', 'legacy') not in ('legacy', 'isolated-sensors'):
+        raise RuntimeError('Unknown sensor runtime view')
     if set(profile['programs'])!={'supervisor','runtime','kernel_verifier','broker','ssp_probe'}:
         raise RuntimeError('Unexpected program set')
     for entry in profile['programs'].values():pinned(entry)
@@ -393,8 +395,13 @@ def check_stop():
 
 
 def supervise(profile,path,profile_sha):
+    global BASE, ROOT, OWNER, LEASE
     verify_service_unit()
     runtime=load_program(profile,'runtime')
+    if profile.get('runtime_view') == 'isolated-sensors':
+        runtime.select_sensor_runtime()
+        BASE, ROOT, LEASE = runtime.BASE, runtime.ROOT, runtime.RUNTIME_LOCK
+        OWNER = BASE / 'sensor-owner.json'
     broker=lhd=None;stop_fd=None
     with lock_file(INSTANCE,fcntl.LOCK_EX),lock_file(LEASE,fcntl.LOCK_EX) as lease:
         if mount_fingerprint():cleanup_owned(runtime,profile_sha)

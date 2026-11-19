@@ -4133,3 +4133,22 @@ The probe refuses a pre-existing table or rule priority, checks the two paths
 before HTTPS and verifies teardown. On-device qualification is pending.
 The existing kernel43 boot recorded two retries accepting zero of 36 bytes
 about 1.5 ms apart, with strict ACK enabled and no latched transmit fault.
+
+### 2026-11-20 — Restarting sensors during a live LTE context
+
+Added an optional dedicated mount tree, scratch directory and lease for the
+pinned sensor profile. The existing profile format keeps its legacy default.
+The dedicated view refuses modem preparation and modem device nodes. Sensor
+service shutdown and startup no longer take the modem NV lease in that view.
+
+On native43, migrated the sensor service with the pinned BOOT, backup and
+program checks. Retained the previous unit and profile for recovery. The
+new service started with readable accelerometer and illuminance feeds.
+In a cold bounded LTE run, DNS and verified TLS returned HTTPS204 before
+and after an intentional sensor service restart. The sensor invocation
+changed and both feeds returned. The RIL invocation and PDP session stayed
+live. The modem interface saw RX10/TX9 packets before and RX11/TX10 after,
+with zero errors in either test. Temporary route state was restored after
+both probes. Modem teardown left the sensor view active, with zero failed
+units. This does not qualify automatic LTE startup, reconnection or
+continuous app routing.

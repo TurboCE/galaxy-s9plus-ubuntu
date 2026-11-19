@@ -42,12 +42,23 @@ PARTITION_SPECS = {
 
 STATE_LOCK = Path('/run/g965n-vendor-runtime.lock')
 RUNTIME_LOCK = STATE_LOCK
+SENSOR_BASE = Path('/run/g965n-sensor-runtime')
+MODEM_BASE = Path('/run/g965n-modem-runtime')
+
+
+def select_sensor_runtime():
+    """Select a sensor-only mount tree and lease independent of modem NV."""
+    global BASE, ROOT, DATA, RUNTIME_LOCK
+    BASE = SENSOR_BASE
+    ROOT = BASE / 'root'
+    DATA = STATE / 'sensor-data'
+    RUNTIME_LOCK = Path('/run/g965n-sensor-runtime.lock')
 
 
 def select_modem_runtime():
     """Select the fixed modem view before opening any leases or mounts."""
     global BASE, ROOT, DATA, RUNTIME_LOCK
-    BASE = Path('/run/g965n-modem-runtime')
+    BASE = MODEM_BASE
     ROOT = BASE / 'root'
     DATA = STATE / 'modem-data'
     RUNTIME_LOCK = Path('/run/g965n-modem-runtime.lock')
@@ -83,7 +94,7 @@ def shared_runtime_lock():
 @contextmanager
 def modem_runtime_setup_lock():
     """Allow sensor readers while changing only the isolated modem view."""
-    if RUNTIME_LOCK == STATE_LOCK:
+    if BASE != MODEM_BASE:
         raise RuntimeError('Select the isolated modem runtime first')
     with checked_lock(STATE_LOCK, fcntl.LOCK_SH):
         with checked_lock(RUNTIME_LOCK, fcntl.LOCK_EX):
@@ -669,11 +680,13 @@ def mount(source, target, *options):
 
 
 def device_nodes(include_modem=True):
+    if BASE == SENSOR_BASE and include_modem:
+        raise RuntimeError('No modem devices in the dedicated sensor view')
     safe_components(ROOT / 'dev')
     if not os.path.ismount(ROOT):
         raise RuntimeError('Runtime not mounted')
     selected = ['null', 'zero', 'random', 'urandom']
-    if RUNTIME_LOCK == STATE_LOCK:
+    if BASE != MODEM_BASE:
         selected += ['ttyBCM', 'bbd_control', 'bbd_sensor', 'bbd_patch']
     if include_modem:
         selected += [p.name for p in Path('/dev').glob('umts_*')]
@@ -695,6 +708,8 @@ def device_nodes(include_modem=True):
 
 
 def prepare(sensor_only=False, create_devices=True):
+    if BASE == SENSOR_BASE and not sensor_only:
+        raise RuntimeError('The dedicated sensor view only accepts sensor preparation')
     assert_board()
     safe_directory(BASE)
     safe_directory(STATE)

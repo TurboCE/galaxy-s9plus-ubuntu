@@ -568,3 +568,12 @@ remains closed. The existing shared lease means the sensor service
 should stay running throughout the bounded test; its startup and
 teardown still require that lease exclusively. Restarting the sensor
 service independently while LTE stays active is unqualified.
+
+
+For a pinned sensor profile with `runtime_view` set to `isolated-sensors`,
+the sensor supervisor uses its own mount tree, scratch directory and lease.
+The prior restriction on sensor restart while the modem holds the shared
+NV lease applies to the legacy view. Native43 completed a sensor restart
+and restored sensor feeds while the same bounded RIL/PDP session continued
+to carry actual data. Use the dedicated view for independent service
+lifecycles.

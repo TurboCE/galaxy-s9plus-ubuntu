@@ -144,7 +144,8 @@ class PrivateRuntimeTests(unittest.TestCase):
     def test_isolated_setup_coexists_with_sensors_and_serializes_modem_clients(self):
         state_lock = self.base / 'state.lock'
         modem_lock = self.base / 'modem.lock'
-        with patch.object(vr, 'STATE_LOCK', state_lock), patch.object(vr, 'RUNTIME_LOCK', modem_lock):
+        with patch.object(vr, 'BASE', vr.MODEM_BASE), \
+                patch.object(vr, 'STATE_LOCK', state_lock), patch.object(vr, 'RUNTIME_LOCK', modem_lock):
             with vr.checked_lock(state_lock, vr.fcntl.LOCK_SH):
                 with vr.modem_runtime_setup_lock():
                     with self.assertRaises(BlockingIOError), vr.shared_runtime_lock():
