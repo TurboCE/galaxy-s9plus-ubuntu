@@ -352,16 +352,15 @@ def s9_select_automatic():
     return (0x0802, b'\x02' + bytes(6) + b'\xff', 3)
 
 
-def s9_lte_attach_profile(apn, cid=1):
+def s9_lte_attach_profile(apn, cid=1, *, protocol='ipv4'):
     reference_define_pdp(apn, cid)
     if len(apn) > 100:
         raise ValueError('S9 attach APN exceeds the bounded NUL-terminated field')
-    # Owner ToDataProtocol maps IP -> internal1; the attach wire mapper
-    # emits2 for that value. Internal2 is IPV6 and emits5, not IPv4.
+    wire_type = s9_pdp_wire_type(protocol)
     body = bytearray(194)
-    body[:3] = bytes((1, cid, 2))
+    body[:3] = bytes((1, cid, wire_type))
     body[3:104] = apn.encode('ascii').ljust(101, b'\0')
-    body[192] = 2  # Same IPv4 protocol for roaming; no credentials/PCSCF.
+    body[192] = wire_type  # Same protocol for roaming; no credentials/PCSCF.
     return bytes(body)
 
 
@@ -553,16 +552,25 @@ class ReferencePDPPlan:
 # Only wire-layout facts are represented below. No binary, disassembly, source
 # implementation, credentials or handset identifiers are redistributed.
 S9_PROTOCOL = 'g965n-ipc41-source-candidate'
+S9_PDP_WIRE_TYPES = {'ipv4': 2, 'ipv6': 5, 'ipv4v6': 6}
 
 
-def s9_define_pdp(apn, cid=1):
+def s9_pdp_wire_type(protocol):
+    # Stock attach and PDP define use the same wire values for these
+    # protocols. Internal DataProtocol uses 1, 2 and 3 instead.
+    if not isinstance(protocol, str) or protocol not in S9_PDP_WIRE_TYPES:
+        raise ValueError('Unsupported S9 PDP protocol')
+    return S9_PDP_WIRE_TYPES[protocol]
+
+
+def s9_define_pdp(apn, cid=1, *, protocol='ipv4'):
     if not isinstance(apn, str):
         raise ValueError('S9 APN must be an explicit string')
     reference_define_pdp(apn, cid)  # shared conservative APN/CID validation
     if len(apn) > 100:
         raise ValueError('S9 PDP APN exceeds the bounded NUL-terminated field')
-    # IPv4 wire type2; internal DataProtocol enums are not wire values.
-    return bytes((1, cid, 2)) + apn.encode('ascii').ljust(101, b'\0') + bytes(23)
+    wire_type = s9_pdp_wire_type(protocol)
+    return bytes((1, cid, wire_type)) + apn.encode('ascii').ljust(101, b'\0') + bytes(23)
 
 
 def s9_activate_pdp(cid=1, enable=True):

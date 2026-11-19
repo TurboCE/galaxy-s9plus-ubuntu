@@ -116,6 +116,26 @@ class S9PDPTests(unittest.TestCase):
         self.assertEqual(value['raw_hex'],body.hex())
         self.assertEqual(len(value['pcscf4_raw']),3)
 
+    def test_attach_and_context_use_the_same_wire_protocol(self):
+        apn = 'fixture.apn'
+        attach_ipv4 = ril.s9_lte_attach_profile(apn)
+        define_ipv4 = ril.s9_define_pdp(apn)
+        for protocol, wire_type in (('ipv4', 2), ('ipv6', 5), ('ipv4v6', 6)):
+            with self.subTest(protocol=protocol):
+                expected_attach = bytearray(attach_ipv4)
+                expected_attach[2] = expected_attach[192] = wire_type
+                expected_define = bytearray(define_ipv4)
+                expected_define[2] = wire_type
+                self.assertEqual(ril.s9_lte_attach_profile(apn, protocol=protocol),
+                                 bytes(expected_attach))
+                self.assertEqual(ril.s9_define_pdp(apn, protocol=protocol),
+                                 bytes(expected_define))
+        for protocol in (None, 5, True, 'IPV6', 'ipv6-only'):
+            for build in (ril.s9_lte_attach_profile, ril.s9_define_pdp):
+                with self.subTest(protocol=protocol, build=build.__name__):
+                    with self.assertRaisesRegex(ValueError, 'Unsupported S9 PDP protocol'):
+                        build(apn, protocol=protocol)
+
     def test_no_invented_gateway_or_mask_dns_zeros_filtered(self):
         body=ipv4(flags=1);body[7:15]=bytes(8)
         value=ril.s9_ip_config(body)

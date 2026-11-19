@@ -5671,3 +5671,17 @@ Prepared a device check that reads the GPIO listing three times
 and checks the resulting journal window for the reported trace.
 The running handset is still on #44. Both test images await
 hardware boot and verification.
+
+### 2026-11-20 — Check IPv6 and dual-stack PDP request fields
+
+Reviewed the owned modem library's attach and PDP definition paths.
+IPv4, IPv6 and IPv4v6 use wire values 2, 5 and 6 in both builders.
+The independent source builders now accept those three protocol
+names and use one mapping for the home, roaming and definition
+fields. Existing callers retain their byte-identical IPv4 default.
+The first on-device code check needed the approved RFS helper path
+to import the standalone tool. With that path, the ARM64 check
+passed for all three protocols without opening the modem.
+
+This covers request construction. IPv6 activation, prefix discovery
+and LTE-only DNS and data remain pending with a usable SIM.

@@ -517,6 +517,12 @@ attach fields must be2 for this bounded IPv4 profile, matching the PDP definitio
 wire2. Prior tests repeated the wrong assumption; they now cover this boundary
 and cross-message consistency. No owner implementation/disassembly is published.
 
+The standalone S9 attach and PDP definition builders also accept explicit
+`ipv6` and `ipv4v6` protocol arguments. The stock definition encoder uses
+the same wire values, 5 and 6. The live RIL state machine continues to
+call both builders with their IPv4 default. IPv6 prefix, routing, DNS and
+carrier activation require a separate hardware trial.
+
 With the personal KT SIM, this correction registers EPS1 and activates CID1.
 Modem-assigned IPv4/DNS/MTU is not itself Internet proof. The separate
 `test-pdp-data.py` requires a still-active, exact RIL invocation and live
