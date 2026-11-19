@@ -5656,3 +5656,18 @@ updated CLI completed a six-second scan and stopped cleanly. The P2P
 device was disconnected after the trial and station-bound HTTPS204
 passed. One peer was seen without a verified Fold7 match. Pairing and
 payload transfer remain pending on this build.
+
+### 2026-11-20 — Build the combined GPU and GPIO test image
+
+Built #46 from an isolated copy of #45 with the upstream GPIO
+debug-listing guard. The only kernel source file differing from
+#45 is `drivers/gpio/gpiolib.c`. Kernel configuration and exported
+module symbols match. Independently unpacked both BOOT images and
+verified that the embedded device tree, outer device-tree table
+and ramdisk agree. The #45 PLL-only image is preserved for
+comparison.
+
+Prepared a device check that reads the GPIO listing three times
+and checks the resulting journal window for the reported trace.
+The running handset is still on #44. Both test images await
+hardware boot and verification.
