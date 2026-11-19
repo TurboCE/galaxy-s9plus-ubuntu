@@ -166,6 +166,97 @@ int main(void) {
 '''
 
 
+ROAM_STUBS = r"""
+#include <assert.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
+#include <stdatomic.h>
+typedef uint32_t u32; typedef int32_t s32; typedef uint32_t __le32;
+typedef _Atomic int atomic_t;
+#define ATOMIC_INIT(x) ATOMIC_VAR_INIT(x)
+static int atomic_cmpxchg(atomic_t *p,int old,int value) {atomic_compare_exchange_strong(p,&old,value);return old;}
+#define BRCM_CC_4361_CHIP_ID 0x4361
+#define BRCMF_C_SET_ROAM_TRIGGER 55
+#define BRCMF_C_SET_ROAM_DELTA 57
+#define BRCMF_DEFAULT_BCN_TIMEOUT_ROAM_OFF 10
+#define BRCMF_DEFAULT_BCN_TIMEOUT_ROAM_ON 2
+#define WL_ROAM_TRIGGER_LEVEL (-75)
+#define WL_ROAM_DELTA 20
+#define BRCM_BAND_ALL 3
+#define cpu_to_le32(x) ((u32)(x))
+#define brcmf_dbg(...) ((void)0)
+struct brcmf_bus {u32 chip;};
+struct settings {bool roamoff;};
+struct brcmf_pub {void *wiphy;struct brcmf_bus *bus_if;struct settings *settings;};
+struct brcmf_if {struct brcmf_pub *drvr;int ifidx;bool fwil_fwerr;};
+static bool board=true;
+static int calls,query_count,logs,fail_at,ret_value=-7,query_ret[2];
+static u32 query_value[2]={1,5};
+static char order[16][40],messages[4][160];
+static u32 payload[16][2];
+static bool of_machine_is_compatible(const char *s) {assert(!strcmp(s,"samsung,star2lte"));return board;}
+static void log_numeric(const char *fmt,...) {va_list a;va_start(a,fmt);assert(logs<4);vsnprintf(messages[logs++],160,fmt,a);va_end(a);}
+#define wiphy_info(wiphy,fmt,...) log_numeric(fmt,##__VA_ARGS__)
+#define bphy_err(...) ((void)0)
+static int brcmf_fil_iovar_int_get(struct brcmf_if *ifp,const char *name,u32 *value) {
+ int kind=!strcmp(name,"preinit_status")?0:1;
+ assert(kind==0||!strcmp(name,"wnm_bsstrans_resp"));
+ snprintf(order[calls++],40,"G%d",kind);query_count++;
+ *value=query_value[kind];return query_ret[kind];
+}
+static int brcmf_fil_iovar_int_set(struct brcmf_if *ifp,const char *name,u32 value) {
+ int kind=!strcmp(name,"bcn_timeout")?1:2;assert(kind==1||!strcmp(name,"roam_off"));
+ snprintf(order[calls],40,"S%d",kind);payload[calls++][0]=value;
+ return fail_at==kind?ret_value:0;
+}
+static int brcmf_fil_cmd_data_set(struct brcmf_if *ifp,u32 cmd,void *data,u32 len) {
+ assert(len==8);assert(cmd==55||cmd==57);
+ snprintf(order[calls],40,"C%u",cmd);memcpy(payload[calls++],data,8);
+ return fail_at==(int)cmd?ret_value:0;
+}
+static void reset(void) {calls=query_count=logs=fail_at=0;query_ret[0]=query_ret[1]=0;memset(order,0,sizeof(order));memset(payload,0,sizeof(payload));}
+"""
+ROAM_CASES = r"""
+int main(void) {
+ struct brcmf_bus bus={.chip=BRCM_CC_4361_CHIP_ID};struct settings setting={.roamoff=false};
+ struct brcmf_pub d={.bus_if=&bus,.settings=&setting};struct brcmf_if ifp={.drvr=&d,.fwil_fwerr=true};
+ /* Wrong board/chip/interface cannot query OR consume the one-shot marker. */
+ board=false;brcmf_g965n_roam_policy_diag(&ifp);assert(calls==0);
+ board=true;bus.chip=0x1234;brcmf_g965n_roam_policy_diag(&ifp);assert(calls==0);
+ bus.chip=BRCM_CC_4361_CHIP_ID;ifp.ifidx=1;brcmf_g965n_roam_policy_diag(&ifp);assert(calls==0);
+ ifp.ifidx=0;brcmf_g965n_roam_policy_diag(&ifp);assert(query_count==2&&calls==2&&logs==2);
+ assert(strstr(messages[0],"kind=0 ret=0 valid=1 value=1"));
+ assert(strstr(messages[1],"kind=1 ret=0 valid=1 value=5"));
+ brcmf_g965n_roam_policy_diag(&ifp);assert(query_count==2&&calls==2&&logs==2);
+ assert(ifp.fwil_fwerr); /* never toggle a shared firmware error-mode flag */
+ /* Actual original and patched roaming functions: same ordered writes,
+    same bytes and same returns, including every existing failure path. */
+ int failures[]={0,1,2,55,57};
+ for(unsigned k=0;k<sizeof(failures)/sizeof(failures[0]);k++) {
+  reset();fail_at=failures[k];int old=brcmf_dongle_roam_original(&ifp);
+  int old_count=calls;char saved_order[16][40];u32 saved_payload[16][2];
+  memcpy(saved_order,order,sizeof(order));memcpy(saved_payload,payload,sizeof(payload));
+  reset();atomic_store(&brcmf_g965n_roam_diag_done,0);fail_at=failures[k];
+  query_ret[0]=-52;query_ret[1]=-7;query_value[0]=0xdeadbeef;query_value[1]=0xffffffff;
+  int current=brcmf_dongle_roam(&ifp);
+  assert(current==old&&query_count==2&&calls==old_count+2);
+  assert(!strcmp(order[0],"G0")&&!strcmp(order[1],"G1"));
+  for(int n=0;n<old_count;n++) {assert(!strcmp(order[n+2],saved_order[n]));assert(!memcmp(payload[n+2],saved_payload[n],8));}
+  assert(strstr(messages[0],"kind=0 ret=-52 valid=0 value=0"));
+  assert(strstr(messages[1],"kind=1 ret=-7 valid=0 value=0"));
+ }
+ reset();atomic_store(&brcmf_g965n_roam_diag_done,0);query_value[0]=1;query_value[1]=5;
+ assert(brcmf_dongle_roam(&ifp)==0);assert(calls==6&&query_count==2);
+ assert(!strcmp(order[4],"C55")); /* observed policy5 does NOT alter behavior */
+ puts("Wi-Fi actual C boot-policy guards/once/two-GET/order/invalid values PASS");return 0;
+}
+"""
+
+
+
 class WifiDiagnosticsTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -186,7 +277,7 @@ class WifiDiagnosticsTests(unittest.TestCase):
             (root/D.REL).mkdir(parents=True)
             for name,data in self.original.items():
                 (root/D.REL/name).write_bytes(data)
-            self.assertEqual(D.apply(root),2)
+            self.assertEqual(D.apply(root),3)
             self.assertEqual(D.apply(root),0)
             for name in self.original:
                 patched=(root/D.REL/name).read_bytes()
@@ -194,9 +285,21 @@ class WifiDiagnosticsTests(unittest.TestCase):
                 self.assertIn(b'Broadcom Corporation',patched)
                 self.assertEqual(hashlib.sha256(patched).hexdigest(),D.PATCHED[name])
             (root/D.REL/'fwil.c').write_bytes(self.original['fwil.c'])
+            (root/D.REL/'cfg80211.c').write_bytes(self.original['cfg80211.c'])
             (root/D.REL/'fweh.c').write_bytes(b'unreviewed drift')
             with self.assertRaises(ValueError):D.apply(root)
             self.assertEqual((root/D.REL/'fwil.c').read_bytes(),self.original['fwil.c'])
+            self.assertEqual((root/D.REL/'cfg80211.c').read_bytes(),self.original['cfg80211.c'])
+
+    def test_existing_two_file_cache_adds_only_policy_observer(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);(root/D.REL).mkdir(parents=True)
+            for name,data in self.original.items():
+                (root/D.REL/name).write_bytes(data if name=='cfg80211.c' else D.transform(name,data))
+            before={name:(root/D.REL/name).read_bytes() for name in ('fwil.c','fweh.c')}
+            self.assertEqual(D.apply(root),1)
+            self.assertEqual(D.apply(root),0)
+            for name,data in before.items():self.assertEqual((root/D.REL/name).read_bytes(),data)
 
     def test_actual_c_with_address_and_undefined_sanitizers(self):
         fwil=D.transform('fwil.c',self.original['fwil.c']).decode()
@@ -207,6 +310,22 @@ class WifiDiagnosticsTests(unittest.TestCase):
             subprocess.run([os.environ.get('CC','cc'),'-std=c11','-g','-fsanitize=address,undefined',str(c),'-o',str(binary)],check=True)
             r=subprocess.run([str(binary)],capture_output=True,text=True,env={**os.environ,'ASAN_OPTIONS':'detect_leaks=0'},check=True)
             self.assertIn('PASS',r.stdout)
+
+
+    def test_actual_roam_c_guards_order_failure_values_and_unchanged_writes(self):
+        original=self.original['cfg80211.c'].decode()
+        patched=D.transform('cfg80211.c',self.original['cfg80211.c']).decode()
+        function=extract(patched,'brcmf_dongle_roam')
+        baseline=extract(original,'brcmf_dongle_roam').replace('brcmf_dongle_roam(', 'brcmf_dongle_roam_original(',1)
+        # The only alteration to the existing function is the leading observer.
+        self.assertEqual(function.replace('\tbrcmf_g965n_roam_policy_diag(ifp);\n\n',''),extract(original,'brcmf_dongle_roam'))
+        with tempfile.TemporaryDirectory() as td:
+            c=Path(td)/'roam.c';binary=Path(td)/'roam'
+            c.write_text(ROAM_STUBS+D.ROAM_HELPER+baseline+'\n'+function+ROAM_CASES)
+            subprocess.run([os.environ.get('CC','cc'),'-std=c11','-g','-fsanitize=address,undefined',str(c),'-o',str(binary)],check=True)
+            r=subprocess.run([str(binary)],capture_output=True,text=True,env={**os.environ,'ASAN_OPTIONS':'detect_leaks=0'},check=True)
+            self.assertIn('PASS',r.stdout)
+
 
 
 if __name__ == '__main__':unittest.main()

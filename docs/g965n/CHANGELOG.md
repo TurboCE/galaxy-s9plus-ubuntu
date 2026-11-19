@@ -1981,3 +1981,76 @@ CLKOUT parent failure, MAX77705 missing children and Wi-Fi roam/P2P errors
 remain; CPU/cache messages retain their documented limitations. No logging
 filter, clock/voltage workaround, partition repair or unrelated feature test
 was introduced. Private complete before/after logs remain outside Git.
+
+
+## 2026-11-19 — Resume physical sensor qualification with owner present
+
+On native #23 no sensor transport/daemon was running. A first service-verifier
+invocation used the staging package directory rather than the installed flat
+service layout and rejected a missing audio module before hardware changes.
+Corrected preflight called the existing exact BOOT/kernel verifier plus the
+manifest's sensor module path/hash. Loaded that exact sensor transport once.
+Prepared only SYSTEM/VENDOR ro,noload isolated runtime; no original identity
+partitions exposed, no modem bring-up. Started a shared-lease lhd with stock
+config and independent600s lifetime limit, no restart. Hub ready1,chip0x55,
+firmware21031900 and advertised mask137422698175 verified.
+
+Light baseline uses own-device lux18 layout. Enable produced480lux,4397K and
+nonzero RGBW;10s measurement window then had no new sample/unparsed frame.
+Pinned Android LIGHT report mode is ON_CHANGE, so missing periodic data alone
+is not a fault. Historical all-zero readings are not reproduced here. Owner
+requested restarting the cover test; sent SIGTERM to the first bounded probe
+for its normal sensor-disable cleanup, then started a fresh60s window.
+No calibration/threshold/glass/coefficient write was made. Optical-response
+qualification remains pending actual owner timing and new readings.
+
+Extended source diagnostic groups for exact pinned compass(2/3/4),pressure5,
+proximity7/raw10 payload formats, retaining legacy all=0/1/9. Explicit mask
+check precedes enable;29 host parser/phase/cleanup regressions pass. No native
+expanded-sensor results claimed yet.
+
+Light restarted physical window completed with owner-confirmed four cover/
+uncover repetitions:204 post-enable samples over60.022s, lux68..391, varying
+RGBW and0 unparsed frames. Two enable-time samples counted separately. This
+qualifies observed optical response, not calibrated absolute lux or desktop
+automatic brightness. Source upload to the root-private result directory was
+correctly denied; copied diagnostic source to the existing user staging path
+instead, leaving private result permissions unchanged. Expanded probe now
+runs a separate proximity window with the owner; no persistent settings changed.
+
+Proximity physical window: owner confirmed four close/far repetitions.
+Sensor7 provided10 post-enable events over60.064s, detect bit0/1 and ADC118..1105;
+two enable-time events separate,0 unparsed frames. Both close/far states and
+raw optical variation observed. This is not a calibrated distance in cm or
+call-screen integration qualification. Motion/compass physical trial started
+with explicit owner movement request; no calibration commands sent.
+
+Owner-confirmed movement window: native#23 accel/gyro each140 samples/25s,
+all axes varied;0 malformed frames. Compass IDs2/3/4 each yielded125/139/125
+post-enable samples with0 malformed frames, but only raw/uncalibrated vectors
+varied: calibrated ID4 remained exactly[-541,-1130,824,0,0] despite movement.
+No heading/calibration qualification; simultaneous-mode interference or
+missing vendor initialization remains under source review. Pressure probe
+started separately; no user maneuver or calibration write required.
+
+Calibrated compass isolated ID4 trial completed40.085s with200 samples:
+vector axes varied, accuracy advanced0→2, overflow remained0 and no malformed
+frames. No orientation/PDC/calibration/fuse command was sent. The earlier
+combined-factory trial versus elapsed calibration convergence is not causally
+isolated. Default compass now selects ID4 alone; raw/uncalibrated remain
+explicit diagnostic options. Read-only fuse option is source-tested but was
+not invoked.32 sensor regressions pass. Do not claim calibrated heading or
+absolute direction accuracy from vectors/accuracy status alone.
+
+Pressure returned84 samples/15.101s, raw4161524..4161650 and temperature
+3983..3995 (39.83..39.95C under the pinned factory formatting contract).
+Absolute pressure units/calibration are unqualified; no hPa conversion guessed.
+All probes ended with their disable cleanup. Deliberately stopped lhd, observed
+ready0, tore down runtime and unloaded transport without residual lhd clients.
+No new matching fatal/GPU/BUG/WARNING signatures during sensor trials. Sensor
+autostart, automatic brightness/rotation and desktop integration remain absent.
+
+Prepared source-only one-shot Wi-Fi policy observations before existing roaming
+writes. S9+/BCM4361/primary-interface guard; exactly two GET queries; numeric
+results invalidated on failure; existing settings/return paths unchanged. Four
+actual-C/sanitizer regression tests pass. No native policy result claimed yet.

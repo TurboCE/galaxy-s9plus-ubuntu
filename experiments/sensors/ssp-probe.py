@@ -21,6 +21,30 @@ import time
 
 # Layout facts from the pinned Lineage sensor_value/get_light_sensordata.
 # G965N reference config uses REPORT_LUX with one-byte gain (lux18).
+# Exact pinned star2lte configuration: magnetic overflow enabled, TMD4906.
+SENSOR_FORMATS = {0: '<hhh', 1: '<iii', 2: '<hhhhhhB', 3: '<hhh',
+                  4: '<hhhBB', 5: '<ih', 7: '<BH', 10: '<H'}
+SENSOR_GROUPS = {'motion': [0, 1], 'light': [9], 'all': [0, 1, 9],
+                 'compass': [4], 'magnetic-calibrated': [4],
+                 'magnetic-uncalibrated': [2], 'magnetic-raw': [3], 'pressure': [5],
+                 'proximity': [7], 'proximity-raw': [10]}
+
+
+def read_magnetic_fuse(probe, sensor_mask):
+    # Pinned magnetic_common.c:get_fuserom_data: cmd01, AP2HUB_READ, 3B.
+    # This reads factory sensitivity data; it neither starts self-test nor
+    # applies calibration. Never replace a missing/invalid reply with zeros.
+    require_advertised([2], sensor_mask)
+    values = tuple(probe.transaction(0x01, length=3))
+    return {'bytes': list(values), 'valid_factory_bytes': all(v not in (0, 255) for v in values)}
+
+
+def require_advertised(selected, sensor_mask):
+    missing = [sensor for sensor in selected if not sensor_mask & (1 << sensor)]
+    if missing:
+        raise RuntimeError('Hub does not advertise selected sensors: ' + str(missing))
+
+
 LIGHT_LAYOUTS = {'raw10': '<HHHHBB', 'lux18': '<IiHHHHBB', 'lux19': '<IiHHHHHB'}
 
 
@@ -149,7 +173,7 @@ class Probe:
         self.sequence = 0
         self.pending = None
         self.reply = None
-        self.formats = {0: '<hhh', 1: '<iii'}
+        self.formats = dict(SENSOR_FORMATS)
         if light_layout:
             self.formats[9] = LIGHT_LAYOUTS[light_layout]
         self.samples = {sensor: [] for sensor in self.formats}
@@ -268,14 +292,16 @@ class Probe:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sample-seconds', type=int, default=0, choices=range(0, 61))
-    parser.add_argument('--sensors', choices=['motion', 'light', 'all'], default='motion')
+    parser.add_argument('--sensors', choices=SENSOR_GROUPS, default='motion')
     parser.add_argument('--light-layout', choices=LIGHT_LAYOUTS, help='Must match the own-device hub configuration')
+    parser.add_argument('--read-magnetic-fuse', action='store_true',
+                        help='Read three AKM factory sensitivity bytes; no calibration write or self-test')
     parser.add_argument('--stream', action='store_true', help='Print numeric samples once per second')
     parser.add_argument('--ap-awake', action='store_true',
                         help='Experimental volatile WAKEUP/RESUME notifications before bounded sampling; default off')
     args = parser.parse_args()
     require_board()
-    selected = [0, 1] if args.sensors == 'motion' else [9] if args.sensors == 'light' else [0, 1, 9]
+    selected = SENSOR_GROUPS[args.sensors]
     if 9 in selected and args.sample_seconds and not args.light_layout:
         parser.error('Select an explicit own-device light layout before sampling')
     if args.ap_awake and not args.sample_seconds:
@@ -290,9 +316,10 @@ def main():
         complete = True
         try:
             result = acquire_hub_identity(probe)
+            if args.read_magnetic_fuse:
+                result['magnetic_fuse'] = read_magnetic_fuse(probe, result['sensor_mask'])
             if args.sample_seconds:
-                if 9 in selected and not result['sensor_mask'] & (1 << 9):
-                    raise RuntimeError('The hub does not advertise a light sensor')
+                require_advertised(selected, result['sensor_mask'])
                 if args.ap_awake:
                     probe.notify_ap_awake()
                     result['ap_awake_notification'] = {'commands': [0xD1, 0xD3], 'acknowledged': False}
@@ -306,6 +333,8 @@ def main():
                     if args.stream and time.monotonic() >= next_report:
                         values = probe.samples.get(9, [])
                         print(json.dumps({'elapsed_s': round(time.monotonic()-started, 1),
+                            'sensor_counts': {str(sensor): len(probe.samples.get(sensor, [])) for sensor in selected},
+                            'sensor_latest': {str(sensor): probe.samples[sensor][-1] if probe.samples.get(sensor) else None for sensor in selected},
                             'light_count': len(values), 'light': light_fields(values[-1], args.light_layout)
                             if values else None}), flush=True)
                         next_report += 1

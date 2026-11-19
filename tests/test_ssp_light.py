@@ -364,3 +364,89 @@ class SamplingPhaseTests(unittest.TestCase):
         self.assertGreaterEqual(result['measurement_window_seconds'], 2)
         self.assertTrue(all(1 <= row['elapsed_s'] <= 2.1 for row in streams))
         self.assertEqual(calls, [0xA1, 0xA2])
+
+
+class ExtendedSensorFrames(unittest.TestCase):
+    def probe(self):
+        p = ssp.Probe.__new__(ssp.Probe)
+        p.formats = dict(ssp.SENSOR_FORMATS)
+        p.samples = {sensor: [] for sensor in p.formats}
+        p.unparsed = 0
+        return p
+
+    def test_pinned_signed_fields_overflow_and_timestamp_alignment(self):
+        cases = {2: (-1, 2, -3, 4, -5, 6, 1), 3: (-7, 8, -9),
+                 4: (-10, 11, -12, 3, 1), 5: (101325, -250),
+                 7: (1, 65530), 10: (65531,)}
+        p = self.probe()
+        data = b''.join(bytes([0x37, sensor]) + struct.pack(p.formats[sensor], *values)
+                        + bytes([0xFF])*8 for sensor, values in cases.items())
+        self.assertTrue(p.records(data))
+        for sensor, values in cases.items():
+            self.assertEqual(p.samples[sensor], [values])
+
+    def test_every_extended_truncated_frame_is_atomic(self):
+        for sensor in (2, 3, 4, 5, 7, 10):
+            p = self.probe()
+            frame = bytes([0x37, sensor]) + bytes(struct.calcsize(p.formats[sensor]) + 7)
+            self.assertFalse(p.records(frame))
+            self.assertEqual(p.samples[sensor], [])
+
+    def test_missing_mask_refuses_selection_before_enable(self):
+        for sensor in (2, 3, 4, 5, 7, 10):
+            with self.assertRaisesRegex(RuntimeError, 'does not advertise'):
+                ssp.require_advertised([sensor], 0)
+            ssp.require_advertised([sensor], 1 << sensor)
+        self.assertEqual(ssp.SENSOR_GROUPS['all'], [0, 1, 9])
+
+    def test_extended_phases_and_cleanup_preserve_sensor_ids(self):
+        class Probe:
+            def __init__(self):
+                self.samples = {s: [(99,)] for s in (4, 5, 7)}
+                self.calls = []
+            def transaction(self, command, payload):
+                self.calls.append((command, payload[0]))
+                if command == 0xA1:
+                    self.samples[payload[0]].append((1,))
+        p = Probe(); enabled = []
+        startup, initial = ssp.enable_sampling_phases(p, [4, 5, 7], sum(1<<s for s in (4,5,7)), enabled)
+        self.assertEqual(startup, {'4': 1, '5': 1, '7': 1})
+        self.assertEqual(initial, {4: [(1,)], 5: [(1,)], 7: [(1,)]})
+        self.assertEqual(p.samples, {4: [], 5: [], 7: []})
+        ssp.disable_sensors(p, enabled)
+        self.assertEqual(p.calls[-3:], [(0xA2,4), (0xA2,5), (0xA2,7)])
+
+
+class MagneticFuseTests(unittest.TestCase):
+    def test_read_is_exact_command_length_and_no_write_payload(self):
+        class Probe:
+            def transaction(self, command, **kwargs):
+                self.call = (command, kwargs)
+                return bytes([128, 129, 130])
+        p = Probe()
+        self.assertEqual(ssp.read_magnetic_fuse(p, 1 << 2),
+                         {'bytes': [128,129,130], 'valid_factory_bytes': True})
+        self.assertEqual(p.call, (1, {'length': 3}))
+        self.assertEqual(ssp.SENSOR_GROUPS['compass'], [4])
+        self.assertEqual(ssp.SENSOR_GROUPS['magnetic-calibrated'], [4])
+        self.assertEqual(ssp.SENSOR_GROUPS['magnetic-uncalibrated'], [2])
+        self.assertEqual(ssp.SENSOR_GROUPS['magnetic-raw'], [3])
+
+    def test_unsupported_never_transactions_and_invalid_fuse_stays_invalid(self):
+        class Probe:
+            calls = 0
+            def transaction(self, *args, **kwargs):
+                self.calls += 1
+                return b'\0\xff\x80'
+        p = Probe()
+        with self.assertRaisesRegex(RuntimeError, 'does not advertise'):
+            ssp.read_magnetic_fuse(p, 0)
+        self.assertEqual(p.calls, 0)
+        self.assertFalse(ssp.read_magnetic_fuse(p, 1 << 2)['valid_factory_bytes'])
+
+    def test_read_failure_propagates_without_fallback(self):
+        class Probe:
+            def transaction(self, *args, **kwargs):
+                raise RuntimeError('Invalid sensor reply length for command 0x1')
+        with self.assertRaisesRegex(RuntimeError, 'Invalid sensor reply length'):
+            ssp.read_magnetic_fuse(Probe(), 1 << 2)

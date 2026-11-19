@@ -12,6 +12,7 @@ REL = Path('drivers/net/wireless/broadcom/brcm80211/brcmfmac')
 ORIGINAL = {
     'fwil.c': '1ba05bb9a089f6da2e7cdc863473c6168e2443e5c97d9e4906a94bde8bb202a9',
     'fweh.c': '4a4c090a81e7c2a954834e98db41633f1cc5dd0a6b739edc5dbfc9b0bcd9f51c',
+    'cfg80211.c': '1cb2c600fe401245cd218589d4bc3325f9ac0c0a15bd26ed1576c55eb3d85eb8',
 }
 FWIL_HELPER = r'''/* G965N bounded diagnostics: no command data or network identities. */
 static bool brcmf_g965n_diag_cmd(u32 cmd, const void *data, u32 len, bool set)
@@ -71,6 +72,42 @@ brcmf_g965n_diag_if(struct brcmf_pub *drvr,
 
 '''
 
+# Two ordinary GET_VAR queries before roaming writes, once per driver lifetime.
+# Stock 101_16 reads these iovars in dhd_preinit_ioctls; no policy is changed.
+ROAM_HELPER = r'''/* G965N boot-policy observation only: kind 0=preinit, 1=WBTEXT.
+ * Numeric metadata only; a failed query never makes its output value valid.
+ */
+static atomic_t brcmf_g965n_roam_diag_done = ATOMIC_INIT(0);
+
+static void brcmf_g965n_roam_policy_diag(struct brcmf_if *ifp)
+{
+	struct brcmf_pub *drvr = ifp->drvr;
+	u32 value;
+	s32 ret;
+
+	if (!of_machine_is_compatible("samsung,star2lte") ||
+	    drvr->bus_if->chip != BRCM_CC_4361_CHIP_ID || ifp->ifidx != 0 ||
+	    atomic_cmpxchg(&brcmf_g965n_roam_diag_done, 0, 1))
+		return;
+
+	value = 0;
+	ret = brcmf_fil_iovar_int_get(ifp, "preinit_status", &value);
+	if (ret)
+		value = 0;
+	wiphy_info(drvr->wiphy,
+		   "g965n_roam_diag kind=0 ret=%d valid=%u value=%u\n",
+		   ret, (unsigned int)!ret, value);
+	value = 0;
+	ret = brcmf_fil_iovar_int_get(ifp, "wnm_bsstrans_resp", &value);
+	if (ret)
+		value = 0;
+	wiphy_info(drvr->wiphy,
+		   "g965n_roam_diag kind=1 ret=%d valid=%u value=%u\n",
+		   ret, (unsigned int)!ret, value);
+}
+
+'''
+
 
 def once(text, old, new):
     if text.count(old) != 1:
@@ -91,6 +128,14 @@ def transform(name, original):
                     '\t\tif (event->code == BRCMF_E_IF &&\n' +
                     '\t\t    event->datalen < sizeof(struct brcmf_if_event))\n' +
                     '\t\t\tgoto event_free;\n')
+    elif name == 'cfg80211.c':
+        text = once(text, '#include <linux/kernel.h>\n',
+                    '#include <linux/kernel.h>\n#include <linux/atomic.h>\n#include <linux/of.h>\n')
+        text = once(text, 'static s32 brcmf_dongle_roam(struct brcmf_if *ifp)\n',
+                    ROAM_HELPER + 'static s32 brcmf_dongle_roam(struct brcmf_if *ifp)\n')
+        text = once(text, '\t/* Configure beacon timeout value based upon roaming setting */\n',
+                    '\tbrcmf_g965n_roam_policy_diag(ifp);\n\n' +
+                    '\t/* Configure beacon timeout value based upon roaming setting */\n')
     else:
         raise ValueError('unknown source')
     return text.encode()
@@ -100,6 +145,7 @@ def transform(name, original):
 PATCHED = {
     'fwil.c': '8ce50eaa039f157a47604c81b1629a349223e6ab379816ec4cfb5e5d10afa2b7',
     'fweh.c': 'e58ecc096234b07296d8f6affb72b56bed9e91fe2a62519e081f7a5d161fdb61',
+    'cfg80211.c': 'fc3d4d3ccb275149308e7a78243ab7df098ce2ae9994ea3f70a06b646784b2a3',
 }
 
 

@@ -32,3 +32,65 @@ end-to-end support: coordinate transforms, calibration, Linux integration and
 restart/power behavior still need validation. Bounded test-service timeouts
 intentionally stop the hub; do not label their teardown notices spontaneous crashes.
 Do not automatically load this transport or start the closed daemon at boot.
+
+
+## Bounded sensor selection
+
+`ssp-probe.py --sensors` keeps `motion` (0/1), `light` (9), and `all`
+(0/1/9) unchanged. Explicit additional groups are `compass` (4 only),
+`pressure` (5), `proximity` (7), and `proximity-raw` (10). Every selected
+sensor must be advertised by the actual hub before any enable/AP-state command.
+These decoders target the pinned star2lte configuration only: magnetic overflow
+is enabled, proximity is TMD4906, and pressure is LPS22H. They are not generic
+SSP-layout autodetection. Each bypass record includes its original eight-byte
+hub timestamp; the probe advances over it but does not establish physical
+freshness or sampling rate. Startup, post-enable, and measurement-window counts
+remain separate; every enabled ID receives bounded cleanup.
+
+Wire tuples (little-endian, raw values; no physical-unit assertion):
+
+| ID | Tuple | Bytes |
+| --- | --- | --- |
+| 2 | uncalibrated magnetic XYZ, offset XYZ: six signed16; overflow unsigned8 | 13 |
+| 3 | raw magnetic XYZ: three signed16 | 6 |
+| 4 | calibrated magnetic XYZ: three signed16; accuracy, overflow unsigned8 | 8 |
+| 5 | pressure signed32, temperature signed16 | 6 |
+| 7 | proximity detect unsigned8, ADC unsigned16 | 3 |
+| 10 | proximity raw ADC unsigned16 | 2 |
+
+Protocol facts are from LineageOS commit
+`6a9461f9460ca51d1217e5069a5d5556fcc79e63`,
+`drivers/sensorhub/brcm/{ssp.h,ssp_data.c,sensor_list.h}` and the star2lte
+configuration. In particular the configured raw-proximity decoder consumes two
+bytes despite the generic sensor-list report-size entry of one byte.
+No calibration or coefficient writes are added. Android initializes magnetic
+mounting/matrix/calibration, proximity thresholds and glass type separately;
+receiving tuples alone does not qualify compass heading or near/far detection.
+Pressure calibration is applied by Android's reporting path, so values here are
+uncorrected. Ambient light zero without a measured cover/uncover response is
+not a passing light-sensor result. The owner performs optical/motion checks
+through the main operator; this helper does not start the vendor daemon.
+
+
+For independent magnetic-path comparison use `magnetic-calibrated` (4 only),
+`magnetic-uncalibrated` (2 only), or `magnetic-raw` (3 only). Optional
+`--read-magnetic-fuse` reads command `0x01` as exactly three bytes, following
+pinned `factory/magnetic_common.c:get_fuserom_data` (`AP2HUB_READ`). The separate
+`valid_factory_bytes` flag follows that source's rejection of 0/255; it does
+not establish heading accuracy. The command applies no matrix/calibration,
+performs no self-test, and accesses no EFS. It requires the advertised magnetic
+sensor bit. Read timeouts/length errors propagate without substituting zeros.
+
+
+The ordinary `compass` check enables calibrated ID4 alone. Factory raw ID3 and
+uncalibrated ID2 remain explicit diagnostics rather than simultaneous defaults.
+On the handset, an isolated 40-second ID4 trial showed changing vectors and
+accuracy reaching 2 without initialization/calibration writes. The preceding
+simultaneous 2/3/4 trial had accuracy 0. Calibration settling versus influence
+from factory-raw activation has not been separated experimentally; this is not
+proof that simultaneous activation is prohibited by the protocol. Do not add
+calibration writes merely to compensate for this difference. Pressure remains
+raw; its temperature is hundredths of a degree Celsius according to pinned
+`factory/pressure_lps22h.c:pressure_temperature_show`. The SSP source does not
+establish pressure-to-hPa scaling, so the helper does not label raw pressure as
+hPa.
