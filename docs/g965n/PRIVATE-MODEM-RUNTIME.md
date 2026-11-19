@@ -502,6 +502,8 @@ are ready. A pair opened later completes under the same lock. Boot-on clears
 link state/completion together. This does not provide missing ECT frequencies
 or bus QoS; no invented table is used. Existing CP_START acknowledgement
 retransmission is retained. Native43 module-only early-open trial validates the
-CP_START -> clock header -> INIT_END sequence; late-open permutations have C
-harness proof, not yet separate native evidence. Baseline immutable startup
+CP_START -> clock header -> INIT_END sequence; late-open permutations also have native STATUS4/observe-only link-handshake
+proof. A queued retry is acknowledged; RF remains low-power in that case. Ten
+RFS requests after the bounded client closes are still unhandled, so persistent
+file servicing/physical shutdown is not qualified. Baseline immutable startup
 package remains preserved with modem default off; trial candidate stays private.

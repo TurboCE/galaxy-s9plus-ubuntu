@@ -3903,3 +3903,35 @@ to every profile/endurance case. Recent cleanup checks concerned service return
 after modem trials. No change to approved task scope, priority or test policy
 is inferred; an earlier relayed scope restriction was explicitly withdrawn.
 No device operation performed for this clarification.
+
+Prepared native late-open qualification with the same exact tested module and
+current43 model/BOOT/backup/overlay/provenance guards. CBD starts first; observe
+CP_START with no IPC/RFS userspace opens or INIT_END, verify read-only STATUS4
+through boot endpoint, then stop the monitor and attach bounded observe-only
+RIL. No RF configuration, PDP activation, reset retry or bypass of online guard.
+No code change yet; this is a separate hardware case, not implied by early-open
+success or C harness. Preserve private evidence and original NV-source history.
+
+Native43 late-open case: CP_START observed with neither IPC/RFS open nor any
+INIT_END, read-only boot-endpoint STATUS4 verified, then bounded online-only
+observe RIL attached without CBD restart/reset. Link completes when RFS opens:
+CT0/INIT_END at353.776s. One queued CP_START at353.830s gets the retained retry
+ack and then stops;12 CP_START/2clock headers/2INIT_END total. Existing legacy
+'abnormal' diagnostic appears once; no actual crash/watchdog/SError/CallTrace.
+Phone state1/LPM is preserved, SIM0/130/131 ready and six EPS queries0 only;
+RIL exits0. This proves the late-open link handshake, not RF/data operation.
+
+Full loaded ring183error-priority/67warnings/header present. Ten RFS demux
+failures occur at441.783..441.791s, AFTER RIL closes all channels at413.795s;
+not startup loss. Two other RFS-not-open entries are expected peer waits.
+Persistent file servicing/ordered physical shutdown remains unresolved; no
+loss-free lifecycle claim. Private NV/source checks pass, original blocks are
+unchanged. Normal guarded cleanup reboot requested. Offline owner-library audit
+confirms a legacy RIL_Init entry and Android/HIDL dependencies; no owner RIL
+execution, new power transition or firmware redistribution was attempted.
+
+Cleanup confirms distinct native43 boot/modem absent, three services active,
+failedunits0, strictACKY/faultN and4distinct accel triples. Full ring retains
+header/error1/warning63: one SSP initial zero-accepted-byte retry at9.543s;
+not a clean-error-log claim. Device baseline owner-confirmed audio/wireless
+functionality is retained. Metadata reload only, no general feature re-test.
