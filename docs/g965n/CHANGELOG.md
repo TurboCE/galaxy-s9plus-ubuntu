@@ -3563,3 +3563,34 @@ phandle graph/geometry verification, and a deliberately wrong cache size is
 rejected. Added this check to the build-only kernel pipeline. Actual probe
 callback test and shell syntax pass. Preparing43 build; native cache graph,
 scheduler and absence of cache warning remain unverified.
+
+Kernel43 build-only completed, source91d74ac, #43 SMP PREEMPT Thu Nov19
+11:02:49 UTC2026, BOOT1afe82bad2a9080ea7de228385869da155023405ff67ed1c73cd0b588fad0034/
+27219984bytes. New compiled-DTB gate passed in the real build; five matching
+modules/stock-verified overlay frozen. Exact native42 BOOT/model/backup guard
+passed before orderly recovery. Preparing fresh nine-partition backup and
+BOOT-only update; no native43/cache-warning success claimed from compilation.
+
+Fresh43 backup completed; all nine hashes/lengths passed, six protected
+partitions unchanged, EFS four approved metadata fields only, PARAM bounded
+reboot-history extension. Rollback42 prefix and new43 artifact verified.
+Prepared exact pinned stage wrapper and began guarded BOOT-only installation.
+No bootloader/recovery/radio/identity modification; actual43 boot pending.
+
+Native43 BOOT readback and actual USB SSH boot/staging passed. All8 online
+CPUs now expose the exact measured sizes/line/sets/ways: A55 cluster L2 map
+0-3, private M3 L2 maps single CPU, shared M3 L3 map4-7. Original cache
+hierarchy warning absent in full early ring; error0/warning63 (prior42:64).
+CPU register variation52 plus unsupported notice and MCU reset warning remain.
+No new PMIC/AF/chanspec/SError/CallTrace, audio counters0, fresh accel varies,
+all3 services active, primaryHTTPS204 and failedunits0. Scheduler debug-domain
+files unavailable, so no domain/performance qualification inferred. Initiated
+guarded normal warm reboot after privately saving prior boot identity.
+
+Native43 distinct normal warm reboot verified by changed private boot ID and
+new boot time. All8 CPU cache geometry and ownership exactly match initial
+readback; hierarchy warning absent in full early ring, error0/warning63. Three
+driver services active, fresh accel varies, audio retry/stall/backstep/codec/
+watchdog counters0, primaryHTTPS204 and failedunits0. No physical help required.
+This qualifies measured DT cache description/persistence, not performance
+gain, remaining CPU sanity warnings, complete sensor reset or LTE data.

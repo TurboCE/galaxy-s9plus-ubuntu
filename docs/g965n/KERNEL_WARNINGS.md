@@ -1,4 +1,4 @@
-# Remaining kernel warnings through native42
+# Remaining kernel warnings through native43
 
 Evidence date2026-11-19, one experimental SM-G965N rev26. The initial pair of observed native36
 boots had zero error-priority lines and zero failed units; later trial results
@@ -87,3 +87,12 @@ all same-level caches above L1 are system-wide shared. This explains the
 reported L2 map without demonstrating physical sharing. No cache geometry,
 capability registers or scheduler topology is fabricated. A correction needs
 SoC-specific cache ownership/geometry evidence before a DT change or reboot.
+
+Native43 repairs the cache description using all8-core native42 architectural
+measurements and primary Arm/Samsung ownership documentation (CPU_CACHE.md).
+Initial plus distinct normal warm boots expose correct full geometry and
+shared maps, remove the hierarchy warning without filtering, and retain
+error0/warning63, fresh accel, three services and primaryHTTPS204. The prior
+fallback L2 map0-7 is historical, replaced by A55 shared0-3/private M3 L2/
+M3 sharedL3 4-7. The52 CPU feature-register differences and unsupported-feature
+notice remain; cache metadata correction does not change those capabilities.

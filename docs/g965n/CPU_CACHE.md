@@ -34,10 +34,15 @@ architectural L2 when private L2 is absent. Its512KiB CCSIDR encoding exactly
 matches all four measured A55 cores. This establishes the shared DSU case
 rather than four guessed private512KiB caches.
 
-The proposed board DT adds measured L1 geometry, four private M3 L2 nodes,
+The board DT adds measured L1 geometry, four private M3 L2 nodes,
 a shared M3 L3 and a shared A55 cluster cache at the measured architectural
 level2. No cache is enabled/disabled or resized by this description, and no
-CPU feature register is overridden. The DT correction is not yet built or
-boot-qualified. Verify actual sysfs geometry and ownership, all8 CPUs,
-scheduler domains, boot logs and services after a guarded new kernel boot.
+CPU feature register is overridden. Native43 BOOT readback and actual boot passed. All8 online CPUs expose the
+measured geometry and corrected ownership above; the full early ring no longer
+contains the cache hierarchy warning (error0/warning63, down from64). Audio/BT/
+sensor services, fresh accel and primary Wi-Fi HTTPS pass. Scheduler debug
+domain files are unavailable, so their absence is not a scheduler test pass.
+A distinct normal warm boot also preserves all8 cache graphs and geometry,
+full-ring error0/warning63, fresh accel, all three services and HTTPS204.
+Audio startup counters remain0; no new acoustic or endurance claim.
 Do not claim a performance gain from metadata or removal of one warning.
