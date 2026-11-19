@@ -480,3 +480,15 @@ retained; the normal modem-off cleanup reboot remains separately guarded.
 Native43 cold90s trial confirms LPM and two-second tail with8frames. One
 delayed IPC-not-open and one startup RFS-not-open remain; physical CP shutdown
 and loss-free channel lifecycle are not qualified. LTE remains unresolved.
+
+### Readiness before vendor startup
+
+Launcher uses a main-process `Type=notify` service. The child reports readiness
+after checked private state, all three modem descriptors, buffers and cleanup
+handlers exist. Parent requires notify/active/running/nonzero main PID within
+ten seconds before starting CBD. An asynchronous start-job reply or an ordinary
+simple service is insufficient; failure stops the child without vendor launch.
+Native43 verifies this ordering. It does not qualify continued daemon liveness
+or repair LTE. The initial `shmem_init_comm` peer-wait message is emitted before
+the paired descriptor opens and returns0; it is distinct from dropped incoming
+packets in `rx_demux`. Do not diagnose packet loss from that message alone.

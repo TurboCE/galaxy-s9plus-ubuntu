@@ -15,6 +15,7 @@ import json
 import ipaddress
 import math
 import signal
+import socket
 import os
 from pathlib import Path
 import re
@@ -25,6 +26,20 @@ from collections import deque
 
 spec = importlib.util.spec_from_file_location('rfs_copy', Path(__file__).with_name('rfs-copy.py'))
 rfs_copy = importlib.util.module_from_spec(spec); spec.loader.exec_module(rfs_copy)
+
+
+def notify_channels_ready():
+    """Main process only, after private state, all channels and loop are ready."""
+    address = os.environ.get('NOTIFY_SOCKET')
+    if not address or address[0] not in ('/', '@'):
+        raise RuntimeError('Missing systemd readiness socket')
+    if address.startswith('@'):
+        address = '\0' + address[1:]
+    with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as notifier:
+        notifier.connect(address)
+        message = b'READY=1\nSTATUS=Private IPC/RFS channels ready'
+        if notifier.send(message) != len(message):
+            raise RuntimeError('Short readiness notification')
 
 
 # Protocol facts only: LineageOS/android_external_libsamsung-ipc,
@@ -671,6 +686,8 @@ def main():
                         help='New private lab directory for two bounded diagnostic files only')
     parser.add_argument('--quiesce-radio-on-exit', action='store_true',
                         help='Cold-test only: request RF low power and drain replies before closing channels')
+    parser.add_argument('--notify-ready', action='store_true',
+                        help='Notify systemd only after IPC/RFS and private runtime are ready')
     parser.add_argument('--scan-networks', action='store_true',
                         help='One bounded COPS test; online observation only, no operator selection')
     parser.add_argument('--scan-networks-s9', action='store_true',
@@ -820,6 +837,10 @@ def main():
             # Registered after the descriptor callbacks: drain completes while
             # channels/private NV/runtime lease and stop handlers remain live.
             stack.callback(quiesce_radio)
+
+        if args.notify_ready:
+            notify_channels_ready()
+            print(json.dumps({'ipc_rfs_ready': True}), flush=True)
 
         while not stop_requested and time.monotonic() - started < args.seconds:
             now = time.monotonic()

@@ -14,6 +14,32 @@ import sys
 import re
 import importlib.util
 import fcntl
+import time
+
+
+def wait_for_lab_ready(seconds=10):
+    """A transient start job is not descriptor readiness. Require main notify."""
+    if not 0 < seconds <= 10:
+        raise ValueError('Bounded readiness wait required')
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        output = subprocess.check_output(['systemctl', 'show', 'g965n-ril-lab-test.service',
+            '-p', 'Type', '-p', 'ActiveState', '-p', 'SubState', '-p', 'MainPID', '-p', 'Result'],
+            text=True, timeout=2)
+        state = dict(line.split('=', 1) for line in output.splitlines() if '=' in line)
+        if state.get('Type') != 'notify':
+            raise RuntimeError('RIL readiness requires a notify service')
+        active = state.get('ActiveState')
+        if active == 'active':
+            pid = state.get('MainPID', '')
+            if (state.get('SubState') != 'running' or not pid.isdigit() or int(pid) <= 0
+                    or state.get('Result') != 'success'):
+                raise RuntimeError('RIL main process is not running after readiness')
+            return
+        if active != 'activating':
+            raise RuntimeError('RIL failed before channel readiness')
+        time.sleep(min(0.1, max(0, deadline - time.monotonic())))
+    raise TimeoutError('RIL channel readiness timed out; CBD not started')
 
 
 def require_online_cp():
@@ -105,7 +131,7 @@ def main():
         command = ['/usr/bin/python3', str((args.lab_directory / 'ril-lab.py').resolve()),
                    '--seconds', str(args.seconds), '--apn', args.apn,
                    '--runtime-helper', str(args.runtime_helper.resolve()),
-                   '--expected-receipt-sha256', runtime.launch_receipt_digest()]
+                   '--expected-receipt-sha256', runtime.launch_receipt_digest(), '--notify-ready']
         if getattr(args, 'observe_only', False):
             command += ['--diagnostic-status']
         else:
@@ -131,6 +157,9 @@ def main():
             command += ['--quiesce-radio-on-exit']
         properties = [
             ('Description', GLib.Variant('s', 'Bounded G965N private-copy IPC/RFS lab')),
+            ('Type', GLib.Variant('s', 'notify')),
+            ('NotifyAccess', GLib.Variant('s', 'main')),
+            ('TimeoutStartUSec', GLib.Variant('t', 10 * 1000000)),
             ('DevicePolicy', GLib.Variant('s', 'closed')),
             ('DeviceAllow', GLib.Variant('a(ss)', [('/dev/' + p, 'rw') for p in ('umts_ipc0', 'umts_rfs0', 'umts_router')])),
             ('UMask', GLib.Variant('u', 0o077)),
@@ -144,6 +173,12 @@ def main():
             'org.freedesktop.systemd1', '/org/freedesktop/systemd1', 'org.freedesktop.systemd1.Manager', None)
         bus.call_sync('StartTransientUnit', GLib.Variant('(ssa(sv)a(sa(sv)))', (
             'g965n-ril-lab-test.service', 'fail', properties, [])), 0, 5000, None)
+        try:
+            wait_for_lab_ready()
+        except BaseException:
+            subprocess.run(['systemctl', 'stop', 'g965n-ril-lab-test.service'], timeout=15)
+            raise
+        print('RIL main process confirmed IPC/RFS ready before CBD launch.', flush=True)
         if getattr(args, 'attach_online', False):
             print('Bounded RIL/RFS attached to verified online CP; no CBD start/reset requested.')
             return

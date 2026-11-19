@@ -3819,3 +3819,39 @@ three services active, failedunits0, strictACKY/faultN, accel changes -601->-607
 source-bound Wi-Fi HTTPS204 and accepted private Mesa persists. Reloaded stale
 systemd metadata without changing unit source. This module-off baseline does
 not erase the loaded-trial support gaps above.
+
+Prepared actual child readiness barrier for cold startup. Transient RIL service
+now Type=notify/NotifyAccess=main with10s start bound; child reports READY only
+after private receipt/lease/NV checks, IPC/RFS/router descriptors, buffers and
+cleanup handlers are set up. Parent waits for notify active/running with live
+main PID before invoking CBD. Failed/stopped/wrong-type/no-main/timeout states
+stop the child without vendor launch or physical power control. This replaces
+an asynchronous start-job assumption, not a guessed delay. Five new readiness
+host tests and ten launcher tests pass; native startup-race correction pending.
+
+Native43 readiness trial passes: manager reports Type=notify/NotifyAccess=main,
+active/running after child IPC/RFS-ready notification; only then CBD launches.
+SIM0/130/131 retains readiness. RF LPM cleanup confirms with6frames/fulltail,
+RIL exits0. The initial RFS message remains, disproving its earlier tentative
+classification as a packet lost during CBD startup. Kernel trace places it in
+shmem_init_comm BEFORE the second userspace open and BEFORE CBD boot; it returns0
+while waiting for its paired endpoint, not rx_demux failure. No log-level change
+was made. Readiness gating remains useful for actual startup ordering/failure
+handling but is not labelled a fix for that expected peer-wait diagnostic.
+
+Source review now identifies an additional handshake issue to investigate:
+shmem_init_comm can write the clock table/send INIT_END while link is OFFLINE,
+before CBD boot resets cp_boot_done. CP_START separately checks rild_ready and
+sends INIT_END. Need qualify deferring the open-side handshake until link IPC
+without losing the later-ready case. No speculative IRQ/clock/power change
+applied in this trial; ECT/QoS and late post-close IPC traffic remain unresolved.
+
+Final readiness-trial loaded snapshot: full ring header present,125error-priority
+lines/67warnings,0CallTrace/SError; only initial init_comm RFS peer-wait count1,
+no closed-IPC message within this bounded snapshot (not endurance proof). Nine
+EPS queries0/2 only, no data/PDP. Normal guarded cleanup reboot verifies distinct
+boot and modem absent; full ring error0/warning63/header present, three drivers
+active/failedunits0, strictACKY/faultN, accel -602->-596, Wi-Fi HTTPS204 and
+accepted private Mesa persists. Systemd metadata reloaded, no unit source edit.
+All49 focused RFS/readiness/startup/quiesce/CEREG/PDP host tests pass. Original
+partitions, bootloader, identity and private evidence untouched/unpublished.

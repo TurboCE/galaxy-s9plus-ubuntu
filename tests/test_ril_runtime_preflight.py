@@ -166,16 +166,21 @@ class StartupPreflightTests(unittest.TestCase):
                 patch.object(launcher.subprocess,'run',side_effect=run), \
                 patch.object(launcher,'load_runtime',return_value=runtime), \
                 patch.object(launcher,'verify_private_runtime',side_effect=lambda *a:order.append('validated')), \
+                patch.object(launcher,'wait_for_lab_ready',side_effect=lambda:order.append('unit-ready')), \
                 patch.dict(sys.modules,{'gi':gi,'gi.repository':repository}), \
                 patch('builtins.open',side_effect=guarded_open):
             with redirect_stdout(io.StringIO()):launcher.main()
-        self.assertEqual(order,['validated','unit-start','vendor-launch'])
+        self.assertEqual(order,['validated','unit-start','unit-ready','vendor-launch'])
         properties=dict(units[0][2])
         child=properties['ExecStart'][0][1]
         flag=child.index('--private-rfs-diagnostics')
         self.assertEqual(child[flag+1],str(args.lab_directory/'rfs-diagnostics'))
         runtime.safe_components.assert_called_once_with(args.lab_directory)
         self.assertIn('--quiesce-radio-on-exit',child)
+        self.assertIn('--notify-ready',child)
+        self.assertEqual(properties['Type'],'notify')
+        self.assertEqual(properties['NotifyAccess'],'main')
+        self.assertEqual(properties['TimeoutStartUSec'],10*1000000)
         self.assertEqual(properties['RuntimeMaxUSec'],45*1000000)
         self.assertEqual(sum(c[0]!='systemctl' for c in commands),1)
         tree=ast.parse((ROOT/'scripts/g965n/run-ril-test.py').read_text())
