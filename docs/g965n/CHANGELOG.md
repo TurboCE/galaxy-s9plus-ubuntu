@@ -5718,3 +5718,18 @@ responses received over its Wi-Fi-bound socket. The test found no
 IPv6 default on Wi-Fi and did not attempt any IPv6 data route. Host
 tests cover wrong questions, unrelated address records, compressed
 aliases and alias loops. LTE-bound IPv6 DNS and data remain pending.
+
+### 2026-11-20 — Verify IPv6 source and interface binding
+
+Reused one bound-socket helper for the existing LTE IPv4 data
+probe and the IPv6 transport checks. It binds the interface and
+source address, selects IPv6-only sockets for IPv6, and uses the
+selected interface's scope for link-local addresses. It closes the
+socket if setup fails.
+
+On #44, the S9+ exchanged exact IPv6 TCP and UDP payloads with the
+Mac over USB networking. Checked the socket's source and interface
+and verified that Linux rejected binding the USB link-local source
+to Wi-Fi. The same helper passed IPv4 DNS and certificate-verified
+HTTPS204 over Wi-Fi. No modem route was involved. IPv6 LTE address
+and route provisioning and actual carrier traffic remain pending.

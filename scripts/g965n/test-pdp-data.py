@@ -118,6 +118,32 @@ POLICY_TABLE = '9650'
 POLICY_PRIORITY = '19650'
 
 
+def bound_socket(interface, address, kind):
+    source = ipaddress.ip_address(address)
+    if source.is_unspecified or source.is_multicast:
+        raise ValueError('Expected a unicast probe source address')
+    if source.version == 6:
+        if source.ipv4_mapped is not None or source.scope_id is not None:
+            raise ValueError('Expected an IPv6 source without an embedded interface or IPv4 address')
+        family = socket.AF_INET6
+        scope = socket.if_nametoindex(interface) if source.is_link_local else 0
+        endpoint = (str(source), 0, 0, scope)
+    else:
+        family = socket.AF_INET
+        endpoint = (str(source), 0)
+    probe = socket.socket(family, kind)
+    try:
+        if family == socket.AF_INET6:
+            probe.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, interface.encode() + b'\0')
+        probe.bind(endpoint)
+        probe.settimeout(5)
+    except BaseException:
+        probe.close()
+        raise
+    return probe
+
+
 def network_trial(config, policy_route=False):
     name='rmnet0';address=str(ipaddress.IPv4Address(config['ipv4']));servers=config['dns4']
     def output(command):return subprocess.check_output(command,text=True,timeout=5)
@@ -154,10 +180,6 @@ def network_trial(config, policy_route=False):
                 raise ValueError('Preserve existing exact host route')
         if target not in added:
             run(['ip','route','add',dst,'dev',name,'src',address]);added.append(target)
-    def bound(kind):
-        s=socket.socket(socket.AF_INET,kind)
-        s.setsockopt(socket.SOL_SOCKET,socket.SO_BINDTODEVICE,name.encode()+b'\0')
-        s.bind((address,0));s.settimeout(5);return s
     def counters():
         base=Path('/sys/class/net')/name/'statistics'
         return {n:int((base/n).read_text()) for n in ('rx_packets','tx_packets','rx_bytes','tx_bytes','rx_errors','tx_errors')}
@@ -181,7 +203,7 @@ def network_trial(config, policy_route=False):
                 route=json.loads(output(['ip','-j','route','get',server,'from',address]))[0]
                 if route['dev']!=name:raise ValueError('Incorrect test route')
                 result['route_interface_verified']=True
-                with bound(socket.SOCK_DGRAM) as s:
+                with bound_socket(name,address,socket.SOCK_DGRAM) as s:
                     s.sendto(query,(server,53));packet,peer=s.recvfrom(4096)
                 if peer!=(server,53):raise ValueError('Unexpected DNS peer')
                 target=dns_address(packet,ident,host);result['dns_over_modem']=True;break
@@ -196,7 +218,7 @@ def network_trial(config, policy_route=False):
                     str(selected.get('table')) != POLICY_TABLE):
                 raise ValueError('Policy route did not isolate the modem source')
             result['policy_route_isolated'] = True
-        with bound(socket.SOCK_STREAM) as plain:
+        with bound_socket(name,address,socket.SOCK_STREAM) as plain:
             plain.connect((target,443))
             with ssl.create_default_context().wrap_socket(plain,server_hostname=host) as tls:
                 tls.sendall(('GET /generate_204 HTTP/1.1\r\nHost: '+host+'\r\nConnection: close\r\n\r\n').encode())
