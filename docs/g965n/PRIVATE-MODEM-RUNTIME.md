@@ -729,7 +729,27 @@ Unsupported commands, stale requests and modem errors return an
 explicit error. The broker serializes its requests with the current
 radio owner instead of opening another physical modem channel.
 
-This endpoint is an adapter input, not an implementation of the
-ModemManager bus name. A native integration must still enumerate the
-real modem and translate authorized connect/disconnect operations, with
-a single owner for data route and resolver configuration.
+### Explicit IPv4 data control for a native modem adapter
+
+Add `--wwan-bearer-control` together with `--wwan-query-broker` and
+`--export-ipv4-lease` to the guarded held trial. This mode cannot be
+combined with the legacy one-shot reconnect marker. The radio registers
+and attaches to packet service as usual. The data context waits for an
+explicit `connect-ipv4` request.
+
+`bearer-status` returns a state and the current data generation.
+`connect-ipv4` is valid in `idle` and `disconnect-ipv4` in
+`connected`. A reply with `accepted: true` confirms the request was
+accepted for the reported generation. Poll for the corresponding
+`connected` or `idle` state to verify completion. The control path
+withdraws the lease at disconnect and requires a successful release
+acknowledgment and inactive status on the matching context before
+reporting `idle`. A subsequent connection waits for fresh registration
+and packet-attach reports. A `connected` state means the modem issued
+qualified IPv4 configuration. The client must use the current lease and
+check actual traffic separately.
+
+These requests provide the modem side of an adapter. The ModemManager
+device and the NetworkManager handoff still need implementation.
+NetworkManager and the standalone route worker must never own the same
+bearer's routes or resolver configuration at the same time.

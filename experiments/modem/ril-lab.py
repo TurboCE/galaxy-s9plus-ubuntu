@@ -76,17 +76,20 @@ class IPv4LeasePublisher:
 
 
 class WWANQueryBroker:
-    """Serialize typed, read-only WWAN queries through the existing AT owner."""
+    """Serialize typed WWAN requests through the existing RIL owner."""
     commands = {b'registration': 'AT+CEREG?', b'packet-attachment': 'AT+CGATT?',
                 b'signal-quality': 'AT+CSQ'}
+    bearer_requests = {b'bearer-status', b'connect-ipv4', b'disconnect-ipv4'}
 
-    def __init__(self, invocation):
+    def __init__(self, invocation, bearer_control=False):
         if not re.fullmatch(r'[a-f0-9]{32}', invocation):
             raise RuntimeError('Expected a systemd RIL invocation ID')
         self.path = Path('/run') / ('g965n-wwan-' + invocation + '.sock')
         self.listener = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET | socket.SOCK_NONBLOCK)
         self.client = None
+        self.pending = None
         self.dispatched = False
+        self.bearer_control = bearer_control
         try:
             self.listener.bind(str(self.path))
         except BaseException:
@@ -113,21 +116,24 @@ class WWANQueryBroker:
         if now >= self.deadline:
             self.finish(error='request-timeout')
             return None
-        if not ready:
-            return None
-        try:
-            request = self.client.recv(65)
-        except BlockingIOError:
-            return None
-        except OSError:
-            self.finish(error='client-disconnected')
-            return None
-        command = self.commands.get(request)
-        if command is None:
-            self.finish(error='unsupported-query')
+        if self.pending is None:
+            try:
+                request = self.client.recv(65)
+            except BlockingIOError:
+                return None
+            except OSError:
+                self.finish(error='client-disconnected')
+                return None
+            self.pending = self.commands.get(request)
+            if self.bearer_control and request in self.bearer_requests:
+                self.pending = request
+            if self.pending is None:
+                self.finish(error='unsupported-query')
+                return None
+        if not ready and isinstance(self.pending, str):
             return None
         self.dispatched = True
-        return command
+        return self.pending
 
     def finish(self, **result):
         if self.client is not None:
@@ -137,6 +143,7 @@ class WWANQueryBroker:
                 except OSError:
                     pass
         self.client = None
+        self.pending = None
         self.dispatched = False
 
     def close(self):
@@ -877,6 +884,8 @@ def main():
                         help='Hold an already-qualified context until this bounded cold trial ends')
     parser.add_argument('--export-ipv4-lease', action='store_true')
     parser.add_argument('--wwan-query-broker', action='store_true')
+    parser.add_argument('--wwan-bearer-control', action='store_true',
+                        help='Wait for explicit IPv4 connect and disconnect requests from the WWAN broker')
     parser.add_argument('--pdp-cycle-request', type=Path,
                         help='Explicit one-shot release and reactivation request in a private lab')
     parser.add_argument('--attach-online', action='store_true')
@@ -914,6 +923,9 @@ def main():
     if args.wwan_query_broker and (not args.hold_qualified_pdp or not args.isolated_modem_runtime
                                    or not args.notify_ready):
         parser.error('WWAN queries require an isolated held systemd trial')
+    if args.wwan_bearer_control and (not args.wwan_query_broker or not args.export_ipv4_lease
+                                     or args.pdp_cycle_request):
+        parser.error('WWAN bearer control requires the WWAN broker and IPv4 lease without the cycle marker')
     if args.seconds == 300 and not args.export_ipv4_lease:
         parser.error('300-second soak requires the qualified IPv4 lease and cold cleanup')
     if b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):
@@ -933,7 +945,8 @@ def main():
         lease = IPv4LeasePublisher(os.environ.get('INVOCATION_ID', '')) if args.export_ipv4_lease else None
         if lease:
             stack.callback(lease.withdraw)
-        broker = WWANQueryBroker(os.environ.get('INVOCATION_ID', '')) if args.wwan_query_broker else None
+        broker = (WWANQueryBroker(os.environ.get('INVOCATION_ID', ''), args.wwan_bearer_control)
+                  if args.wwan_query_broker else None)
         if broker:
             stack.callback(broker.close)
         if args.pdp_cycle_request:
@@ -985,6 +998,7 @@ def main():
         cycle_deadline = None
         cycle_released_at = None
         cycle_used = False
+        connect_requested = False
         stop_requested = False
         at_queue = deque()
         at_active = None
@@ -1052,6 +1066,32 @@ def main():
                     print(json.dumps({'pdp_cleanup': 'write-failed-not-retried'}), flush=True)
 
         stack.callback(cleanup_pdp)
+
+        def release_bearer():
+            nonlocal cycle_observer, cycle_deadline
+            request = pdp_plan.cleanup()
+            if request is None:
+                raise RuntimeError('Qualified PDP has no release request')
+            pdp_plan.fail('operator-requested-cycle')
+            if lease:
+                lease.withdraw()
+            print(json.dumps({'pdp_cleanup': 'cycle-release-requested'}), flush=True)
+            cycle_observer = PDPReleaseObservation(pdp_plan.cid)
+            cycle_deadline = time.monotonic() + 3
+            send(*request)
+
+        def bearer_status():
+            if cycle_observer is not None:
+                return 'disconnecting'
+            if connect_requested:
+                return 'connecting'
+            if pdp_plan is None or cycle_released_at is not None:
+                return 'idle'
+            if pdp_plan.state == 'candidate-ip':
+                return 'connected'
+            if pdp_plan.state == 'failed':
+                return 'failed'
+            return 'connecting'
         def stop(signum, frame):
             nonlocal stop_requested
             stop_requested = True
@@ -1106,14 +1146,17 @@ def main():
                           and sim_ready and radio_asked and at_ready and not at_failed)
             first_attachment = pdp_plan is None and packet_attachment_ready(
                 ps_attach_acknowledged, ps_attach_query, ps_attach_query_at, now)
-            cycle_attachment = (pdp_generation == 1 and cycle_released_at is not None
+            cycle_attachment = (cycle_released_at is not None
                                 and registration_at is not None and registration_at > cycle_released_at
                                 and ps_attach_query is True and ps_attach_query_at is not None
                                 and cycle_released_at < ps_attach_query_at <= now
                                 and now - ps_attach_query_at <= 15)
-            if pdp_opt_in and fresh_link and (first_attachment or cycle_attachment):
+            if (pdp_opt_in and fresh_link and (first_attachment or cycle_attachment)
+                    and (not args.wwan_bearer_control or connect_requested)):
+                connect_requested = False
+                cycle_released_at = None
                 pdp_generation += 1
-                if args.pdp_cycle_request:
+                if args.pdp_cycle_request or args.wwan_bearer_control:
                     print(json.dumps({'pdp_generation': pdp_generation}), flush=True)
                 pdp_previous_state = None
                 pdp_plan = S9PDPPlan(args.apn, args.pdp_cid, now, timeout=args.pdp_seconds,
@@ -1142,14 +1185,7 @@ def main():
                     if marker.st_uid != 0 or marker.st_mode & 0o077:
                         raise RuntimeError('Expected an empty root-private PDP cycle request')
                     cycle_used = True
-                    request = pdp_plan.cleanup()
-                    pdp_plan.fail('operator-requested-cycle')
-                    if lease:
-                        lease.withdraw()
-                    print(json.dumps({'pdp_cleanup': 'cycle-release-requested'}), flush=True)
-                    cycle_observer = PDPReleaseObservation(pdp_plan.cid)
-                    cycle_deadline = time.monotonic() + 3
-                    send(*request)
+                    release_bearer()
                 if lease and pdp_plan.state == 'candidate-ip':
                     lease.publish(pdp_generation, pdp_plan.route_config(), now)
             if args.configure_radio and not configured and saw_boot and sim_ready:
@@ -1183,6 +1219,19 @@ def main():
                 next_at_ping = time.monotonic() + 3
             broker_command = broker.take(now, at_ready and not at_failed and not at_active
                                          and not at_queue) if broker else None
+            if isinstance(broker_command, bytes):
+                status = bearer_status()
+                if broker_command == b'bearer-status':
+                    broker.finish(state=status, generation=pdp_generation)
+                elif broker_command == b'connect-ipv4' and status == 'idle':
+                    connect_requested = True
+                    broker.finish(accepted=True, generation=pdp_generation + 1)
+                elif broker_command == b'disconnect-ipv4' and status == 'connected':
+                    release_bearer()
+                    broker.finish(accepted=True, generation=pdp_generation)
+                else:
+                    broker.finish(error='invalid-bearer-state', state=status)
+                broker_command = None
             if not at_failed and not at_active and (at_queue or broker_command):
                 command = broker_command or at_queue.popleft()
                 broker_active = broker_command is not None
@@ -1281,6 +1330,9 @@ def main():
                                 broker.finish(error='modem-restarted')
                                 broker_active = False
                             cycle_released_at = None
+                            cycle_observer = None
+                            if saw_boot:
+                                connect_requested = False
                             if pdp_plan is not None:
                                 pdp_plan.cp_reset()
                             saw_boot = True

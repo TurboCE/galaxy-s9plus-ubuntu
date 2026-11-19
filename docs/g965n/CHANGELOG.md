@@ -4429,3 +4429,30 @@ The distinct cleanup boot returned to Wi-Fi and modem off. Audio,
 Bluetooth, sensors and ModemManager were active, accel/ALS were
 readable, and no unit failed. The ring had 63 warnings and one recurring
 SSP zero-ACK retry.
+
+### 2026-11-20 — Explicit LTE data connect and disconnect for the WWAN adapter
+
+Added a separately opted-in bearer control mode to the existing RIL
+socket. The first IPv4 session waits for an explicit request. The socket
+reports request acceptance separately from modem completion, withdraws the
+lease at disconnect, and only permits another activation after confirmed
+release and fresh registration and packet-attach queries.
+
+The first native44 attempt exposed a socket reset when querying bearer
+state during AT startup. Read the fixed request before waiting on the AT
+dispatcher and allow bearer state queries during startup. A subsequent
+attempt was stopped by the sensor readiness guard before loading the
+modem. The next attempt qualified the first bearer but used a stale
+traffic probe without generation selection. It was cleaned up and rerun
+with the current pinned probe.
+
+The final trial started idle with no lease. On the same RIL invocation,
+two explicit connects passed modem-bound DNS and certificate-verified
+HTTPS204, each with its own data generation. Both disconnects obtained
+the exact release acknowledgment and matching inactive status, removed
+the lease, and remained idle until another explicit request. Invalid
+requests and duplicate connects were rejected. The probe restored its
+temporary routes, sensors remained active with both feeds readable, and
+the socket disappeared at teardown. Stock ModemManager remained active
+and reported no modems. Ubuntu's desktop Mobile Network controls still
+need the Samsung IPC adapter and NetworkManager bearer handoff.

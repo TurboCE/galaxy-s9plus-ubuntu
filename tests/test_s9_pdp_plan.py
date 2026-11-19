@@ -6,6 +6,7 @@ from pathlib import Path
 import struct
 from types import SimpleNamespace
 import unittest
+from unittest.mock import MagicMock, patch
 
 ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('s9_pdp_test',ROOT/'experiments/modem/ril-lab.py')
@@ -29,6 +30,32 @@ def status(state=1,cause=0,throttle=0):
 
 
 class S9PDPTests(unittest.TestCase):
+    def test_bearer_status_is_available_before_at_is_ready(self):
+        with patch.object(ril.socket, 'SOCK_NONBLOCK', 0, create=True), \
+                patch.object(ril.socket, 'socket') as make_socket, patch.object(ril, 'Path'):
+            listener = make_socket.return_value
+            client = MagicMock()
+            listener.accept.return_value = (client, None)
+            client.recv.return_value = b'bearer-status'
+            broker = ril.WWANQueryBroker('a' * 32, bearer_control=True)
+            self.assertEqual(broker.take(0, False), b'bearer-status')
+            broker.finish(state='idle', generation=0)
+            self.assertIn(b'"state": "idle"', client.send.call_args.args[0])
+
+    def test_query_waits_for_at_and_default_broker_rejects_bearer_changes(self):
+        with patch.object(ril.socket, 'SOCK_NONBLOCK', 0, create=True), \
+                patch.object(ril.socket, 'socket') as make_socket, patch.object(ril, 'Path'):
+            listener = make_socket.return_value
+            client = MagicMock()
+            listener.accept.return_value = (client, None)
+            broker = ril.WWANQueryBroker('a' * 32)
+            client.recv.return_value = b'connect-ipv4'
+            self.assertIsNone(broker.take(0, False))
+            self.assertIn(b'unsupported-query', client.send.call_args.args[0])
+            client.recv.return_value = b'registration'
+            self.assertIsNone(broker.take(1, False))
+            self.assertEqual(broker.take(2, True), 'AT+CEREG?')
+
     def test_typed_wwan_queries_return_only_validated_status(self):
         self.assertEqual(ril.wwan_query_result('AT+CEREG?',
                          b'AT+CEREG?\r\r\n+CEREG: 0,1,"ABCD","ABCDEF",7\r\nOK\r\n'),

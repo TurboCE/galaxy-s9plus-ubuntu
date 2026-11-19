@@ -84,6 +84,7 @@ def main():
     parser.add_argument('--hold-qualified-pdp', action='store_true')
     parser.add_argument('--export-ipv4-lease', action='store_true')
     parser.add_argument('--wwan-query-broker', action='store_true')
+    parser.add_argument('--wwan-bearer-control', action='store_true')
     parser.add_argument('--cycle-qualified-pdp', action='store_true',
                         help='Allow a one-shot reconnect requested by a private lab marker')
     parser.add_argument('--attach-online', action='store_true',
@@ -114,6 +115,9 @@ def main():
     if export_lease and (not hold or not args.isolated_modem_runtime):
         parser.error('IPv4 lease requires an isolated held PDP trial')
     cycle = getattr(args, 'cycle_qualified_pdp', False)
+    wwan_control = getattr(args, 'wwan_bearer_control', False)
+    if wwan_control and (not wwan_broker or not export_lease or cycle):
+        parser.error('WWAN bearer control requires the WWAN broker and IPv4 lease without the cycle marker')
     if cycle and (not hold or not args.isolated_modem_runtime):
         parser.error('PDP cycle requires a held cold trial in an isolated modem runtime')
     if hold and (not args.activate_pdp_s9 or args.attach_online or not args.quiesce_radio_on_exit):
@@ -174,6 +178,8 @@ def main():
                 command.append('--export-ipv4-lease')
             if wwan_broker:
                 command.append('--wwan-query-broker')
+            if wwan_control:
+                command.append('--wwan-bearer-control')
             if cycle:
                 command += ['--pdp-cycle-request', str(args.lab_directory.resolve() / 'cycle-requested')]
         if getattr(args, 'attach_online', False):
