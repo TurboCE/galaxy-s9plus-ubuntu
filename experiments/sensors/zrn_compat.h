@@ -52,10 +52,7 @@ static inline void do_gettimeofday(struct timeval *tv)
 #define getnstimeofday ktime_get_real_ts64
 #define get_monotonic_boottime ktime_get_boottime_ts64
 
-/* timers: the old callback took an unsigned long */
 #include <linux/timer.h>
-#define setup_timer(t, fn, data) timer_setup(t, (void (*)(struct timer_list *))(fn), 0)
-#define del_timer_sync timer_delete_sync
 
 #define class_create(owner, name) class_create(name)
 

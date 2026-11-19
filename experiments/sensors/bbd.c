@@ -30,6 +30,7 @@
 #include <linux/notifier.h>
 #include <linux/of.h>
 #include <linux/string.h>
+#include <linux/workqueue.h>
 #include "bbd.h"
 
 #ifdef CONFIG_SENSORS_SSP
@@ -81,9 +82,7 @@ struct lhd_killer {
 	struct task_struct *lhd;
 	bool resetting;
 
-	bool timer_enabled;
-	struct timer_list timer;
-	struct work_struct work;
+	struct delayed_work watchdog;
 	struct workqueue_struct *workq;
 	spinlock_t lock;
 
@@ -221,11 +220,11 @@ static void bbd_report_stat(struct work_struct *work)
 	stat1hz.max_rx_dur = 0;
 }
 
-static void bbd_stat_timer_func(unsigned long p)
+static void bbd_stat_timer_func(struct timer_list *timer)
 {
 	if (stat1hz.workq)
 		queue_work(stat1hz.workq, &stat1hz.work);
-	mod_timer(&stat1hz.timer, jiffies + HZ);
+	mod_timer(timer, jiffies + HZ);
 }
 
 void bbd_update_stat(int idx, unsigned int count)
@@ -241,7 +240,7 @@ void bbd_enable_stat(void)
 	}
 
 	INIT_WORK(&stat1hz.work, bbd_report_stat);
-	setup_timer(&stat1hz.timer, bbd_stat_timer_func, 0);
+	timer_setup(&stat1hz.timer, bbd_stat_timer_func, 0);
 	mod_timer(&stat1hz.timer, jiffies + HZ);
 	stat1hz.enabled = true;
 }
@@ -252,49 +251,42 @@ void bbd_disable_stat(void)
 		pr_info("%s() 1HZ stat already disabled. skipping.\n", __func__);
 		return;
 	}
-	del_timer_sync(&stat1hz.timer);
+	timer_delete_sync(&stat1hz.timer);
 	cancel_work_sync(&stat1hz.work);
 	stat1hz.enabled = false;
 }
 #endif /* DEBUG_1HZ_STAT */
 
 #ifdef CONFIG_LHD_KILLER
+static DEFINE_MUTEX(bbd_lk_watchdog_lock);
 
 static void bbd_lk_work(struct work_struct *work)
 {
-	if (bbd.lk.timer_enabled)
-		bbd_mcu_reset(false);
-}
-
-static void bbd_lk_timer_func(unsigned long p)
-{
-	if (bbd.lk.workq)
-		queue_work(bbd.lk.workq, &bbd.lk.work);
+	bbd_mcu_reset(false);
 }
 
 static void bbd_enable_lk(void)
 {
-	pr_info("%s timeout:%ld sec\n", __func__, bbd.lk.timeout_sec);
-	if (bbd.lk.timer_enabled) {
-		pr_info("%s() lhd kill timer aready enabled. reset timer\n", __func__);
-		del_timer_sync(&bbd.lk.timer);
-	}
+	unsigned long timeout;
 
-	INIT_WORK(&bbd.lk.work, bbd_lk_work);
-	setup_timer(&bbd.lk.timer, bbd_lk_timer_func, 0);
-	mod_timer(&bbd.lk.timer, jiffies + HZ*bbd.lk.timeout_sec);
-	bbd.lk.timer_enabled = true;
+	mutex_lock(&bbd_lk_watchdog_lock);
+	if (bbd.lk.workq) {
+		timeout = min_t(unsigned long, READ_ONCE(bbd.lk.timeout_sec),
+				MAX_JIFFY_OFFSET / HZ);
+		pr_info("%s timeout:%lu sec\n", __func__, timeout);
+		cancel_delayed_work_sync(&bbd.lk.watchdog);
+		queue_delayed_work(bbd.lk.workq, &bbd.lk.watchdog, HZ * timeout);
+	}
+	mutex_unlock(&bbd_lk_watchdog_lock);
 }
 
 static void bbd_disable_lk(void)
 {
 	pr_info("%s\n", __func__);
-	if (!bbd.lk.timer_enabled) {
-		pr_info("%s() lhd killer already disabled. skipping.\n", __func__);
-		return;
-	}
-	del_timer_sync(&bbd.lk.timer);
-	bbd.lk.timer_enabled = false;
+	mutex_lock(&bbd_lk_watchdog_lock);
+	if (bbd.lk.workq)
+		cancel_delayed_work_sync(&bbd.lk.watchdog);
+	mutex_unlock(&bbd_lk_watchdog_lock);
 }
 
 static void bbd_init_lk(void)
@@ -302,18 +294,22 @@ static void bbd_init_lk(void)
 	memset(&bbd.lk, 0, sizeof(bbd.lk));
 	bbd.lk.enabled = true;
 	bbd.lk.timeout_sec = 10;
-	bbd.lk.workq = create_singlethread_workqueue("BBD_LHD_KILLER");
 	spin_lock_init(&bbd.lk.lock);
+	mutex_lock(&bbd_lk_watchdog_lock);
+	INIT_DELAYED_WORK(&bbd.lk.watchdog, bbd_lk_work);
+	bbd.lk.workq = create_singlethread_workqueue("BBD_LHD_KILLER");
+	mutex_unlock(&bbd_lk_watchdog_lock);
 }
 
 static void bbd_exit_lk(void)
 {
-	bbd_disable_lk();
+	mutex_lock(&bbd_lk_watchdog_lock);
 	if (bbd.lk.workq) {
-		flush_workqueue(bbd.lk.workq);
+		cancel_delayed_work_sync(&bbd.lk.watchdog);
 		destroy_workqueue(bbd.lk.workq);
 		bbd.lk.workq = 0;
 	}
+	mutex_unlock(&bbd_lk_watchdog_lock);
 }
 #endif
 //--------------------------------------------------------------
@@ -849,15 +845,17 @@ static ssize_t show_sysfs_bbd_pl(struct device *dev, struct device_attribute *at
 
 static ssize_t store_sysfs_lk_timeout(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
 {
-	int status = kstrtol(buf, 0, &bbd.lk.timeout_sec);
+	long timeout;
+	int status = kstrtol(buf, 0, &timeout);
 
-	if (bbd.lk.timeout_sec < 10)
-		bbd.lk.timeout_sec = 10; //base timeout 10sec
-	return status ? : len;
+	if (status)
+		return status;
+	WRITE_ONCE(bbd.lk.timeout_sec, max(timeout, 10L));
+	return len;
 }
 static ssize_t show_sysfs_lk_timeout(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "timeout for lhd killer : %ld sec\n", bbd.lk.timeout_sec);
+	return sprintf(buf, "timeout for lhd killer : %ld sec\n", READ_ONCE(bbd.lk.timeout_sec));
 }
 static ssize_t store_sysfs_lk_enable(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
 {

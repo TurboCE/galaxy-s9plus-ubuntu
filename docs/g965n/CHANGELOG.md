@@ -4978,3 +4978,21 @@ the Exynos8 match and a live RTC device-tree node. Sleep targets
 remained masked. This check qualifies screen-only background
 operation; physical power-key behavior, suspend wake and comparative
 battery drain still require hardware tests.
+
+### 2026-11-20 — Fix sensor firmware watchdog cancellation
+
+Replaced the firmware patch timer and its second queued callback with a
+single native Linux delayed work item initialized once. Repeated starts,
+completion and teardown now synchronize with the previous work before
+continuing. Delay conversion is bounded before multiplication. The
+optional statistics timer also uses the native callback signature.
+The AArch64 #44 build no longer emits the incompatible timer function
+pointer warning. Host cases exercised rearm, cancel, expiry and teardown.
+
+Verified the #44 BOOT and backup, saved the previous sensor profile and
+staged the matching module. On a distinct handset boot the loaded build
+ID matched. Firmware armed the 10-second watchdog and canceled it after
+1.272 seconds. Six IIO devices continued to deliver 80 reads each over
+20 seconds, including beyond the original watchdog deadline, without a
+reset request. Wi-Fi HTTPS204 and no-SIM cleanup passed and no unit
+failed. Intentional watchdog expiry was qualified on the host only.
