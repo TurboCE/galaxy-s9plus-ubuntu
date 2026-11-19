@@ -2569,3 +2569,33 @@ in. Fallback remains disabled after successful tests. No firmware published.
 Kernel31 built successfully from224a67d with the previously source-tested
 required P2P setup checks. BOOT ba4e4a88de19a85cae3f49248a5a9b6adcb0d529cbd6c753cf386d6135455d00,
 27219984bytes; native boot and P2P behavior are pending. Build is not boot.
+
+## 2026-11-19 — Native31 narrows P2P failure; protected-area comparison
+
+Full fresh9backup and guardedBOOT-only write/readback/native31 passed. Actual
+#31 kernel matches packaged receipt; sensors strictY/faultN, actual accel/ALS
+and audio/BT services active. Fresh31 backup manifest copied into the protected
+sensor profile and unit re-pinned; ordered sensor restart/readiness passed.
+Old exact30 recovery timer disabled before kernel replacement. Recovery reboot
+argument syntax initially rejected by systemctl; corrected explicit reboot
+argument entered TWRP. No bootloader update/relock performed.
+
+Pre-install comparison with the earlier30backup failed the EFS equality check;
+the shell continued to the guarded installer, which independently validated
+all fresh31backup images and matching current EFS/CPEFS before BOOT writing.
+This sequencing failure is recorded rather than presenting that comparison
+as passed. EFS differed at only six bytes in block0: ext4 mount/write times,
+mount count and lifetime-write accounting; no file/identity payload blocks
+changed. RECOVERY/CPEFS/RADIO/DTB/DTBO/MISC identical, PARAM differed. These are
+recovery-session observations, not claims that the installer wrote EFS/PARAM.
+Future combined precheck/write commands must use fail-fast execution so a
+failed comparison cannot fall through. No EFS restoration or identity edit.
+
+NativeP2P stage0..4 all returned0, but IF_ADD still timed out; required-command
+error propagation alone does NOT repair P2P. Native31 strictSSI had two initial
+0/36 retries, then live faultN/readiness/data. No elimination-of-SSI-errors claim.
+Added a scoped read-only event-mask observation after successful P2P setup:
+bounded256byte buffer, validated firmware-mask length, reports only numeric
+IF-subscription bit/result/length, no addresses or event payload, no replay or
+subscription write. Original Broadcom notice retained. This new observation
+is source-stage until another native kernel boot.

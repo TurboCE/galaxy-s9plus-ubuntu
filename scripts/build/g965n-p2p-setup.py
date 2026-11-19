@@ -11,7 +11,8 @@ from pathlib import Path
 
 REL=Path('drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c')
 ORIGINAL='048df2fa9593fa4bf65a3b459e9fca8ae45860bd6dc10a329d026984be6d3c3f'
-PATCHED='cffa5000c6b36b83542f34148c8d56f568d7c1b6af843031a2b1dd2847bdea89'
+PREVIOUS='cffa5000c6b36b83542f34148c8d56f568d7c1b6af843031a2b1dd2847bdea89'
+PATCHED='d8f6ea105146113785e485be2410f0c953a5bc5a835979422e7ed76f5d1fee84'
 HELPERS=r'''/* G965N: no network identifiers or command data in diagnostics. */
 static bool brcmf_g965n_checked_p2p(struct brcmf_if *ifp)
 {
@@ -65,6 +66,37 @@ def replace_once(text,old,new):
     if text.count(old)!=1:raise ValueError('P2P source anchor changed')
     return text.replace(old,new,1)
 
+
+OBSERVER=r'''/* Read back the subscribed IF bit; do not fabricate/replay events or masks. */
+static void brcmf_g965n_p2p_event_mask(struct brcmf_if *ifp)
+{
+	u8 mask[256] = { 0 };
+	unsigned int len = ifp->drvr->fweh->event_mask_len;
+	unsigned int enabled = 0;
+	int ret = -EINVAL;
+
+	if (len > BRCMF_E_IF / 8 && len <= sizeof(mask)) {
+		ret = brcmf_fil_iovar_data_get(ifp, "event_msgs", mask, len);
+		if (!ret)
+			enabled = !!(mask[BRCMF_E_IF / 8] & (1U << (BRCMF_E_IF % 8)));
+	}
+	if (net_ratelimit())
+		wiphy_info(ifp->drvr->wiphy,
+			   "g965n_p2p_setup stage=%u ret=%d len=%u if=%u\n",
+			   5U, ret, len, enabled);
+}
+
+'''
+
+def observe_transform(data):
+    text=data.decode()
+    text=replace_once(text,'#include "bus.h"\n','#include "bus.h"\n#include "fweh.h"\n')
+    text=replace_once(text,'static int brcmf_p2p_set_firmware(',OBSERVER+'static int brcmf_p2p_set_firmware(')
+    text=replace_once(text,'\tbrcmf_g965n_p2p_step(ifp, 4, ret);\n',
+        '\tbrcmf_g965n_p2p_step(ifp, 4, ret);\n'
+        '\tif (checked && !ret)\n\t\tbrcmf_g965n_p2p_event_mask(ifp);\n')
+    return text.encode()
+
 def transform(data):
     import re
     text=data.decode()
@@ -76,13 +108,14 @@ def transform(data):
     text=replace_once(text,'\tbrcmf_p2p_set_firmware(pri_ifp, p2p->dev_addr);\n',
         '\terr = brcmf_p2p_set_firmware(pri_ifp, p2p->dev_addr);\n'
         '\tif (err < 0 && brcmf_g965n_checked_p2p(pri_ifp))\n\t\tgoto fail;\n')
-    return text.encode()
+    return observe_transform(text.encode())
 
 def apply(root):
     p=Path(root)/REL;data=p.read_bytes();sha=hashlib.sha256(data).hexdigest()
     if sha==PATCHED:return
-    if sha!=ORIGINAL:raise ValueError('Unreviewed P2P source; no change')
-    new=transform(data)
+    if sha==PREVIOUS:new=observe_transform(data)
+    elif sha==ORIGINAL:new=transform(data)
+    else:raise ValueError('Unreviewed P2P source; no change')
     if hashlib.sha256(new).hexdigest()!=PATCHED:raise ValueError('P2P transform identity differs')
     p.write_bytes(new)
 

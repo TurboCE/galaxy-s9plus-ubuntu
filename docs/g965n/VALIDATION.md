@@ -153,3 +153,8 @@ actualaccel/ALS, strictY/faultN; independent pinned-baseline recovery also
 actually restoredN and rebooted in a separate timed trial. One initial0/36
 retry remains. Defaultoff; end-to-end integrity/endurance and fullhub parity
 are not qualified. Kernel31 P2P build passed, native behavior still pending.
+
+Native31: BOOTreadback+nativeboot+sensoractualreads/audioBTstartup passed.
+P2P setup0..4 succeeded but IF_ADD timed out: still failing. Two initialSSI
+retries followed by strictY/faultN datafeed; all-error-free claim false.
+New readonlyIFevent-mask diagnostic is not yet hardware-qualified.

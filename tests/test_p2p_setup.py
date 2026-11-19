@@ -60,6 +60,48 @@ int main(void) {
 }
 '''
 class P2pSetupTests(unittest.TestCase):
+ def test_actual_c_event_mask_observation_bounds_and_errors(self):
+  cc=shutil.which('cc')
+  if not cc:self.skipTest('C compiler unavailable')
+  stub=r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
+#include <errno.h>
+typedef uint8_t u8;
+#define BRCMF_E_IF 54
+struct fweh {unsigned int event_mask_len;};
+struct pub {struct fweh *fweh;void *wiphy;};
+struct brcmf_if {struct pub *drvr;};
+static int calls,read_error,actual_bit,seen_ret,seen_bit;
+static unsigned int seen_len;
+static int brcmf_fil_iovar_data_get(struct brcmf_if *i,const char *name,u8 *mask,unsigned int len) {
+ (void)i;assert(!strcmp(name,"event_msgs"));assert(len>6&&len<=256);calls++;
+ if(actual_bit)mask[6]=1U<<6;
+ return read_error;
+}
+#define net_ratelimit() true
+static void log_result(unsigned int stage,int ret,unsigned int len,unsigned int bit) {
+ assert(stage==5);seen_ret=ret;seen_len=len;seen_bit=bit;
+}
+#define wiphy_info(w,fmt,...) do {(void)(w);log_result(__VA_ARGS__);}while(0)
+'''
+  cases=r'''
+int main(void) {
+ struct fweh f={24};struct pub p={&f,0};struct brcmf_if i={&p};
+ actual_bit=1;brcmf_g965n_p2p_event_mask(&i);assert(calls==1&&seen_bit==1&&seen_ret==0&&seen_len==24);
+ actual_bit=0;brcmf_g965n_p2p_event_mask(&i);assert(calls==2&&seen_bit==0&&seen_ret==0);
+ actual_bit=1;read_error=-EIO;brcmf_g965n_p2p_event_mask(&i);assert(calls==3&&seen_bit==0&&seen_ret==-EIO);
+ f.event_mask_len=6;brcmf_g965n_p2p_event_mask(&i);assert(calls==3&&seen_ret==-EINVAL);
+ f.event_mask_len=257;brcmf_g965n_p2p_event_mask(&i);assert(calls==3&&seen_ret==-EINVAL);
+ return 0;
+}
+'''
+  with tempfile.TemporaryDirectory() as t:
+   d=Path(t);(d/'test.c').write_text(stub+p.OBSERVER+cases)
+   subprocess.run([cc,'-std=c99','-Wall','-Wextra','-Werror',str(d/'test.c'),'-o',str(d/'test')],check=True)
+   subprocess.run([str(d/'test')],check=True)
  def source(self):
   if not SOURCE.exists():self.skipTest('Pinned Linux p2p.c source unavailable')
   data=SOURCE.read_bytes();self.assertEqual(hashlib.sha256(data).hexdigest(),p.ORIGINAL);return data
