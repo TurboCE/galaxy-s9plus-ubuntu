@@ -42,13 +42,17 @@ class RadioWireFacts(unittest.TestCase):
         frame=struct.pack('<HBBBBB',len(body)+7,1,255,command>>8,command&255,kind)+body
         self.assertEqual(frame,bytes.fromhex('0f0001ff08020302000000000000ff'))
 
-    def test_attach_profile_uses_its_own_ipv4_type_not_pdp_definition_type(self):
+    def test_attach_profile_uses_reviewed_ipv4_mapping_consistent_with_pdp(self):
         body=ril.s9_lte_attach_profile('fixture.example')
         self.assertEqual(len(body),194)
-        self.assertEqual(body[:3],bytes((1,1,5)))
+        self.assertEqual(body[:3],bytes((1,1,2)))
         self.assertEqual(body[3:104],b'fixture.example'.ljust(101,b'\0'))
         self.assertEqual(body[104:192],bytes(88))
-        self.assertEqual(body[192:],bytes((5,0)))
+        self.assertEqual(body[192:],bytes((2,0)))
+        # Independently reviewed string -> internal enum -> wire mapping:
+        # IP ->1 ->2; IPV6 ->2 ->5; IPV4V6 ->3 ->6. Keep home/roam and
+        # context definition consistent instead of assuming enum2 means IPv4.
+        self.assertEqual(body[2],ril.s9_define_pdp('fixture.example')[2])
         self.assertEqual(ril.s9_define_pdp('fixture.example')[2],2)
         for apn in ['', 'bad/apn', 'x'*101, 'x'*125]:
             with self.assertRaises(ValueError):ril.s9_lte_attach_profile(apn)

@@ -3974,3 +3974,82 @@ verifiedtrue, not just the private orchestration. All failed trials preserved.
 Known build/search-path success route documented; no owner ELF, binary or raw
 log is added to Git, CI remains source-only. Full RIL initialization/LTE is still
 pending; loader success does not establish callbacks, services or connectivity.
+
+Owner returned and replaced the data-sharing/test SIM with the owner's personal
+phone SIM, confirmed KT network. Treat this as a new physical SIM observation,
+not proof retroactively changing earlier results. Preparing fresh guarded cold
+trial with the same hardware-qualified handshake candidate and KT attach APN;
+model/BOOT/backups/current private NV-source provenance checked, no identity/NV
+reset or original partition write. Existing working NV/history preserved.
+
+Owner confirms this exact S9+ had LTE data under Android. Personal KT SIM first
+cold observation still EPS0/2/searching over120s with no PDP activation; LPM
+cleanup confirms/fulltail6frames, RIL exits0. Preserve this separately from the
+older data-sharing SIM. Owner notes SIM changes may need repeated initialization.
+After guarded whole-device reboot, prepare one additional bounded fresh modem
+startup with the same reviewed module/APN and private NV history. This is not
+factory data erasure, NV replacement or an unbounded reset/authentication loop.
+
+Prepared module-off owner RIL initialization stage after checking public RIL
+callback ABI and owner callback slots/function-table version12/state getter.
+Original four-callback environment and bounded main-thread timer queue record
+counts only, never tokens or payloads. Timer capacity64/dispatch128/time2s bound;
+negative/full/reentrant queue cases tested. Added only same-process thread clone
+flags and same-TGID signals to the read-only filter; fork/new namespace/socket/
+file mutation/controller ioctls remain denied. clone3 is rejected with ENOSYS so
+libc uses the reviewed legacy thread path. Real Linux self-test verifies thread
+callback delivery and retained mutation/fork denials; seven guard tests pass.
+Native offline entry invocation is still pending. No radio API/request permitted.
+
+Personal KT SIM retry2 after a verified distinct whole-device boot remains
+EPS0/2 without PDP. Raw vendor causes now include19/10, unlike older cause6;
+namespace remains unconfirmed. Owner confirms Android LTE history for this exact
+S9+, so do not label it unsupported or assume a bad SIM. Retry loaded ring has
+123error-priority/67warnings/header present,0CallTrace/SError; working NV/source
+provenance preserved. Guarded cleanup reboot completed before next attempt.
+
+Critical protocol correction found while reviewing original initialization:
+owner string conversion maps IP->internal1, IPV6->internal2, IPV4V6->internal3.
+The attach builder maps internal1 to wire2, internal2 to wire5, internal3 to
+wire6. Our prior attach helper incorrectly treated internal2/wire5 as IPv4,
+while its PDP definition correctly used wire2. Correct home+roam attach fields
+to2, preserving all other reviewed bytes. Prior host test asserted the same
+wrong constant and did not validate the string-to-enum boundary; corrected that
+assertion and added cross-message consistency. No modem fix claimed before
+hardware test. Prepared offline-init probe changes are preserved privately as
+WIP and removed from the active diff to prioritize this concrete LTE bug.
+
+Corrected IPv4 attach native trial now registers EPS1 and yields confirmed
+active CID1 plus modem IPv4/DNS/MTU. This is first actual initial-PDP activation
+proof, not yet internet proof. First independent data test stops BEFORE any
+network mutation because this kernel lacks IP rule/multiple-table routing.
+No test packet or route was applied in that failed preflight. Prepare direct
+/32 host routes only for modem DNS/test destination, preserve default/Wi-Fi,
+bind sockets to BOTH modem address and rmnet0, require verified TLS/HTTP204,
+and restore temporary state. A fresh online attachment (no CP/CBD reset) will
+run the helper automatically as soon as the bounded PDP context appears.
+
+## 2026-11-20 — Personal KT SIM LTE IPv4 data verified
+
+Corrected attach profile reaches EPS1 and activeCID1 with assigned IPv4/DNS/MTU.
+An online-only follow-up keeps the same loaded candidate and validates its live
+GNU build-id against the pinned module; no CBD or physical reset is requested.
+Network helper runs immediately on a fresh live PDP candidate. First policy-route
+preflight was unsupported and changed nothing; verified kernel config lacks
+IP_ADVANCED_ROUTER and IPv6 multiple tables. Proper temporary /32 host routes
+avoid that missing feature while preserving main default routing.
+
+Actual source+device-bound rmnet0 DNS query succeeds using modem DNS. TCP/TLS
+certificate+hostname validation and HTTPS /generate_204 returns204. Interface
+counts increase RX10/TX9,4176RX/1204TX bytes with0RX/TX errors. Temporary
+routes/address/link/MTU restore verified. This is first real IPv4 Internet proof,
+not a claim from registration, an IP address or a Wi-Fi request. Private result
+and original logs retained; no addresses/identifiers/raw logs committed. Parsed
+DNS and active-candidate expiry tests plus12radio/14PDP tests pass. Production
+auto-connect/reconnect, persistence after reboot, advanced routing, IPv6,
+voice/SMS and loaded-kernel support gaps remain. Do not mark full modem complete.
+
+Cleanup after the data trial completed a verified distinct normal reboot.
+Modem module is absent (default opt-in preserved), no failed systemd units;
+audio/Bluetooth/sensor services are active. This is service restoration, not
+a repeat physical test of every owner-confirmed feature or a clean-ring claim.

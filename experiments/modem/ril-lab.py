@@ -206,12 +206,12 @@ def s9_lte_attach_profile(apn, cid=1):
     reference_define_pdp(apn, cid)
     if len(apn) > 100:
         raise ValueError('S9 attach APN exceeds the bounded NUL-terminated field')
-    # IpcTxSetLteAttachProfile maps IPv4 to5 in this particular message.
-    # PDP definition uses a different type2; do not reuse it here.
+    # Owner ToDataProtocol maps IP -> internal1; the attach wire mapper
+    # emits2 for that value. Internal2 is IPV6 and emits5, not IPv4.
     body = bytearray(194)
-    body[:3] = bytes((1, cid, 5))
+    body[:3] = bytes((1, cid, 2))
     body[3:104] = apn.encode('ascii').ljust(101, b'\0')
-    body[192] = 5  # Same IPv4 protocol for roaming; no credentials/PCSCF.
+    body[192] = 2  # Same IPv4 protocol for roaming; no credentials/PCSCF.
     return bytes(body)
 
 

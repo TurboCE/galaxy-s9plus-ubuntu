@@ -507,3 +507,31 @@ proof. A queued retry is acknowledged; RF remains low-power in that case. Ten
 RFS requests after the bounded client closes are still unhandled, so persistent
 file servicing/physical shutdown is not qualified. Baseline immutable startup
 package remains preserved with modem default off; trial candidate stays private.
+
+### Correct IPv4 attach mapping and actual data path
+
+Review both boundaries: owner string `IP` maps to internal DataProtocol1;
+`IPV6` maps to2; `IPV4V6` maps to3. The attach wire mapper yields2,5,6 for those
+three values. The earlier helper wrongly called wire5 IPv4. Home and roaming
+attach fields must be2 for this bounded IPv4 profile, matching the PDP definition
+wire2. Prior tests repeated the wrong assumption; they now cover this boundary
+and cross-message consistency. No owner implementation/disassembly is published.
+
+With the personal KT SIM, this correction registers EPS1 and activates CID1.
+Modem-assigned IPv4/DNS/MTU is not itself Internet proof. The separate
+`test-pdp-data.py` requires a still-active, exact RIL invocation and live
+candidate, reviewed model/BOOT/backups, consent and an initially unused rmnet0.
+It binds DNS/TCP sockets to both the modem address and device, uses only supplied
+DNS, verifies TLS hostname/certificate and requests a fixed HTTPS204 endpoint.
+It adds only temporary /32 host routes; no default route or invented gateway.
+The local /32 interface assignment is a point-to-point host address, not a claim
+that the modem supplied a prefix. Cleanup requests and actual restored state are
+reported separately. Keep all private candidate/log files out of Git.
+
+Native43 passes modem DNS, verified HTTPS204, RX10/TX9 and0interface errors,
+with temporary routes/address/link/MTU restored. This is a bounded data trial,
+not an always-connected deployment or IPv6/voice/SMS qualification. Current
+kernel lacks IP_ADVANCED_ROUTER/multiple-table support (`ip rule` unsupported);
+first policy-route preflight made no changes. Host-route testing succeeds while
+Wi-Fi/default routing remains available. Persistent bearer/network integration,
+advanced routing configuration and file-service/shutdown lifecycle remain work.
