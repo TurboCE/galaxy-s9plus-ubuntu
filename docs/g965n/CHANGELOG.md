@@ -5289,3 +5289,22 @@ therefore does not qualify a heading for publication.
 Restored the saved profile without magnetic capture or initialization.
 A distinct warm boot verified the original sensor module, all six
 IIO feeds, Wi-Fi HTTPS204 and no-SIM cleanup with no failed unit.
+
+### 2026-11-20 — Retest display cadence immediately after a native #44 boot
+
+With the running Wayland session unlocked and the accepted Mali-G72
+Mesa profile, ran three FIFO scenes each in full-screen, windowed,
+then full-screen mode under a temporary idle inhibitor. The established
+boot returned 60–61 FPS in all nine scenes. The full-screen surface
+was 1440x2960 and the windowed surface 720x1280.
+
+Scheduled a normal warm reboot and started the same sequence at
+13.25 seconds uptime. Per-scene results were 58/61/61, 59/61/61,
+and 61/61/61 FPS. GPU clock samples ranged 260–572 MHz, GPU
+temperature 53–58 C, and the big CPU sensor reached 80 C. Neither
+test window had a matching new GPU/display fault. The early boot
+also reported zero DECON latch wait timeouts, one successful
+firmware tail settle with no 36-byte ACK retry, Wi-Fi HTTPS204,
+and no failed units. No display or clock policy was changed.
+The historical 11 FPS result did not recur. GNOME overview animation
+and long playback endurance were outside these tests.

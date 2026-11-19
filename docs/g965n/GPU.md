@@ -159,3 +159,11 @@ exact readback/full33 and0 matching faults. Same-kernel N/Y/N process polling
 reads43559/1463/43473 while maintaining59..61fps. A source-review generation race
 remains a separately prepared candidate until its own compile/boot test; bounded
 passes must not be described as a proof that every possible timestamp race is gone.
+
+On native #44 with the accepted Mesa profile, a full-screen, windowed and
+repeated full-screen FIFO sequence passed all nine scenes at 60–61 FPS.
+The same test started 13.25 seconds into a distinct warm boot and passed
+at 58–61 FPS. The early boot had zero DECON latch wait timeouts, and
+neither observation produced a new matching GPU/display fault. The
+previous 11 FPS run was not reproduced; the scene results do not qualify
+GNOME overview animations or long video playback.
