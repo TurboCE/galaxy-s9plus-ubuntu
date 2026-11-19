@@ -2475,3 +2475,19 @@ fresh pre#28 backup hash after the trials/reboot. Compass remains unimplemented
 in production; its trial status3 and offline geometry must not be represented
 as a working post-reboot app. Physical magnetic reference work waits for the
 owner's return; no fake heading or guessed mounting matrix published.
+
+## 2026-11-19 — Full error-priority log audit after brightness qualification
+
+Owner asked whether all modules/sensors and the kernel log are now normal.
+A fresh full err-priority audit of the current#28 boot disproves a zero-error
+claim: touch probe returned-110 at5.40s, Wi-Fi P2P creation timed out/-5 at5.86s,
+and SSP TX reported three0-of36byte retry failures at9.52s. Touch subsequently
+bound and registered its input device at7.59s; real accel/raw and ALS566lux
+were readable during this audit and sensor/audio/BT services active. These
+startup errors are not being declared repaired just because services recover.
+No matching BUG/WARNING/SError/Oops/GPU/panel-error entries and no failed system
+units were seen, which is narrower than an error-free kernel or full hardware
+parity. No device setting, module, firmware or partition was changed by this
+audit. LTE/PDP/voice/SMS, full BT audio/pairing, deployed desktop GPU stability,
+compass backend, camera/GPS/NFC/fingerprint/haptics and suspend parity remain
+unqualified as listed in VALIDATION.

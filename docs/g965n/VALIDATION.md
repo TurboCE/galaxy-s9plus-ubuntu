@@ -12,7 +12,7 @@ A build or a driver node is not sufficient evidence of a working function.
 | CPU / RAM | 8 online cores; 5523MiB usable RAM | Verified |
 | Native builds / Git | Git clone+pull; real fixdep C source compiled on each CPU, 8 identical object hashes | Short test passed |
 | Storage | USERDATA mounted as root and grew to 230GiB | Verified |
-| Display / touch | Owner confirmed desktop/touch; 2x desktop scaling persisted at 720x1480 logical pixels | #14 touch binds after rail reset with no initial I2C timeout; basic interaction previously owner verified; apps wider than 720 minimum still need adaptations |
+| Display / touch | Owner confirmed desktop/touch; 2x desktop scaling persisted at 720x1480 logical pixels | #14 rail-reset boot passed; latest#28 initial probe-110 at5.40s then bound/input registered at7.59s, so initialization is not error-free; basic interaction previously owner verified; apps wider than 720 minimum still need adaptations |
 | GPU | #21 isolated patched Mesa with nocrc,noafbc: exact128x128 readback100, full33 positive scene rows, fullscreen1440x2960 U-tiled presentation and FIFO61/61/61fps;0 new matching GPU faults/timeouts; actual private-library maps verified | Bounded isolated rendering passed.100us IRQ generation-check rejections +1 with40ms completion wait failures0; frame impact unconfirmed. System desktop remains on the previously failing Mesa stack. Desktop/browser/endurance, CRC-enabled operation and allocation policy remain unqualified |
 | Wi-Fi | Native#25 HTTPS204 explicitly bound to Wi-Fi after policy correction; earlier NTP/connection observations | Data path verified; long reconnect tests pending |
 | Wi-Fi Direct / roaming | #24 policy5 and rawBADOPTION(-3) identified; #25 scoped product-profile preservation removes legacy-trigger initialization failure | Initialization correction hardware verified; P2P IF_ADD timeout and real access-point handover remain unverified |
@@ -127,3 +127,9 @@ backlight3/ambient=true/rotation-lock=true. Optical luminance/color/flicker
 remain unqualified. Native#27
 own-backup magnetic initialization raised status1→3, but cardinal/tilted
 heading after initialization remains unqualified.
+
+Current#28 full error-priority audit supersedes any broad reading of earlier
+no-matching-fatal-signature observations: touch initial probe-110 (later
+bound), Wi-Fi P2P timeout/-5 and three SSP initial TX retries are still logged.
+Current accel/ALS reads and sensor/audio/BT services work, but recovered
+startup retries are not fixes and do not establish all-module parity.
