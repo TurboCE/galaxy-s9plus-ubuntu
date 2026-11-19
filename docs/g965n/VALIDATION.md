@@ -133,3 +133,9 @@ no-matching-fatal-signature observations: touch initial probe-110 (later
 bound), Wi-Fi P2P timeout/-5 and three SSP initial TX retries are still logged.
 Current accel/ALS reads and sensor/audio/BT services work, but recovered
 startup retries are not fixes and do not establish all-module parity.
+
+Touch#29 readiness candidate: first recovery-to-native boot passed with4s
+settling, but both subsequent warm boots still timed out before binding later.
+Do not label the timing change repaired; actual readiness signaling is under
+investigation. SSP strict-ACK candidate is source/compile tested only, default
+off and not deployed. Production29 sensor service uses the pre-candidate module.

@@ -422,6 +422,13 @@ EXPORT_SYMBOL(bbd_pull_packet);
  *
  * @return: 0 = success, -1 = failure
  */
+void bbd_transport_fault(void)
+{
+	/* Invalidate consumers only; no reset command, SIGKILL or FIFO erase. */
+	if (bbd.ssp_cb && bbd.ssp_cb->on_mcu_ready)
+		bbd.ssp_cb->on_mcu_ready(bbd.ssp_priv, false);
+}
+
 int bbd_mcu_reset(bool IsNoResp)
 {
 	pr_info("reset request from sensor hub\n");

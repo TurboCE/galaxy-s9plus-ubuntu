@@ -31,6 +31,19 @@
 
 #include "bbd.h"
 #include "bcm_gps_spi.h"
+#include "ssi-ack.h"
+
+/* Opt-in until the real LHD boot-ROM/data-stream contract is qualified. */
+static bool strict_tx_ack;
+module_param(strict_tx_ack, bool, 0444);
+MODULE_PARM_DESC(strict_tx_ack, "experimental checked SSI ACK/queue commit; stops on uncertain TX");
+static bool ssi_tx_fault;
+module_param_named(tx_ack_fault, ssi_tx_fault, bool, 0444);
+
+bool bcm_ssi_tx_faulted(void)
+{
+	return READ_ONCE(ssi_tx_fault);
+}
 
 
 #ifdef CONFIG_SENSORS_SSP_BBD
@@ -219,6 +232,7 @@ static int bcm_spi_open(struct inode *inode, struct file *filp)
 	/* Reset circ buffer */
 	priv->read_buf.head = priv->read_buf.tail = 0;
 	priv->write_buf.head = priv->write_buf.tail = 0;
+	WRITE_ONCE(ssi_tx_fault, false); /* New exclusive LHD stream only. */
 
 	priv->packet_received = 0;
 
@@ -322,7 +336,8 @@ static int bcm_spi_release(struct inode *inode, struct file *filp)
 	unsigned long int flags;
 
 	pr_info("%s++\n", __func__);
-	priv->busy = false;
+	if (!strict_tx_ack)
+		priv->busy = false;
     
 #if CONFIG_MEM_CORRUPT_CHECK
     bcm_ssi_check_mem_corruption(priv);
@@ -342,8 +357,14 @@ static int bcm_spi_release(struct inode *inode, struct file *filp)
 		disable_irq_nosync(priv->spi->irq);
 
 	spin_unlock_irqrestore(&priv->irq_lock, flags);
+	if (strict_tx_ack) {
+		/* Finish old work before a later open resets buffers/fault state. */
+		cancel_work_sync(&priv->tx_work.work);
+		cancel_work_sync(&priv->rx_work.work);
+	}
 
 	disable_irq_wake(priv->spi->irq);
+	WRITE_ONCE(priv->busy, false);
 
 	pr_info("%s--\n", __func__);
 	return 0;
@@ -357,6 +378,10 @@ static ssize_t bcm_spi_read(struct file *filp, char __user *buf, size_t size, lo
 
 	//pr_info("[SSPBBD] %s++\n", __func__);
 	mutex_lock(&priv->rlock);
+	if (READ_ONCE(ssi_tx_fault)) {
+		mutex_unlock(&priv->rlock);
+		return -EIO;
+	}
 
 	/* Copy from circ buffer to user
 	 * We may require 2 copies from [tail..end] and [end..head]
@@ -390,6 +415,10 @@ static ssize_t bcm_spi_write(struct file *filp, const char __user *buf, size_t s
 	//pr_info("[SSPBBD] %s++(%zd bytes)\n", __func__, size);
 
 	mutex_lock(&priv->wlock);
+	if (READ_ONCE(ssi_tx_fault)) {
+		mutex_unlock(&priv->wlock);
+		return -EIO;
+	}
 	/* Copy from user into circ buffer
 	 * We may require 2 copies from [tail..end] and [end..head]
 	 */
@@ -427,6 +456,8 @@ static unsigned int bcm_spi_poll(struct file *filp, poll_table *wait)
 	unsigned int mask = 0;
 
 	poll_wait(filp, &priv->poll_wait, wait);
+	if (READ_ONCE(ssi_tx_fault))
+		return POLLERR;
 
 	if (CIRC_CNT(rd_circ->head, rd_circ->tail, BCM_SPI_READ_BUF_SIZE))
 		mask |= POLLIN;
@@ -640,7 +671,7 @@ int bcm_spi_sync(struct bcm_spi_priv *priv, void *tx_buf, void *rx_buf, int len,
 }
 
 
-static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length)
+static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledged)
 {
 	struct bcm_ssi_tx_frame *tx = priv->tx_buf;
 	struct bcm_ssi_rx_frame *rx = priv->rx_buf;
@@ -654,6 +685,10 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length)
 	int retry_ctr = ssi_fc;
 	int ssi_tx_fc_retries_copy = ssi_tx_fc_retries;
 	unsigned short frame_data_size = strm->frame_len - strm->ctrl_len;
+	struct ssi_ack_state ack = { .remaining = length };
+	*acknowledged = 0;
+	if (strict_tx_ack && !strm->fc_len)
+		return -EOPNOTSUPP;
 
     (void)bytes_written;    // To get rid of warnings
 
@@ -735,10 +770,17 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length)
 					// ++ Calculate fc write fatal errors
 					ssi_tx_fc_retry_errors++;
 					pr_err("[SSPBBD]: %s @ FC error %d\n", __func__, ssi_tx_fc_retry_errors);
+					if (strict_tx_ack)
+						ret = -EPROTO;
 					break;
 				}
 			}
 			n = (int)(Mwrite - Bwritten);
+            if (strict_tx_ack) {
+                ret = ssi_ack_accept(&ack, Bwritten);
+                if (ret)
+                    break;
+            }
             bytes_written += Bwritten;
 
 			if ( n==0 )
@@ -748,7 +790,9 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length)
 			// TODO:  Special function should be used for copying non written bytes when FD will be implemented
 			//        because FD & FC is more complicated
 			// bcm_ssi_copy_data(strm, tx->data + strm->pckt_len, &tx->data[Bwritten], bytes_to_write);
-			memcpy(tx->data + strm->pckt_len, tx->data + strm->pckt_len + Bwritten, Mwrite);
+			memmove(tx->data + strm->pckt_len, tx->data + strm->pckt_len + Bwritten, Mwrite);
+			if (strict_tx_ack && retry_ctr > 1)
+				usleep_range(1000, 2000);
 		} else {
 			bytes_written += bytes_to_write;
 		}
@@ -759,6 +803,12 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length)
 #endif
 
 	//pr_info("[SSPBBD] %s -- ret %d\n", __func__,ret);
+	if (strict_tx_ack) {
+		*acknowledged = ack.acknowledged;
+		ret = ssi_ack_result(&ack, ret);
+		if (ret)
+			return ret; /* Do not issue another register query after failure. */
+	}
 	bcm_ssi_chk_pzc(priv, rx->status, ssi_dbg_pzc || (ssi_tx_fc_retries > ssi_tx_fc_retries_copy));
 
 	return ret;
@@ -880,6 +930,8 @@ static void bcm_rxtx_work_func(struct work_struct *work)
 	struct circ_buf *wr_circ = &priv->write_buf;
 	struct bcm_spi_strm_protocol *strm = &priv->tx_strm;
 	unsigned short rx_pckt_len = priv->rx_strm.pckt_len;
+	if (READ_ONCE(ssi_tx_fault))
+		return;
 
 	if (!bcm477x_hello(priv)) {
 		pr_err("[SSPBBD]: %s[%s] timeout!!\n", __func__,
@@ -927,6 +979,8 @@ static void bcm_rxtx_work_func(struct work_struct *work)
 		avail = CIRC_CNT(wr_circ->head, wr_circ->tail, BCM_SPI_WRITE_BUF_SIZE);
 		if ( avail ) {
 			size_t written=0;
+			size_t acknowledged = 0;
+			unsigned int cursor;
 
 			mutex_lock(&priv->wlock);
 			/* For big packet, we should align xfer size to DMA word size and burst size.
@@ -937,6 +991,7 @@ static void bcm_rxtx_work_func(struct work_struct *work)
 				avail = strm->frame_len - strm->ctrl_len;
 
 			written = 0; ret = 0;
+			cursor = wr_circ->tail;
 
 			// SWGNSSGLL-15521 : Sometimes LHD does not write data because the following code blocks sending data to MCU
 			//                   Code is commented out because 'g_rx_buffer_avail_bytes'(PZC) is calculated in bcm_ssi_tx() 
@@ -953,18 +1008,37 @@ static void bcm_rxtx_work_func(struct work_struct *work)
 
 			/* Copy from wr_circ the data */
 			while (avail>0) {
-				size_t cnt_to_end = CIRC_CNT_TO_END(wr_circ->head, wr_circ->tail, BCM_SPI_WRITE_BUF_SIZE);
+				size_t cnt_to_end = CIRC_CNT_TO_END(wr_circ->head, cursor, BCM_SPI_WRITE_BUF_SIZE);
 				size_t copied = min(cnt_to_end, avail);
 
-				memcpy(priv->tx_buf->data + strm->pckt_len + written, wr_circ->buf + wr_circ->tail, copied);
+				memcpy(priv->tx_buf->data + strm->pckt_len + written, wr_circ->buf + cursor, copied);
 				avail -= copied;
 				written += copied;
-				wr_circ->tail = (wr_circ->tail + copied) & (BCM_SPI_WRITE_BUF_SIZE-1);
+				cursor = (cursor + copied) & (BCM_SPI_WRITE_BUF_SIZE-1);
 			} //  while (avail>0);
+			if (!strict_tx_ack)
+				wr_circ->tail = cursor;
 
 			/* Transmit SSI frame */
 			if ( written )
-				ret = bcm_ssi_tx(priv, written);
+				ret = bcm_ssi_tx(priv, written, &acknowledged);
+			if (strict_tx_ack) {
+				wr_circ->tail = (wr_circ->tail + acknowledged) &
+					       (BCM_SPI_WRITE_BUF_SIZE - 1);
+				if (ret) {
+					unsigned long flags;
+					WRITE_ONCE(ssi_tx_fault, true);
+					spin_lock_irqsave(&priv->irq_lock, flags);
+					if (atomic_xchg(&priv->irq_enabled, 0))
+						disable_irq_nosync(priv->spi->irq);
+					spin_unlock_irqrestore(&priv->irq_lock, flags);
+					bbd_transport_fault();
+					wake_up(&priv->poll_wait);
+					dev_err(&priv->spi->dev,
+						"SSI TX stopped: acknowledged %zu/%zu error %d; no automatic replay/reset\n",
+						acknowledged, written, ret);
+				}
+			}
 			mutex_unlock(&priv->wlock);
 
 			if (ret)
@@ -987,7 +1061,7 @@ static void bcm_rxtx_work_func(struct work_struct *work)
 		spin_lock_irqsave(&priv->irq_lock, flags);
 
 		/* we dont' want to enable irq when going to suspending */
-		if (!atomic_read(&priv->suspending))
+		if (!atomic_read(&priv->suspending) && !READ_ONCE(ssi_tx_fault))
 			if (!atomic_xchg(&priv->irq_enabled, 1))
 				enable_irq(priv->spi->irq);
 
@@ -1040,7 +1114,7 @@ static irqreturn_t bcm_irq_handler(int irq, void *pdata)
 	spin_unlock(&priv->irq_lock);
 
 	/* we don't want to queue work in suspending and shutdown */
-	if (!atomic_read(&priv->suspending))
+	if (!atomic_read(&priv->suspending) && !READ_ONCE(ssi_tx_fault))
 		queue_work(priv->serial_wq, (struct work_struct *)&priv->rx_work);
 
 	return IRQ_HANDLED;

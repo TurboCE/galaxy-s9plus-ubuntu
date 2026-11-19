@@ -620,7 +620,7 @@ static struct miscdevice ssp_misc = {
 
 static ssize_t ready_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	return sysfs_emit(buf, "%d\n", hub_ready);
+	return sysfs_emit(buf, "%d\n", READ_ONCE(hub_ready) && !bcm_ssi_tx_faulted());
 }
 static DEVICE_ATTR_RO(ready);
 

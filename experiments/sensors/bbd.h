@@ -143,5 +143,7 @@ extern void	bbd_register(void *ext_data, bbd_callbacks *pcallbacks);
 extern ssize_t	bbd_send_packet(unsigned char *buf, size_t size);
 extern ssize_t	bbd_pull_packet(unsigned char *buf, size_t size, unsigned int timeout_ms);
 extern int	bbd_mcu_reset(bool IsNoResp);
+extern void bbd_transport_fault(void);
+extern bool bcm_ssi_tx_faulted(void);
 extern int	bbd_init(struct device *dev);
 #endif /* __BBD_H__ */
