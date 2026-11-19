@@ -95,5 +95,42 @@ class RadioWireFacts(unittest.TestCase):
         self.assertFalse(ril.device_identity_reply_shape(b'\r\nNO ERROR IN VALUE\r\n')['terminal_error'])
         self.assertEqual(len(ril.device_identity_reply_shape((b'123456789012345 ' * 100))['numeric_field_lengths']), 8)
 
+    def test_network_scan_counts_do_not_expose_operator_details(self):
+        reply = b'AT+COPS=?\r\n+COPS: (1,"Test Carrier A","A","45008",7),(3,"Test Carrier B","B","45005",2),(2,"Test Carrier A","A","45008",7),,(0-4),(0-2)\r\nOK\r\n'
+        result = ril.network_scan_status_only(reply)
+        self.assertEqual(result, {'operator_count':3, 'available_count':1,
+                                 'current_count':1, 'forbidden_count':1,
+                                 'access_technology_counts':{'7':2, '2':1}, 'terminal_error':False})
+        for private in ('45008', '45005', 'Test Carrier'):
+            self.assertNotIn(private,str(result))
+        for start in range(len(reply)):
+            self.assertNotIn('at_status',ril.at_log_record(reply[start:start+7],'AT+COPS=?'))
+        self.assertEqual(ril.network_scan_status_only(b'\r\nERROR\r\n')['operator_count'],0)
+        self.assertTrue(ril.network_scan_status_only(b'\r\nERROR\r\n')['terminal_error'])
+        self.assertEqual(ril.network_scan_status_only(b'(1,"A","A","4500800",7)')['operator_count'],0)
+
+    def test_s9_network_scan_stock_requests_and_bounded_private_decode(self):
+        for cancel, expected in ((False,'070001ff080402'),(True,'070001ff080403')):
+            command,body,kind=ril.s9_network_scan_request(cancel=cancel)
+            frame=struct.pack('<HBBBBB',7+len(body),1,255,command>>8,command&255,kind)+body
+            self.assertEqual(frame,bytes.fromhex(expected))
+        entry=bytes((2,))+b'45008#'+bytes((33,0,0))
+        result=ril.s9_network_scan_status_only(b'\x01'+entry)
+        self.assertEqual(result,{'operator_count':1,'status_code_counts':{'2':1},
+                                 'access_technology_code_counts':{'33':1}})
+        self.assertNotIn('45008',str(result))
+        self.assertEqual(ril.s9_network_scan_status_only(b'\0')['operator_count'],0)
+        for body in (b'',b'\x01',b'\0'+entry,b'\x02'+entry,b'\x01'+entry[:-1],b'\x01'+entry+b'\0'):
+            with self.assertRaises(ValueError):ril.s9_network_scan_status_only(body)
+
+    def test_registration_cause_excludes_location_bytes(self):
+        body=bytes((33,3,4))+b'PRIVATE'+bytes((15,))+b'UNEXPOSED'
+        self.assertEqual(ril.s9_registration_status_only(body),{
+            'access_technology_code':33,'domain_code':3,'registration_code':4,
+            'registration_failure_cause_code':15})
+        self.assertNotIn('PRIVATE',str(ril.s9_registration_status_only(body)))
+        for size in range(11):
+            with self.assertRaises(ValueError):ril.s9_registration_status_only(body[:size])
+
 
 if __name__=='__main__':unittest.main()

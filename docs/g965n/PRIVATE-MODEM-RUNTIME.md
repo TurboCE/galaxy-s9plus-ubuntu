@@ -390,3 +390,27 @@ field in a completed response, rejects ambiguous/longer fields and terminal
 errors, and never gates radio/PDP operations. Native37 verified a valid
 nondefault identity classification and absence of identity digits in its
 private journal. This is not network authorization or LTE data evidence.
+
+### Bounded operator scans and rejection diagnostics
+
+`run-ril-test.py --attach-online --observe-only --scan-networks --seconds 120`
+requests one AT COPS test; `--scan-networks-s9` instead uses the owner's stock
+bodyless0804 GET2. Both forbid radio/PDP configuration and require at least
+110seconds. Samsung scan uses the matching stock0804 SET3 cancel only if its
+request remains pending at90seconds/cleanup. A rejected request is terminal;
+it does not trigger cancel/reset/retry. Scan summaries expose counts only,
+never operator names/PLMNs. Exact count/size is required for the stock10-byte
+entry layout. Native37 rejected AT scan and Samsung GET (raw generic100), so
+no actual operator-list/coverage pass is claimed. The official
+[ModemManager scan guidance](https://www.freedesktop.org/software/ModemManager/man/latest/mmcli.1.html)
+explains why a scan needs a longer time allowance; any bounded timeout remains
+inconclusive.
+
+Native37 numeric-only registration diagnostics include cause byte10 of the
+body, verified against the owner's NetRegState constructor and Lineage net.h.
+The captured getter returns raw cause6. The
+[AOSP registration causes](https://android.googlesource.com/platform/hardware/interfaces/+/a714c08e8f0a9981c629607ce58dc318da879095/radio/aidl/android/hardware/radio/network/RegistrationFailCause.aidl)
+and [ETSI TS24.008](https://www.etsi.org/deliver/etsi_ts/124000_124099/124008/18.06.00_60/ts_124008v180600p.pdf)
+name6 Illegal ME. Treat network-side equipment refusal as a hypothesis until
+the relevant domain/procedure and same-handset Android/network history are
+corroborated. No identity alteration or forced CP recovery follows this code.

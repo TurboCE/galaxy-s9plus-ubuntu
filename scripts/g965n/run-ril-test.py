@@ -61,7 +61,17 @@ def main():
     parser.add_argument('--diagnostic-status', action='store_true')
     parser.add_argument('--capture-private-rfs', action='store_true',
                         help='Capture bounded OPEN/CLOSE requests in the private lab, never NV payloads')
+    parser.add_argument('--scan-networks', action='store_true',
+                        help='One bounded network scan; requires online observe-only mode and >=110seconds')
+    parser.add_argument('--scan-networks-s9', action='store_true',
+                        help='One stock-layout Samsung network scan; same observe-only guards')
     args = parser.parse_args()
+    if getattr(args, 'scan_networks', False) and getattr(args, 'scan_networks_s9', False):
+        parser.error('Choose one scan transport')
+    if (getattr(args, 'scan_networks', False) or getattr(args, 'scan_networks_s9', False)) and (not getattr(args, 'observe_only', False) or
+                                                 not getattr(args, 'attach_online', False) or
+                                                 getattr(args, 'activate_pdp_s9', False) or args.seconds < 110):
+        parser.error('Network scan requires online observe-only mode, no PDP activation and >=110seconds')
     if getattr(args, 'observe_only', False) and (not getattr(args, 'attach_online', False) or
                                                 getattr(args, 'activate_pdp_s9', False)):
         parser.error('Observe-only requires online attachment and forbids PDP activation')
@@ -100,6 +110,10 @@ def main():
                         '--pdp-cid', str(args.pdp_cid), '--pdp-seconds', str(args.pdp_seconds)]
         if getattr(args, 'attach_online', False):
             command += ['--attach-online']
+        if getattr(args, 'scan_networks', False):
+            command += ['--scan-networks']
+        if getattr(args, 'scan_networks_s9', False):
+            command += ['--scan-networks-s9']
         if getattr(args, 'capture_private_rfs', False):
             runtime.safe_components(args.lab_directory)
             command += ['--private-rfs-capture', str(args.lab_directory / 'rfs-open-requests.bin')]

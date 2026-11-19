@@ -3238,3 +3238,52 @@ backup guards, source hashes and private-copy lease checks preceded each test.
 Both trials stopped own clients and restored sensor service; failed units0.
 This excludes the earlier parser-unknown/default-format hypothesis, not a
 carrier registration/whitelist/RF problem. LTE data remains unverified.
+
+Prepared optional single COPS test network scan under existing-online
+observe-only mode, with no operator selection/radio/PDP configuration. Parent
+and child reject incompatible/short trials before device launch. One scan
+has90s AT allowance inside a120s bounded unit; timeout is inconclusive, not
+proof of absent coverage. All scan fragments are redacted before journaling;
+summary retains only operator/status/technology counts, no names or PLMNs.
+Ten radio/privacy/state tests and nine runtime preflight tests pass. Preparing
+a native37 guarded scan with private-copy provenance/lease and final sensor
+restoration, no CBD/reset. Long scan allowance follows ModemManager's official
+3GPP scan guidance; this lab does not pretend to be a complete MM backend.
+
+Native37 AT network scan completed with a terminal modem error and zero
+parsed operators. This is a rejected/inconclusive command, not absent RF
+coverage. Own clients stopped and sensor service restored before next trial.
+Read-only IPC getters still answer in all later online trials (6/6/8 frames),
+so no evidence here supports a deaf IPC or forced-reset workaround.
+
+Reviewed own stock IpcTxNetGet/CancelAvailableNetworks and IpcRxNetPlmnList:
+bodyless0804 GET2/SET3; count at body0,10-byte entries, status at entry0,
+PLMN entry1..6, technology entry7. Prepared independently written opt-in
+Samsung scan under the same online-only/no-radio/PDP preflight;90s timeout
+requests its own stock cancel once, never reset. Exact count/size decode
+outputs numeric counts only. Eleven radio/privacy/protocol tests and ten
+runtime preflight tests pass. Native result pending. Own RAT converter jump
+table additionally maps raw33 to Android14/LTE; existing emergency-state
+notifications therefore show LTE observation, not successful registration.
+
+Native37 Samsung0804 GET was explicitly rejected by generic response raw100;
+no list/coverage result. The lab recognized rejection and did not issue an
+unnecessary cancel or reset. Native clients/runtime cleaned and sensors
+active before preparing the next observation. Reviewed own NetRegState
+constructor: fail-cause byte is packet17/body10, matching the independent
+Lineage net.h layout. Added numeric cause-only status output while excluding
+intervening LAC/cell identity bytes. Twelve radio/privacy/protocol tests and
+ten runtime preflight tests pass. Preparing guarded online-only30s status
+observation; no new modem power operation or network-selection attempt.
+
+Native37 cause7 online-only observation returned0805kind2/body19 with
+ACT4/domain3/registration1/failure-cause6. Own stock constructor passes byte17
+(body10) directly as the cause integer; no LAC/cell data emitted. Standard
+3GPP/AOSP cause6 is Illegal ME, but the raw record alone does not prove a
+carrier block or the precise rejection procedure/domain. Native IMEI format
+was valid/nondefault; neither identity validity nor this cause establishes
+network authorization. Asked owner whether this exact handset had working
+Android LTE before porting; no physical action needed. Do not retry power/
+security, alter identity or assume an inactive SIM to explain the result.
+All clients/runtime cleaned, audio/BT/sensors active, failed units0, no identity
+digits in private journal. LTE registration/data remains unresolved.

@@ -91,7 +91,7 @@ def home_network_only(buffer):
 
 
 def at_log_record(chunk, command):
-    if command in ('AT+CIMI', 'AT+CGSN'):
+    if command in ('AT+CIMI', 'AT+CGSN', 'AT+COPS=?'):
         return {'at_status_redacted': True, 'bytes': len(chunk)}
     return {'at_status': chunk.decode('ascii', 'replace')}
 
@@ -120,6 +120,52 @@ def device_identity_reply_shape(buffer):
         'quoted_numeric_field': bool(re.search(rb'"[0-9]{5,}"', buffer)),
         'numeric_field_lengths': [len(m[0]) for m in list(re.finditer(rb'[0-9]{5,}', buffer))[:8]],
     }
+
+
+def network_scan_status_only(buffer):
+    """Count COPS test tuples without retaining operator names/PLMNs."""
+    pattern = rb'\(([0-3]),[ \t]*"[^"\r\n]*",[ \t]*"[^"\r\n]*",[ \t]*"[0-9]{5,6}"(?:,[ \t]*([0-9]{1,2}))?\)'
+    matches = re.findall(pattern, buffer)
+    rats = {}
+    for _, rat in matches:
+        key = rat.decode() if rat else 'unspecified'
+        rats[key] = rats.get(key, 0) + 1
+    return {'operator_count': len(matches),
+            'available_count': sum(status == b'1' for status, _ in matches),
+            'current_count': sum(status == b'2' for status, _ in matches),
+            'forbidden_count': sum(status == b'3' for status, _ in matches),
+            'access_technology_counts': rats,
+            'terminal_error': device_identity_reply_shape(buffer)['terminal_error']}
+
+
+def s9_network_scan_request(cancel=False):
+    """Own stock IpcTxNetGet/CancelAvailableNetworks, bodyless0804 GET/SET."""
+    return 0x0804, b'', 3 if cancel else 2
+
+
+def s9_network_scan_status_only(body):
+    """Own IpcRxNetPlmnList: count byte plus10-byte entries; no PLMN output."""
+    if not body or len(body) != 1 + 10 * body[0]:
+        raise ValueError('Unexpected S9 network-list size')
+    states, rats = {}, {}
+    for offset in range(1, len(body), 10):
+        status, rat = str(body[offset]), str(body[offset+7])
+        states[status] = states.get(status, 0) + 1
+        rats[rat] = rats.get(rat, 0) + 1
+    return {'operator_count': body[0], 'status_code_counts': states,
+            'access_technology_code_counts': rats}
+
+
+def s9_registration_status_only(body):
+    """Own NetRegState constructor receives fail cause from packet17/body10.
+
+    The intervening LAC/cell identity bytes are deliberately never returned.
+    Raw cause has no inferred domain-specific meaning here.
+    """
+    if len(body) < 11:
+        raise ValueError('Short registration status')
+    return {'access_technology_code': body[0], 'domain_code': body[1],
+            'registration_code': body[2], 'registration_failure_cause_code': body[10]}
 
 
 def reference_define_pdp(apn, cid=1):
@@ -450,7 +496,15 @@ def main():
     parser.add_argument('--diagnostic-status', action='store_true',
                         help='Query signal, functionality, operator and registration without changing them')
     parser.add_argument('--private-rfs-capture', type=Path)
+    parser.add_argument('--scan-networks', action='store_true',
+                        help='One bounded COPS test; online observation only, no operator selection')
+    parser.add_argument('--scan-networks-s9', action='store_true',
+                        help='One stock-layout Samsung0804 scan; online observation only')
     args = parser.parse_args()
+    if args.scan_networks and args.scan_networks_s9:
+        parser.error('Choose one scan transport')
+    if (args.scan_networks or args.scan_networks_s9) and (not args.attach_online or args.configure_radio or args.activate_pdp_s9 or not args.diagnostic_status or args.seconds < 110):
+        parser.error('Network scan requires online diagnostic observation, no radio/PDP configuration and >=110seconds')
     if args.configure_radio and (not args.apn or not re.fullmatch(r'[A-Za-z0-9.-]{1,100}', args.apn)):
         raise SystemExit('Explicit valid APN required for radio configuration')
     pdp_opt_in = validate_s9_opt_in(args)
@@ -535,6 +589,23 @@ def main():
                     send(command, kind=2)  # Native preferred mode/domain/selection getters.
                 send(0x0805, b'\xff\x03', kind=2)  # Own stock data registration GET.
 
+        scan_pending = False
+        scan_deadline = started + 90
+        if args.scan_networks_s9:
+            command, body, kind = s9_network_scan_request()
+            send(command, body, kind=kind)
+            scan_pending = True
+
+        def cleanup_scan():
+            nonlocal scan_pending
+            if scan_pending:
+                scan_pending = False
+                command, body, kind = s9_network_scan_request(cancel=True)
+                send(command, body, kind=kind)
+                print(json.dumps({'s9_scan_cancel_requested_not_confirmed': True}), flush=True)
+
+        stack.callback(cleanup_scan)
+
         def cleanup_pdp():
             if pdp_plan is None:
                 return
@@ -556,9 +627,15 @@ def main():
 
         while not stop_requested and time.monotonic() - started < args.seconds:
             now = time.monotonic()
+            if scan_pending and now >= scan_deadline:
+                print(json.dumps({'s9_network_scan_timeout': True}), flush=True)
+                cleanup_scan()
             if args.diagnostic_status and at_ready and not at_failed and not diagnostic_queued:
-                at_queue.extend(['AT+CIMI', 'AT+CGSN', 'AT+CSQ', 'AT+CESQ', 'AT+CFUN?', 'AT+CPIN?', 'AT+COPS?',
-                                 'AT+CGATT?', 'AT+CGREG?', 'AT+CREG?', 'AT+CEER'])
+                if args.scan_networks:
+                    at_queue.append('AT+COPS=?')
+                elif not args.scan_networks_s9:
+                    at_queue.extend(['AT+CIMI', 'AT+CGSN', 'AT+CSQ', 'AT+CESQ', 'AT+CFUN?', 'AT+CPIN?', 'AT+COPS?',
+                                     'AT+CGATT?', 'AT+CGREG?', 'AT+CREG?', 'AT+CEER'])
                 diagnostic_queued = True
             if pdp_opt_in and pdp_plan is None and registered and registration_at is not None and now-registration_at <= 15 and sim_ready and radio_asked and ps_attach_acknowledged and at_ready and not at_failed:
                 pdp_plan = S9PDPPlan(args.apn, args.pdp_cid, now, timeout=args.pdp_seconds)
@@ -613,7 +690,7 @@ def main():
                 at_active = (command, time.monotonic())
                 at_buffer.clear()
                 print(json.dumps({'at_command': command}), flush=True)
-            if at_active and time.monotonic() - at_active[1] > (2 if at_active[0] == 'AT' else 20):
+            if at_active and time.monotonic() - at_active[1] > (2 if at_active[0] == 'AT' else 90 if at_active[0] == 'AT+COPS=?' else 20):
                 print(json.dumps({'at_timeout': at_active[0], 'rfs_kept_running': True}), flush=True)
                 if at_active[0] != 'AT' or (boot_at and time.monotonic() - boot_at > 30):
                     at_failed = True
@@ -643,6 +720,9 @@ def main():
                             print(json.dumps({'device_identity_status': device_identity_status_only(at_buffer),
                                               'device_identity_reply_shape': device_identity_reply_shape(at_buffer),
                                               'device_identity_redacted': True}), flush=True)
+                        elif at_active[0] == 'AT+COPS=?':
+                            print(json.dumps({'network_scan': network_scan_status_only(at_buffer),
+                                              'operator_details_redacted': True}), flush=True)
                         if at_active[0] == 'AT' and b'\r\nOK\r\n' in at_buffer:
                             at_ready = True
                         at_active = None
@@ -689,6 +769,12 @@ def main():
                             at_buffer.clear()
                             sim_ready = False
                             boot_at = time.monotonic()
+                        if code == 0x0804 and kind == 2 and args.scan_networks_s9:
+                            try:
+                                event['s9_network_scan'] = s9_network_scan_status_only(message[7:])
+                                scan_pending = False
+                            except ValueError:
+                                event['s9_network_scan_invalid_layout'] = True
                         if code == 0x8001 and length >= 12:
                             if pdp_plan is not None:
                                 request = pdp_plan.ack(message[7:], time.monotonic())
@@ -699,6 +785,9 @@ def main():
                             request = message[7] << 8 | message[8]
                             event['acknowledged_command'] = hex(request)
                             event['request_kind'] = message[9]
+                            if args.scan_networks_s9 and request == 0x0804 and message[9] == 2 and event['result_code'] != 0x8000:
+                                scan_pending = False
+                                event['s9_network_scan_rejected'] = True
                             if request in (0x0D14, 0x080A, 0x0808) and message[9] == 3 and event['result_code'] == 0x8000:
                                 acknowledged.add(request)
                             if request == 0x0D03 and message[9] == 3 and event['result_code'] == 0x8000:
@@ -722,6 +811,8 @@ def main():
                             event['access_technology_code'] = message[7]
                             event['domain_code'] = message[8]
                             event['registration_code'] = message[9]
+                            if length >= 18:
+                                event.update(s9_registration_status_only(message[7:]))
                         print(json.dumps(event), flush=True)
 
 

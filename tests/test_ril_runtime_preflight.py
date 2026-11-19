@@ -22,6 +22,31 @@ cbd = importlib.util.module_from_spec(spec); spec.loader.exec_module(cbd)
 
 
 class StartupPreflightTests(unittest.TestCase):
+    def test_network_scan_refuses_configuration_and_short_window_before_io(self):
+        for observe, online, pdp, seconds in ((False,True,False,120), (True,False,False,120),
+                                               (True,True,True,120), (True,True,False,109)):
+            args=SimpleNamespace(scan_networks=True,observe_only=observe,attach_online=online,
+                                 activate_pdp_s9=pdp,seconds=seconds)
+            with patch.object(launcher.argparse.ArgumentParser,'parse_args',return_value=args), \
+                    patch.object(launcher,'load_runtime') as load, \
+                    patch.object(launcher.subprocess,'run') as run, \
+                    patch.object(sys,'stderr',io.StringIO()):
+                with self.assertRaises(SystemExit):launcher.main()
+                load.assert_not_called();run.assert_not_called()
+
+    def test_s9_network_scan_has_same_preflight_and_excludes_other_scan(self):
+        for observe, online, pdp, seconds, at_scan in ((False,True,False,120,False),
+                (True,False,False,120,False),(True,True,True,120,False),
+                (True,True,False,109,False),(True,True,False,120,True)):
+            args=SimpleNamespace(scan_networks=at_scan,scan_networks_s9=True,
+                observe_only=observe,attach_online=online,activate_pdp_s9=pdp,seconds=seconds)
+            with patch.object(launcher.argparse.ArgumentParser,'parse_args',return_value=args), \
+                    patch.object(launcher,'load_runtime') as load, \
+                    patch.object(launcher.subprocess,'run') as run, \
+                    patch.object(sys,'stderr',io.StringIO()):
+                with self.assertRaises(SystemExit):launcher.main()
+                load.assert_not_called();run.assert_not_called()
+
     def runtime(self):
         return SimpleNamespace(ROOT=Path('/fixture/runtime'), STATE=Path('/fixture/state'),
             DATA=Path('/fixture/state/data'), assert_board=MagicMock(),
