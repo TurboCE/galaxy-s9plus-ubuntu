@@ -5495,3 +5495,20 @@ nine-partition backup and the live #44 BOOT image. Live read-only
 checks also matched the archived RECOVERY, EFS, CPEFS, RADIO, DTB and
 DTBO. This is a build and recovery preflight. The #45 image has
 not been installed or booted.
+
+### 2026-11-20 — Exercise native #44 high-rate GPU resume
+
+Ran offscreen fragment load with the default governor and G3D
+runtime power policy. An initial run stopped after two completed
+bursts because it assumed runtime suspend always implied a cached
+260 MHz setting. The GPU was suspended with 455 MHz reported, and
+the kernel recorded no new matching clock error at the stop.
+
+Repeated with six paced load bursts, waiting for runtime suspend
+independently of the reported clock. Sampled 260, 455 and 572 MHz,
+and the devfreq counters registered two 455→260 MHz and four
+572→260 MHz transitions. Checked 600 exact RGBA/BGRA frames after
+load and idle, with 74 power-ons, 73 power-offs and no matching
+PLL/Panfrost kernel error. Clock values are driver reports. The
+earlier intermittent timeout was not reproduced in this baseline
+and the #45 hardware comparison remains pending.
