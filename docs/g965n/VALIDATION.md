@@ -5,6 +5,14 @@ original firmware G965NKSU5FVA2. Target is parity with the hardware features
 supported by the reference LineageOS build, not just desktop startup.
 A build or a driver node is not sufficient evidence of a working function.
 
+Owner-confirmed baseline: audio output, microphone, Wi-Fi, Wi-Fi Direct and
+Bluetooth have already worked in actual use, as clarified by the owner. Retain
+that evidence separately from historical experiment failures and untested
+specific profiles/endurance cases. Recent post-modem cleanup checks inspect
+service return and basic connectivity; they do not mean those five functions
+had never been verified. This clarification changes no approved work scope or
+priority; LTE remains the current focus.
+
 | Feature | Actual evidence | State |
 |---|---|---|
 | TWRP and recovery | 3.3.1-0 root; nine partitions backed up with device hash checks | Verified |

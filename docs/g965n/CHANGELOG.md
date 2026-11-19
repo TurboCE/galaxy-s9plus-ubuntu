@@ -3894,3 +3894,12 @@ were all distinct, confirming current updates. Accepted private Mesa persists.
 Systemd metadata reload only. Actual-function C and two IRQ migration tests pass.
 Baseline startup profile remains unchanged; candidate is not yet an always-on
 LTE service, a native late-open pass or a rebuilt-image installation pass.
+
+
+Owner evidence clarification: audio output, microphone, Wi-Fi, Wi-Fi Direct
+and Bluetooth were already confirmed functional in actual use. Recorded as the
+baseline without deleting narrower historical failures or expanding that claim
+to every profile/endurance case. Recent cleanup checks concerned service return
+after modem trials. No change to approved task scope, priority or test policy
+is inferred; an earlier relayed scope restriction was explicitly withdrawn.
+No device operation performed for this clarification.
