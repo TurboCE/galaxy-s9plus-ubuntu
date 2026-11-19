@@ -31,7 +31,7 @@ A build or a driver node is not sufficient evidence of a working function.
 | Vibration / notification RGB | Source audit found missing DT/config connections and upstream object/mask/bias errors; reviewed source fixes pass host C tests only | Not enabled or hardware-qualified; PWM clocks/supply/current limits and stock behavior parity pending |
 | Cameras / flash / hardware video codecs | No full pipeline tested | Pending port/validation |
 | GPS / NFC / fingerprint / other Lineage-supported sensors | No end-to-end test yet | Pending port/validation |
-| Buttons / brightness / USB OTG / fast charging | #16 non-root GPIO reader/seat ACL verified; #18 four direct DPMS cycles retained background heartbeats and fresh SSH,0 new matching display/GPU errors; original state restored | Screen-only path verified; #28 opt-in duty backlight0..16 accepts seven-level sweep including off/max, GNOME brightness API available. Real room-light changes drive GNOME brightness4→16→3; active white-window max/min repeats correlate with~0.32A net-current change. Optical luminance/color/flicker, physical short/long button interaction, OTG and fast-charge negotiation pending |
+| Buttons / brightness / USB OTG / fast charging | #16 non-root GPIO reader/seat ACL verified; #18 four direct DPMS cycles retained background heartbeats and fresh SSH,0 new matching display/GPU errors; original state restored | Screen-only path verified; #28 opt-in duty backlight0..16 accepts seven-level sweep including off/max, GNOME brightness API available. Real room-light changes drive GNOME brightness4→16→3 on old16-level driver; native33 now uses401stock-duty levels with~4.95s full transition and owner-confirmed smooth automatic brightness; native switch off/on and3DPMS restores pass; active white-window max/min repeats correlate with~0.32A net-current change. Optical luminance/color/flicker, physical short/long button interaction, OTG and fast-charge negotiation pending |
 | Charging / temperature / idle power | Native#16 input limit500000uA; inhibit → Not charging/N/A and near-zero battery current; auto → Charging/Fast restored | Charge-control field/encoding fixes hardware verified; no current increase. Fast charging negotiation, thermal endurance and screen-off drain unverified |
 | Sleep / resume / warm reboot | Sleep masked; native#27/#28 warm reboots succeeded in observed trials; deep-idle issues unresolved | Bounded warm reboot observed; suspend/deep-idle and general recovery/endurance unqualified |
 
@@ -168,3 +168,8 @@ Native32 Control Center Power Automatic Screen Brightness checkbox is visible;
 actual native toggle changed ambient-enabled true→false→true. Finalon.
 401stock-duty/asynchronous-output-ramp candidate passes hostC tests only;
 optical smoothness, newlevelhardware and DPMS regressions pending newboot.
+
+Native33: smoother401level output and owner physical assessment passed; standard
+native ambient toggle verified. SPI ID/OF warning absent with real sensor data.
+P2P realfirmwareBSS2 query succeeded but IF_ADD still times out; compatibility
+candidate remains off/not deployed. No all-module parity claim.

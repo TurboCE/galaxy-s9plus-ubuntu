@@ -2671,3 +2671,37 @@ First full smoothing kernel compile failed because the helper parameter name
 current expands to Linux's current-task macro (hostC lacks that macro).
 Renamed it applied; no failed-build artifact was installed. Kernel compilation
 remains a required check in addition to the standalone algorithm tests.
+
+## 2026-11-19 — Native33 smoother output and owner confirmation
+
+Full rebuilt kernel33 from023b225 (kernel #33 SMP PREEMPT Thu Nov19
+05:55:12 UTC2026), BOOT7edad38474ad5c967791639944dcb61111d9bace3dac2af260a6f261dabde5ba/
+27219984bytes passed fresh9backup, fail-fast protected payload comparison,
+guardedBOOT-only write/readback and native boot. Sensors/audio/BT active;
+strictY/faultN, actual accel/ALS. Fresh33 backup/profile pins installed and
+ordered sensor restart passed. Existing SPI OF/ID warning absent while actual
+sensor data still works, qualifying the BCM4773 alias correction for this boot.
+
+Actual401-level output 401→1 and1→401 took4.947/4.951s with100 observed
+changes, each at most4levels and strictly toward target.401→57 took4.247s/86
+changes. Owner then physically tested ambient changes and answered that the
+result was sufficiently smooth. GNOME native ambient switch stays on. Previous
+16-level raw reference is near new57 (stock AOR0a90); standard reference14%
+was selected after range migration, preserving approximately the earlier duty.
+No optical nits/color/flicker or fullSamsung gamma parity claim.
+
+First manual ramp assertion failed before trace persistence; independent
+maximum-output recovery completed and left ambient off as explicitly intended,
+then the controlled90s trial obtained the traces above and restored ambienton.
+Early DPMS probes also assumed accepted D-Bus policy changes had already settled
+and exact raw-request retention; those assertions were not driver-failure proof.
+Normal GNOME brightness25/75/14% trials subsequently confirmed actual0 asleep
+and target103/302/60 restored within0.169/0.154/0.179s of wake. Explicit zero and
+57 restore passed; sensors remained active. Trial timers/inhibitors stopped.
+Requested and applied values were checked separately, not forced equal during
+transitions. No sensor samples were fabricated or filtered for these tests.
+
+Native33 P2P timeout diagnostic returned real p2p_dev BSS2 withret0, despite
+noIF_ADD. This is hardware evidence of the firmware discovery context, not
+working peer discovery/group traffic. A scoped opt-in control-context candidate
+is being prepared with failure/lifecycle tests; it is not in native33.

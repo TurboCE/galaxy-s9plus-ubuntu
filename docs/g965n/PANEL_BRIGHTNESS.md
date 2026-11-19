@@ -108,3 +108,11 @@ must be recorded separately from the earlier16-level qualification above.
 Rollback state pins exact BOOT and exact16or401 range; a range mismatch refuses
 writes. Recovery waits up to6seconds for completed output rather than confusing
 an accepted ramp target with applied brightness.
+
+Native33 qualification:401→1/1→401 transitions took4.947/4.951seconds with100
+monotonic observations (max4levels each). Owner confirmed actual automatic
+brightness is sufficiently smooth. Standard GNOME25/75/14% off/on tests restored
+raw103/302/60 within0.169/0.154/0.179s; zero and direct restore also passed.
+Native ambient-enabled remainedtrue after cleanup. Earlier host-only candidate
+statements are superseded by these bounded hardware and owner observations;
+full optical/color/flicker/calibration qualification remains open.
