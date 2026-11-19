@@ -3096,3 +3096,34 @@ online/zero state. The top-level callback now reports a failed shutdown rather
 than unconditionally overwriting the software state as offline. Actual-C tests
 cover all raw sequencer values plus24 existing/new power/security scenarios.
 These source changes are build/device pending, not shutdown hardware proof.
+
+The first next-kernel invocation selected the older initial-build cache volume
+instead of the established reproducible volume. It was compiling against the
+correct pinned Linux base/source but would use a separate obsolete build counter
+and require a full rebuild. Stopped only that owned build container before an
+image/deployment. The canonical volume is s9-g965n-repro-build (verified UTS36 and
+counter36); restarting there preserves consistent next-build identity. No device
+write/flash was part of either build command.
+
+Added optional bounded root-private RFS OPEN/CLOSE capture for a future cold
+initialization comparison. It never captures NV read/write payloads and does not
+resolve/allow requested filenames. Existing files/symlinks and nonprivate parents
+are refused, limits128records/64KiB each/1MiB total, each record fsynced. Two host
+file/security tests and eight runtime preflight tests pass; native capture and
+requested-file necessity remain pending. This can distinguish an omitted vendor
+file dependency without granting a general filesystem namespace.
+
+Canonical build completed native37 (#37 SMP PREEMPT Thu Nov19 08:48:18 UTC2026),
+source0ba8889, BOOT3f060b3ae6a55b2e00d2d07d44afe092368730ed114799b163596addc16a7621/
+27219984bytes. Five matching modules/overlay frozen and uploaded privately;
+stock overlay comparison passed all three subtrees. Build is not a boot result.
+Owner confirms the intervening native36 reboot was intentional; no spontaneous
+reboot inferred. That reboot correctly left modem opt-in module unloaded, so
+identity8 online-only preflight refused missing modem channels without trying
+to start/reset a CP. Sensor runtime cleanup/restart passed; no identity result.
+
+Preparing recovery/fresh backup. This systemctl does not accept a positional
+reboot target ("Too many arguments", no reboot). Inspected actual login1 API:
+SetRebootParameter is supported. Using its recovery parameter + normal login1
+Reboot for orderly shutdown and the board's volatile syscon reboot-mode, rather
+than direct forced reboot or a MISC/bootloader write.

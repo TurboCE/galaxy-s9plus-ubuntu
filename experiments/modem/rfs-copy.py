@@ -18,6 +18,44 @@ import struct
 SALT = b'Samsung_Android_RIL'
 
 
+class PrivateOpenCapture:
+    """Bounded root-private OPEN/CLOSE evidence; never capture NV payloads.
+
+    Caller verifies no symlink ancestors with the trusted runtime helper.
+    Recording an OPEN is not permission to resolve it or access a host path.
+    """
+    def __init__(self, path):
+        path = Path(path)
+        if not path.is_absolute() or '..' in path.parts:
+            raise ValueError('Expected an absolute private capture path')
+        parent = path.parent.lstat()
+        if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != os.geteuid() or parent.st_mode & 0o077):
+            raise ValueError('Capture parent must be owned and private0700')
+        self.fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        self.count = 0
+        self.total = 0
+
+    def record(self, message):
+        if len(message) < 6 or struct.unpack_from('<I', message)[0] != len(message):
+            raise ValueError('Invalid capture frame')
+        if message[4] not in (0x11, 0x06):
+            return  # No NV reads/writes or arbitrary payload dumps.
+        if len(message) > 65536 or self.count >= 128 or self.total + len(message) + 4 > 1024 * 1024:
+            raise ValueError('Private open-request capture bound exceeded')
+        data = memoryview(struct.pack('<I', len(message)) + message)
+        while data:
+            count = os.write(self.fd, data)
+            if count <= 0:
+                raise OSError('Short private capture write')
+            data = data[count:]
+        os.fsync(self.fd)
+        self.count += 1
+        self.total += len(message) + 4
+
+    def close(self):
+        os.close(self.fd)
+
+
 class WorkingNV:
     def __init__(self, directory):
         directory = Path(directory)

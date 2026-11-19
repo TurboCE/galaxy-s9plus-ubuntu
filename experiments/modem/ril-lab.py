@@ -79,9 +79,21 @@ def home_network_only(buffer):
 
 
 def at_log_record(chunk, command):
-    if command == 'AT+CIMI':
+    if command in ('AT+CIMI', 'AT+CGSN'):
         return {'at_status_redacted': True, 'bytes': len(chunk)}
     return {'at_status': chunk.decode('ascii', 'replace')}
+
+
+def device_identity_status_only(buffer):
+    match = re.search(rb'(?:^|[\r\n])([0-9]{14,16})(?=[\r\n])', buffer)
+    if not match:
+        return None
+    digits = match[1]
+    nondefault = len(set(digits)) > 1
+    total = sum((d * 2 // 10 + d * 2 % 10) if i % 2 else d
+                for i, d in enumerate(c - 48 for c in digits))
+    return {'imei_format_valid': len(digits) == 15 and nondefault and total % 10 == 0,
+            'default_identity': not nondefault, 'device_identity_redacted': True}
 
 
 def reference_define_pdp(apn, cid=1):
@@ -411,6 +423,7 @@ def main():
     parser.add_argument('--attach-online', action='store_true')
     parser.add_argument('--diagnostic-status', action='store_true',
                         help='Query signal, functionality, operator and registration without changing them')
+    parser.add_argument('--private-rfs-capture', type=Path)
     args = parser.parse_args()
     if args.configure_radio and (not args.apn or not re.fullmatch(r'[A-Za-z0-9.-]{1,100}', args.apn)):
         raise SystemExit('Explicit valid APN required for radio configuration')
@@ -427,6 +440,11 @@ def main():
         runtime_spec.loader.exec_module(runtime)
         stack.enter_context(runtime.shared_runtime_lock())
         runtime.validate_launch_state(args.expected_receipt_sha256)
+        capture = None
+        if args.private_rfs_capture:
+            runtime.safe_components(args.private_rfs_capture.parent)
+            capture = rfs_copy.PrivateOpenCapture(args.private_rfs_capture)
+            stack.callback(capture.close)
         lock_fd = os.open('/run/lock/g965n-modem-probe.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
         lock = stack.enter_context(open(lock_fd, 'rb', closefd=True))
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -513,7 +531,7 @@ def main():
         while not stop_requested and time.monotonic() - started < args.seconds:
             now = time.monotonic()
             if args.diagnostic_status and at_ready and not at_failed and not diagnostic_queued:
-                at_queue.extend(['AT+CIMI', 'AT+CSQ', 'AT+CESQ', 'AT+CFUN?', 'AT+CPIN?', 'AT+COPS?',
+                at_queue.extend(['AT+CIMI', 'AT+CGSN', 'AT+CSQ', 'AT+CESQ', 'AT+CFUN?', 'AT+CPIN?', 'AT+COPS?',
                                  'AT+CGATT?', 'AT+CGREG?', 'AT+CREG?', 'AT+CEER'])
                 diagnostic_queued = True
             if pdp_opt_in and pdp_plan is None and registered and registration_at is not None and now-registration_at <= 15 and sim_ready and radio_asked and ps_attach_acknowledged and at_ready and not at_failed:
@@ -595,6 +613,9 @@ def main():
                             network = home_network_only(at_buffer)
                             print(json.dumps({'sim_home_network': network,
                                               'subscriber_identity_redacted': True}), flush=True)
+                        elif at_active[0] == 'AT+CGSN':
+                            print(json.dumps({'device_identity_status': device_identity_status_only(at_buffer),
+                                              'device_identity_redacted': True}), flush=True)
                         if at_active[0] == 'AT' and b'\r\nOK\r\n' in at_buffer:
                             at_ready = True
                         at_active = None
@@ -610,6 +631,8 @@ def main():
                         break
                     message = bytes(buffer[:length]); del buffer[:length]
                     if fd == rfs:
+                        if capture is not None:
+                            capture.record(message)
                         reply = nv.handle(message)
                         if os.write(rfs, reply) != len(reply):
                             raise RuntimeError('Short RFS reply')

@@ -59,6 +59,8 @@ def main():
     parser.add_argument('--observe-only', action='store_true',
                         help='Online attachment with read-only SIM/AT status queries; no radio/PDP configuration')
     parser.add_argument('--diagnostic-status', action='store_true')
+    parser.add_argument('--capture-private-rfs', action='store_true',
+                        help='Capture bounded OPEN/CLOSE requests in the private lab, never NV payloads')
     args = parser.parse_args()
     if getattr(args, 'observe_only', False) and (not getattr(args, 'attach_online', False) or
                                                 getattr(args, 'activate_pdp_s9', False)):
@@ -98,6 +100,9 @@ def main():
                         '--pdp-cid', str(args.pdp_cid), '--pdp-seconds', str(args.pdp_seconds)]
         if getattr(args, 'attach_online', False):
             command += ['--attach-online']
+        if getattr(args, 'capture_private_rfs', False):
+            runtime.safe_components(args.lab_directory)
+            command += ['--private-rfs-capture', str(args.lab_directory / 'rfs-open-requests.bin')]
         properties = [
             ('Description', GLib.Variant('s', 'Bounded G965N private-copy IPC/RFS lab')),
             ('DevicePolicy', GLib.Variant('s', 'closed')),

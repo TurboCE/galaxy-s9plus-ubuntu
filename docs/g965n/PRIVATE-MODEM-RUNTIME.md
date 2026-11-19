@@ -370,3 +370,12 @@ transition. No automatic CFUN4/1 retry remains. The independent reference
 corroborates the normal state value, while S9-specific packet facts come from
 the owner's stock RIL. Other carrier/property variants are not qualified by the
 KT result. Registration remained searching; this is not LTE internet proof.
+
+For an explicitly reviewed initialization trace, `--capture-private-rfs` records
+only bounded RFS OPEN/CLOSE frames in the root-private lab directory. NV payloads
+are excluded, original files are never opened through these requests, and the
+current handler still refuses remote filenames. The capture itself can contain
+sensitive filenames: never commit/publish it. This is diagnostic evidence for
+reviewing a future fixed, read-only allowlist, not such an allowlist already.
+Status diagnostics redact subscriber/device identity response fragments before
+journaling; they retain only the home network prefix or format-validity booleans.

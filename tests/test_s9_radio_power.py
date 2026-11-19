@@ -58,5 +58,16 @@ class RadioWireFacts(unittest.TestCase):
         self.assertIsNone(ril.home_network_only(b'AT+CIMI\r\nERROR\r\n'))
         self.assertEqual(ril.home_network_only(b'\r\n310260123456789\r\n')['mnc'],None)
 
+    def test_device_identity_reports_only_validity_and_never_value(self):
+        # Publicly documented synthetic Luhn example, not this handset.
+        response=b'AT+CGSN\r\n490154203237518\r\nOK\r\n'
+        result=ril.device_identity_status_only(response)
+        self.assertEqual(result,{'imei_format_valid':True,'default_identity':False,'device_identity_redacted':True})
+        self.assertNotIn('490154203237518',str(result))
+        self.assertTrue(ril.at_log_record(response,'AT+CGSN')['at_status_redacted'])
+        self.assertFalse(ril.device_identity_status_only(b'\r\n490154203237519\r\n')['imei_format_valid'])
+        self.assertTrue(ril.device_identity_status_only(b'\r\n000000000000000\r\n')['default_identity'])
+        self.assertIsNone(ril.device_identity_status_only(b'ERROR'))
+
 
 if __name__=='__main__':unittest.main()
