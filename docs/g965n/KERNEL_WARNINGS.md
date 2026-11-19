@@ -64,6 +64,12 @@ comparable to the baseline and no direct SCK measurement. The trial
 does not establish an effective bus-rate change or a fix for the
 remaining zero ACK.
 
+An independent warm boot with a 25 us SPI core chip-select setup
+interval continued to get a zero ACK on the 36-byte write after
+an accepted 14-byte transaction. The longer host-side SPI call
+still needed one retry. This interval did not resolve the observed
+failure.
+
 A later native44 startup profile explicitly selects one standby
 attempt. The driver still records a high MCU_RESP as an unconfirmed
 reset. The sensor service continues to require the pinned hub

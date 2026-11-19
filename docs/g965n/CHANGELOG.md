@@ -5189,3 +5189,25 @@ warm boot with the USI00 divider field back at 0, diagnostics off, and
 the original module build ID. One 36-byte zero ACK recovered. The
 firmware watchdog canceled normally, all six IIO devices delivered
 80 reads, Wi-Fi HTTPS204 and no-SIM cleanup passed, and no units failed.
+
+### 2026-11-20 — Test additional sensor SPI chip-select setup time
+
+The board source documents a timeout when the whole firmware patch
+uses GPIO-driven SPI. Kept the hardware controller and used the SPI
+core's chip-select setup interval to vary only the time between
+asserting chip select and starting a transfer. Verified model and BOOT
+backup, saved the original module profile, built a private native #44
+module, and verified the exact binary on a distinct warm boot.
+
+With an added 25 us configured interval, the 36-byte transaction
+still returned one zero ACK. The first SPI call took 89.9 us and
+started 48.160 ms after the previous accepted 14-byte write. The
+second attempt accepted all 36 bytes. Patch completion, 80 reads from
+each of six IIO devices, Wi-Fi HTTPS204 and no-SIM cleanup passed,
+with zero failed units. No chip-select setup change was selected
+for the production profile.
+
+Restored the saved module and diagnostic-off profile on a second
+warm boot. Verified the original build ID and absence of the trial
+setting. One zero ACK still recovered; firmware startup, six IIO
+devices, Wi-Fi HTTPS204 and no-SIM cleanup passed again.
