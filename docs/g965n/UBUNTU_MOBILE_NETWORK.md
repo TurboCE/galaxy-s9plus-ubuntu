@@ -139,6 +139,13 @@ connected on two distinct ordinary boots. LTE-bound DNS and HTTPS204
 passed on both while Wi-Fi retained the preferred default. Between
 them, an explicit service stop confirmed modem bearer release and
 radio low power, removed the LTE route and restored the stock manager.
-The matched service is enabled on the test handset. Direct GNOME
-interaction, recovery from an unexpected service exit and additional
-hardware remain outside this verification.
+The matched service is enabled on the test handset.
+
+A separate test killed only the desktop supervisor while its LTE
+bearer was active. The systemd stop hook rechecked the pinned
+configuration and cleaned the owned profile, modem runtime and
+invocation files. The children stopped, the modem confirmed release
+and radio low power, and the original ModemManager returned while
+Wi-Fi stayed usable. The enabled service starts a fresh session
+on the next clean boot. Direct GNOME interaction, unexpected radio
+loss and additional hardware remain unqualified.

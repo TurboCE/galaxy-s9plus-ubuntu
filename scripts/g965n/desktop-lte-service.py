@@ -123,6 +123,43 @@ def start_desktop(root, profile):
              'ipv4.method', 'auto', 'ipv4.route-metric', '20000', 'ipv6.method', 'disabled')
 
 
+def cleanup_modem(boot, runtime):
+    marker = WORK / 'runtime-prepared'
+    if not marker.is_file():
+        return
+    if marker.read_text() != Path('/proc/sys/kernel/random/boot_id').read_text():
+        raise RuntimeError('Desktop modem runtime marker is from another boot')
+    for unit in (boot.RIL, boot.CBD):
+        if active_state(unit) not in ('inactive', 'failed'):
+            call('systemctl', 'stop', unit, timeout=35)
+    with runtime.modem_runtime_setup_lock():
+        runtime.assert_modem_stopped()
+        runtime.teardown()
+        owner = WORK / 'ril-invocation'
+        if owner.is_file():
+            invocation = owner.read_text().strip()
+            if not re.fullmatch(r'[a-f0-9]{32}', invocation):
+                raise RuntimeError('Invalid desktop RIL invocation marker')
+            for path, expected in ((Path('/run') / f'g965n-lte-{invocation}.json', stat.S_ISREG),
+                                   (Path('/run') / f'g965n-wwan-{invocation}.sock', stat.S_ISSOCK)):
+                try:
+                    info = path.lstat()
+                except FileNotFoundError:
+                    continue
+                if info.st_uid != 0 or not expected(info.st_mode) or info.st_mode & 0o077:
+                    raise RuntimeError('Unexpected stale desktop RIL endpoint')
+                path.unlink()
+            owner.unlink()
+        marker.unlink()
+
+
+def cleanup_service(boot, runtime):
+    try:
+        restore_desktop()
+    finally:
+        cleanup_modem(boot, runtime)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path)
@@ -133,8 +170,7 @@ def main():
     if os.geteuid() != 0:
         raise SystemExit('Desktop LTE service requires root')
     os.umask(0o077)
-    if args.cleanup:
-        restore_desktop()
+    if args.cleanup and not WORK.is_dir():
         return
     if not (args.confirm_desktop_lte and args.config and args.config_sha256):
         parser.error('An explicitly approved desktop LTE profile and its digest are required')
@@ -163,6 +199,12 @@ def main():
         raise ValueError('Unexpected desktop LTE configuration')
     for name, digest in cfg['files'].items():
         boot.trusted(root / name, digest, 32 * 1024 * 1024)
+    if args.cleanup:
+        runtime = boot.load(root / 'vendor-runtime.py')
+        runtime.assert_board()
+        runtime.select_modem_runtime()
+        cleanup_service(boot, runtime)
+        return
     profile = Path(cfg['kernel_profile'])
     guard = profile / 'package/p2p-control-trial.py'
     boot.trusted(guard, cfg['guard_sha256'], 512 * 1024)
@@ -205,15 +247,15 @@ def main():
     signal.signal(signal.SIGINT, requested_stop)
     ATTEMPT.touch(mode=0o600, exist_ok=False)
     WORK.mkdir(mode=0o700)
-    prepared = False
     try:
         with vr.checked_lock(vr.STATE_LOCK, vr.fcntl.LOCK_EX), vr.checked_lock(vr.RUNTIME_LOCK, vr.fcntl.LOCK_EX):
             vr.assert_modem_stopped()
             if vr.ROOT.is_mount():
                 raise RuntimeError('Modem runtime is already mounted')
             vr.validate_modem_state(vr.read_provenance())
+            with (WORK / 'runtime-prepared').open('x') as marker:
+                marker.write(Path('/proc/sys/kernel/random/boot_id').read_text())
             vr.prepare()
-            prepared = True
             vr.modem_bindings_absent()
             call('/usr/sbin/insmod', str(modem_module), 'enable_g965n=1', 'link_wwan_parent=1', timeout=30)
             if Path('/sys/class/net/rmnet0').resolve(strict=True) != DEVICE:
@@ -235,6 +277,7 @@ def main():
         invocation = value('systemctl', 'show', boot.RIL, '-p', 'InvocationID', '--value')
         if not re.fullmatch(r'[a-f0-9]{32}', invocation):
             raise RuntimeError('Unexpected RIL invocation')
+        (WORK / 'ril-invocation').write_text(invocation + '\n')
         while not stop and time.monotonic() - started < 40:
             checked_children(boot)
             endpoint = Path('/run') / f'g965n-wwan-{invocation}.sock'
@@ -255,17 +298,7 @@ def main():
             checked_children(boot)
             time.sleep(2)
     finally:
-        try:
-            restore_desktop()
-        finally:
-            for unit in (boot.RIL, boot.CBD):
-                if active_state(unit) not in ('inactive', 'failed'):
-                    call('systemctl', 'stop', unit, timeout=35)
-            if prepared:
-                with vr.modem_runtime_setup_lock():
-                    vr.assert_modem_stopped()
-                    if vr.ROOT.is_mount():
-                        vr.teardown()
+        cleanup_service(boot, vr)
 
 
 if __name__ == '__main__':

@@ -4686,3 +4686,26 @@ Wi-Fi HTTPS204, and acceleration and light reads passed. The optional
 packet-log failure and repeated ECT error were absent. The full boot
 still had 103 error-priority messages and 67 warnings, with no failed
 units or SSP retry on this boot. The matched module remains in service.
+
+### 2026-11-20 — Restore desktop state after an abrupt LTE supervisor exit
+
+The desktop service now records the owned modem runtime and RIL
+invocation for its stop hook. The hook revalidates the pinned
+configuration, stops the child units, detaches the private modem view
+under its lock and checks any invocation files before removing them.
+The regular stop path uses the same cleanup.
+
+On native44, first verified active LTE DNS and HTTPS204, then killed
+only the desktop supervisor. Systemd recorded the expected signal
+failure and successful stop hook. The RIL reported bearer release and
+radio low power, both child units stopped, and the temporary profile,
+route, lease, socket and mount were gone. The stock manager was
+running again and the Wi-Fi default remained. This exercises
+supervisor loss. Unexpected CP or RIL failure and network loss still
+need separate verification.
+
+After the distinct recovery boot, the enabled service automatically
+connected again and LTE-bound DNS and HTTPS204 passed. Wi-Fi retained
+the preferred route, acceleration and light values were readable, and
+there were no failed units. That boot logged 104 error-priority entries
+and 67 warnings, including one SSP retry. The service was left enabled.

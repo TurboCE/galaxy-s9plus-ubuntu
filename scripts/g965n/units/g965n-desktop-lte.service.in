@@ -12,7 +12,7 @@ Restart=no
 KillMode=mixed
 TimeoutStopSec=90
 ExecStart=/usr/bin/python3 @ROOT@/desktop-lte-service.py --config @ROOT@/config.json --config-sha256 @PROFILE_SHA256@ --confirm-desktop-lte
-ExecStopPost=/usr/bin/python3 @ROOT@/desktop-lte-service.py --cleanup
+ExecStopPost=/usr/bin/python3 @ROOT@/desktop-lte-service.py --cleanup --config @ROOT@/config.json --config-sha256 @PROFILE_SHA256@ --confirm-desktop-lte
 
 [Install]
 WantedBy=multi-user.target
