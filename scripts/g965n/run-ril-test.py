@@ -83,6 +83,7 @@ def main():
     parser.add_argument('--pdp-seconds', type=int, choices=range(10,61), default=30)
     parser.add_argument('--hold-qualified-pdp', action='store_true')
     parser.add_argument('--export-ipv4-lease', action='store_true')
+    parser.add_argument('--wwan-query-broker', action='store_true')
     parser.add_argument('--cycle-qualified-pdp', action='store_true',
                         help='Allow a one-shot reconnect requested by a private lab marker')
     parser.add_argument('--attach-online', action='store_true',
@@ -103,6 +104,9 @@ def main():
     args = parser.parse_args()
     hold = getattr(args, 'hold_qualified_pdp', False)
     export_lease = getattr(args, 'export_ipv4_lease', False)
+    wwan_broker = getattr(args, 'wwan_query_broker', False)
+    if wwan_broker and (not hold or not args.isolated_modem_runtime):
+        parser.error('WWAN queries require an isolated held PDP trial')
     soak = getattr(args, 'seconds', 90) == 300
     if soak and (not export_lease or not hold or not args.isolated_modem_runtime
                  or args.attach_online or not args.quiesce_radio_on_exit):
@@ -168,6 +172,8 @@ def main():
                 command.append('--hold-qualified-pdp')
             if export_lease:
                 command.append('--export-ipv4-lease')
+            if wwan_broker:
+                command.append('--wwan-query-broker')
             if cycle:
                 command += ['--pdp-cycle-request', str(args.lab_directory.resolve() / 'cycle-requested')]
         if getattr(args, 'attach_online', False):

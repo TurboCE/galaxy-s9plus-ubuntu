@@ -716,3 +716,20 @@ bearer handoff to NetworkManager. The stock generic modem must not
 independently open the lab's router channel while the SIPC owner is
 running. Qualification requires real modem enumeration, controls and
 data from the Ubuntu mobile network path.
+
+### Typed WWAN queries through the existing radio owner
+
+Add `--wwan-query-broker` to the guarded isolated held RIL trial to bind
+`/run/g965n-wwan-<RIL InvocationID>.sock` as a root-only Unix
+`SOCK_SEQPACKET` endpoint. A connection sends one literal request and
+receives one JSON reply. The request names are `registration`,
+`packet-attachment`, and `signal-quality`. Results use the raw modem
+registration or RSSI code, or the confirmed packet-attach boolean.
+Unsupported commands, stale requests and modem errors return an
+explicit error. The broker serializes its requests with the current
+radio owner instead of opening another physical modem channel.
+
+This endpoint is an adapter input, not an implementation of the
+ModemManager bus name. A native integration must still enumerate the
+real modem and translate authorized connect/disconnect operations, with
+a single owner for data route and resolver configuration.

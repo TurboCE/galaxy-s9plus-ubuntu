@@ -4405,3 +4405,27 @@ A distinct cleanup boot restored modem off and the Wi-Fi default.
 Audio, Bluetooth, sensors and ModemManager were active, with readable
 accel/ALS and no failed units. The ring recorded 63 warnings and one
 error-priority SSP zero-ACK retry, which remains open.
+
+### 2026-11-20 — Serialized WWAN query channel for the native adapter
+
+Added an opt-in root-private Unix socket to the guarded isolated held
+RIL. The exact RIL invocation owns the socket. Three typed queries use
+the existing AT dispatcher and the original command/response serialization.
+A different request does not send a command. The socket returns only
+the registration code, packet-attach state, or RSSI code. It does not
+expose raw AT, location, SIM identifiers, PIN operations, or control
+commands. Modem loss and teardown invalidate the outstanding request.
+
+On native44 with the physical modem parent candidate, the read-only
+queries returned EPS registration state 1, attached packet service and
+RSSI code 21, while the existing bearer passed modem-bound DNS and
+certificate-verified HTTPS204. Invalid request rejection, root co-owned
+socket permissions, unchanged sensor invocation and socket removal on
+stop were verified. Stock ModemManager still did not enumerate this
+modem. This qualifies the real status-query boundary for a future adapter.
+It does not qualify desktop controls or NetworkManager bearer handoff.
+
+The distinct cleanup boot returned to Wi-Fi and modem off. Audio,
+Bluetooth, sensors and ModemManager were active, accel/ALS were
+readable, and no unit failed. The ring had 63 warnings and one recurring
+SSP zero-ACK retry.

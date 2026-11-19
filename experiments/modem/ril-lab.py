@@ -75,6 +75,96 @@ class IPv4LeasePublisher:
             self.last = None
 
 
+class WWANQueryBroker:
+    """Serialize typed, read-only WWAN queries through the existing AT owner."""
+    commands = {b'registration': 'AT+CEREG?', b'packet-attachment': 'AT+CGATT?',
+                b'signal-quality': 'AT+CSQ'}
+
+    def __init__(self, invocation):
+        if not re.fullmatch(r'[a-f0-9]{32}', invocation):
+            raise RuntimeError('Expected a systemd RIL invocation ID')
+        self.path = Path('/run') / ('g965n-wwan-' + invocation + '.sock')
+        self.listener = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET | socket.SOCK_NONBLOCK)
+        self.client = None
+        self.dispatched = False
+        try:
+            self.listener.bind(str(self.path))
+        except BaseException:
+            self.listener.close()
+            raise
+        try:
+            self.path.chmod(0o600)
+            self.listener.listen(2)
+        except BaseException:
+            self.close()
+            raise
+
+    def take(self, now, ready):
+        if self.client is None:
+            try:
+                client, _ = self.listener.accept()
+            except BlockingIOError:
+                return None
+            client.setblocking(False)
+            self.client = client
+            self.deadline = now + 2
+        if self.dispatched:
+            return None
+        if now >= self.deadline:
+            self.finish(error='request-timeout')
+            return None
+        if not ready:
+            return None
+        try:
+            request = self.client.recv(65)
+        except BlockingIOError:
+            return None
+        except OSError:
+            self.finish(error='client-disconnected')
+            return None
+        command = self.commands.get(request)
+        if command is None:
+            self.finish(error='unsupported-query')
+            return None
+        self.dispatched = True
+        return command
+
+    def finish(self, **result):
+        if self.client is not None:
+            with self.client:
+                try:
+                    self.client.send(json.dumps(result).encode())
+                except OSError:
+                    pass
+        self.client = None
+        self.dispatched = False
+
+    def close(self):
+        self.finish(error='modem-session-ended')
+        self.listener.close()
+        self.path.unlink(missing_ok=True)
+
+
+def wwan_query_result(command, response):
+    if b'\r\nOK\r\n' not in response or b'ERROR' in response:
+        return {'error': 'modem-query-failed'}
+    if command == 'AT+CEREG?':
+        value = cereg_query_status_only(response)
+        if value is not None:
+            return {'registration_code': value['registration_code']}
+    elif command == 'AT+CGATT?':
+        value = completed_packet_attachment(response, command)
+        if value is not None:
+            return {'packet_attached': value}
+    elif command == 'AT+CSQ':
+        match = re.search(rb'(?:^|\r\n)\+CSQ: *([0-9]{1,2}), *([0-9]{1,2})\r\n', response)
+        if match:
+            raw = int(match[1])
+            if raw <= 31 or raw == 99:
+                return {'signal_rssi_code': raw}
+    return {'error': 'unqualified-modem-reply'}
+
+
 # Protocol facts only: LineageOS/android_external_libsamsung-ipc,
 # 6d244414f7c66b0d0f93ef4b34f5276023408016, include/gprs.h and gen.h.
 # GPL-2.0-or-later reference; this is an independent GPL-2.0-only implementation.
@@ -786,6 +876,7 @@ def main():
     parser.add_argument('--hold-qualified-pdp', action='store_true',
                         help='Hold an already-qualified context until this bounded cold trial ends')
     parser.add_argument('--export-ipv4-lease', action='store_true')
+    parser.add_argument('--wwan-query-broker', action='store_true')
     parser.add_argument('--pdp-cycle-request', type=Path,
                         help='Explicit one-shot release and reactivation request in a private lab')
     parser.add_argument('--attach-online', action='store_true')
@@ -820,6 +911,9 @@ def main():
     if args.export_ipv4_lease and (not args.hold_qualified_pdp or not args.isolated_modem_runtime
                                    or not args.notify_ready):
         parser.error('IPv4 lease requires an isolated, held systemd trial')
+    if args.wwan_query_broker and (not args.hold_qualified_pdp or not args.isolated_modem_runtime
+                                   or not args.notify_ready):
+        parser.error('WWAN queries require an isolated held systemd trial')
     if args.seconds == 300 and not args.export_ipv4_lease:
         parser.error('300-second soak requires the qualified IPv4 lease and cold cleanup')
     if b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):
@@ -839,6 +933,9 @@ def main():
         lease = IPv4LeasePublisher(os.environ.get('INVOCATION_ID', '')) if args.export_ipv4_lease else None
         if lease:
             stack.callback(lease.withdraw)
+        broker = WWANQueryBroker(os.environ.get('INVOCATION_ID', '')) if args.wwan_query_broker else None
+        if broker:
+            stack.callback(broker.close)
         if args.pdp_cycle_request:
             runtime.safe_components(args.pdp_cycle_request.parent)
             if args.pdp_cycle_request.exists() or args.pdp_cycle_request.is_symlink():
@@ -891,6 +988,7 @@ def main():
         stop_requested = False
         at_queue = deque()
         at_active = None
+        broker_active = False
         at_buffer = bytearray()
         at_ready = False
         diagnostic_queued = False
@@ -962,6 +1060,8 @@ def main():
             stack.callback(signal.signal, number, previous)
 
         def quiesce_radio():
+            if broker:
+                broker.finish(error='modem-session-ended')
             if lease:
                 lease.withdraw()
             if not radio_asked:
@@ -1081,8 +1181,11 @@ def main():
             if not at_ready and not at_failed and boot_at and time.monotonic() - boot_at >= 3 and time.monotonic() >= next_at_ping and not at_active:
                 at_queue.appendleft('AT')  # harmless readiness check, never retry a state change blindly
                 next_at_ping = time.monotonic() + 3
-            if not at_failed and not at_active and at_queue:
-                command = at_queue.popleft()
+            broker_command = broker.take(now, at_ready and not at_failed and not at_active
+                                         and not at_queue) if broker else None
+            if not at_failed and not at_active and (at_queue or broker_command):
+                command = broker_command or at_queue.popleft()
+                broker_active = broker_command is not None
                 packet = (command + '\r').encode('ascii')
                 if os.write(at, packet) != len(packet):
                     raise RuntimeError('Short AT command write')
@@ -1095,13 +1198,18 @@ def main():
                     at_failed = True
                     at_queue.clear()
                 at_active = None
+                if broker_active:
+                    broker.finish(error='modem-query-timeout')
+                    broker_active = False
                 at_buffer.clear()
             for fd in select.select(fds, [], [], .1)[0]:
                 chunk = os.read(fd, 65536)
                 if not chunk:
                     raise RuntimeError('Modem channel closed')
                 if fd == at:
-                    print(json.dumps(at_log_record(chunk, at_active[0] if at_active else None)), flush=True)
+                    record = ({'wwan_query_reply_bytes': len(chunk)} if broker_active else
+                              at_log_record(chunk, at_active[0] if at_active else None))
+                    print(json.dumps(record), flush=True)
                     at_buffer.extend(chunk)
                     if len(at_buffer) > 65536:
                         raise RuntimeError('AT response exceeds bounded buffer')
@@ -1136,6 +1244,9 @@ def main():
                                               'operator_details_redacted': True}), flush=True)
                         if at_active[0] == 'AT' and b'\r\nOK\r\n' in at_buffer:
                             at_ready = True
+                        if broker_active:
+                            broker.finish(**wwan_query_result(at_active[0], at_buffer))
+                            broker_active = False
                         at_active = None
                         at_buffer.clear()
                     continue
@@ -1166,6 +1277,9 @@ def main():
                         if cycle_observer is not None:
                             cycle_observer.event(message, time.monotonic())
                         if code == 0x0101:
+                            if broker:
+                                broker.finish(error='modem-restarted')
+                                broker_active = False
                             cycle_released_at = None
                             if pdp_plan is not None:
                                 pdp_plan.cp_reset()

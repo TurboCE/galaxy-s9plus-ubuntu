@@ -29,6 +29,18 @@ def status(state=1,cause=0,throttle=0):
 
 
 class S9PDPTests(unittest.TestCase):
+    def test_typed_wwan_queries_return_only_validated_status(self):
+        self.assertEqual(ril.wwan_query_result('AT+CEREG?',
+                         b'AT+CEREG?\r\r\n+CEREG: 0,1,"ABCD","ABCDEF",7\r\nOK\r\n'),
+                         {'registration_code': 1})
+        self.assertEqual(ril.wwan_query_result('AT+CGATT?',
+                         b'AT+CGATT?\r\r\n+CGATT: 1\r\nOK\r\n'),
+                         {'packet_attached': True})
+        self.assertEqual(ril.wwan_query_result('AT+CSQ', b'\r\n+CSQ: 25,99\r\nOK\r\n'),
+                         {'signal_rssi_code': 25})
+        self.assertIn('error', ril.wwan_query_result('AT+CSQ', b'\r\n+CSQ: 42,99\r\nOK\r\n'))
+        self.assertIn('error', ril.wwan_query_result('AT+CEREG?', b'\r\nERROR\r\n'))
+
     def test_independent_s9_builders_exact_source_fields(self):
         define=ril.s9_define_pdp('fixture.apn')
         self.assertEqual(len(define),127)
