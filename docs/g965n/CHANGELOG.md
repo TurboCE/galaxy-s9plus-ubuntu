@@ -5478,3 +5478,20 @@ respectively, with the same GPU rates and rail policy. Compiled the
 candidate ARM64 driver object in isolation. The intermittent
 260 MHz lock failure's cause and the candidate's hardware behavior
 remain unverified. No device settings changed in this test.
+
+### 2026-11-20 — Build the isolated #45 G3D PLL candidate
+
+Cloned the exact #44 build tree and rebuilt an ARM64 Image with only
+the two upper G3D PLL tuples changed. The initial build container
+lacked Make, so the isolated copy was transferred to the existing
+cross-build container. The loader's older Kconfig does not support
+`olddefconfig`; the standard `star2lte_defconfig` reproduced the #44
+loader config byte for byte. The kernel config also matched #44.
+
+Read the tuples directly from both linked ELF images and independently
+unpacked the new BOOT candidate. The embedded device tree, outer
+device-tree table and ramdisk matched #44. Verified the stored
+nine-partition backup and the live #44 BOOT image. Live read-only
+checks also matched the archived RECOVERY, EFS, CPEFS, RADIO, DTB and
+DTBO. This is a build and recovery preflight. The #45 image has
+not been installed or booted.
