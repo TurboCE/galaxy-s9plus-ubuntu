@@ -3287,3 +3287,18 @@ Android LTE before porting; no physical action needed. Do not retry power/
 security, alter identity or assume an inactive SIM to explain the result.
 All clients/runtime cleaned, audio/BT/sensors active, failed units0, no identity
 digits in private journal. LTE registration/data remains unresolved.
+
+Sensor board source audit found PMIC error-reporting holes: mcu_power show/
+store ignored ACPM read/write failures, optional supply-cut ignored its off
+write failure, and a positive firmware failure could escape as a successful
+sysfs byte count/module-init result. ACPM's actual API returns negative
+transport errors or positive firmware codes, with zero only on success.
+Added checked normalization (positive failures logged and returned as EIO),
+checked LDO37 mode readback after enable, and abort-before-pin-release on
+write/readback failure. Stock always-on/off-no-op policy and all reset holds
+remain unchanged; supply-cut stays opt-in/off. The MCU_RESP warm-reset warning
+remains unresolved, not suppressed or converted to a hard-reset success.
+Actual extracted-C tests compile/pass injected transport errors, positive
+firmware failures, bad readback, sysfs behavior and sequencing/no premature
+hub release. Native new module/build/reboot verification pending. Preparing
+a fresh source-pinned kernel build instead of hot-reloading an active hub.

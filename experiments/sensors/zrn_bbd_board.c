@@ -283,11 +283,45 @@ int s9p_acpm_pmic_update(u8 reg, u8 val, u8 mask);
 #define S2MPS18_L37CTRL		(S2MPS18_L35CTRL + 2)
 #define LDO_ON_MODE		0xc0
 
+/* ACPM returns either a negative transport errno or a positive firmware
+ * failure code. Positive codes must not become successful sysfs byte counts
+ * or a positive module-init result. Keep the actual failure in the log.
+ */
+static int hub_pmic_result(int ret)
+{
+	if (ret > 0) {
+		pr_err("zrn-bbd: PMIC firmware failure %d\n", ret);
+		return -EIO;
+	}
+	return ret;
+}
+
+static int hub_supply_enable(void)
+{
+	u8 value;
+	int ret;
+
+	ret = hub_pmic_result(s9p_acpm_pmic_update(S2MPS18_L37CTRL,
+						LDO_ON_MODE, LDO_ON_MODE));
+	if (ret)
+		return ret;
+	msleep(20);
+	ret = hub_pmic_result(s9p_acpm_pmic_read(S2MPS18_L37CTRL, &value));
+	if (ret)
+		return ret;
+	if ((value & LDO_ON_MODE) != LDO_ON_MODE)
+		return -EIO;
+	return 0;
+}
+
 static ssize_t mcu_power_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	u8 v = 0;
+	int ret;
 
-	s9p_acpm_pmic_read(S2MPS18_L37CTRL, &v);
+	ret = hub_pmic_result(s9p_acpm_pmic_read(S2MPS18_L37CTRL, &v));
+	if (ret)
+		return ret;
 	return sysfs_emit(buf, "%d\n", (v & LDO_ON_MODE) == LDO_ON_MODE);
 }
 
@@ -295,7 +329,6 @@ static ssize_t mcu_power_store(struct device *dev, struct device_attribute *attr
 		const char *buf, size_t size)
 {
 	long long on;
-	u8 v = 0;
 	int ret;
 
 	if (kstrtoll(buf, 8, &on))
@@ -310,10 +343,10 @@ static ssize_t mcu_power_store(struct device *dev, struct device_attribute *attr
 		pr_info("zrn-bbd: hub supply: asked to switch off, left on\n");
 		return size;
 	}
-	ret = s9p_acpm_pmic_update(S2MPS18_L37CTRL, on ? LDO_ON_MODE : 0, LDO_ON_MODE);
-	msleep(20);
-	s9p_acpm_pmic_read(S2MPS18_L37CTRL, &v);
-	pr_info("zrn-bbd: hub supply %s (LDO37 control %02x, %d)\n", on ? "on" : "off", v, ret);
+	ret = hub_supply_enable();
+	if (ret)
+		return ret;
+	pr_info("zrn-bbd: hub supply on (LDO37 mode readback verified)\n");
 	return size;
 }
 static DEVICE_ATTR_RW(mcu_power);
@@ -380,13 +413,16 @@ static int hub_cycle(unsigned int hold_ms)
 
 	hub_pins_park();
 	gpiod_set_value(zrn_gpios[ZRN_GPIO_GPS_PWR], 0);
-	if (supply_cut)
-		s9p_acpm_pmic_update(S2MPS18_L37CTRL, 0, LDO_ON_MODE);
+	if (supply_cut) {
+		ret = hub_pmic_result(s9p_acpm_pmic_update(S2MPS18_L37CTRL, 0,
+							LDO_ON_MODE));
+		if (ret)
+			return ret;
+	}
 	msleep(hold_ms);
-	ret = s9p_acpm_pmic_update(S2MPS18_L37CTRL, LDO_ON_MODE, LDO_ON_MODE);
+	ret = hub_supply_enable();
 	if (ret)
 		return ret;
-	msleep(20);
 	ret = hub_pins_restore();
 	if (ret)
 		return ret;

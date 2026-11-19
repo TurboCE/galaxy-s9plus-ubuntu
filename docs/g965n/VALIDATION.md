@@ -181,3 +181,7 @@ Latest native36 supersedes earlier pending persistent-P2P checkpoints: boot
 opt-in, one native context, standard NetworkManager peer find and owner reverse
 discovery passed. Peer group negotiation/transfer remains unqualified. Initial+
 warm boot error-priority0/failedunits0; warnings still present and not hidden.
+
+Native37 follow-up: sensor PMIC error propagation/readback candidate passes
+actual-C fault injection but has not been loaded on hardware. Existing ALS/
+accel/service evidence does not qualify this new module or hub hard reset.
