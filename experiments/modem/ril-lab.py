@@ -548,6 +548,8 @@ def main():
     parser.add_argument('--diagnostic-status', action='store_true',
                         help='Query signal, functionality, operator and registration without changing them')
     parser.add_argument('--private-rfs-capture', type=Path)
+    parser.add_argument('--private-rfs-diagnostics', type=Path,
+                        help='New private lab directory for two bounded diagnostic files only')
     parser.add_argument('--scan-networks', action='store_true',
                         help='One bounded COPS test; online observation only, no operator selection')
     parser.add_argument('--scan-networks-s9', action='store_true',
@@ -580,7 +582,13 @@ def main():
         lock_fd = os.open('/run/lock/g965n-modem-probe.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
         lock = stack.enter_context(open(lock_fd, 'rb', closefd=True))
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        nv = rfs_copy.WorkingNV('/var/lib/g965n-vendor-runtime/efs')
+        diagnostic_files = None
+        if args.private_rfs_diagnostics:
+            runtime.safe_components(args.private_rfs_diagnostics.parent)
+            args.private_rfs_diagnostics.mkdir(mode=0o700)
+            diagnostic_files = rfs_copy.PrivateDiagnosticFiles(args.private_rfs_diagnostics)
+            stack.callback(diagnostic_files.close)
+        nv = rfs_copy.WorkingNV('/var/lib/g965n-vendor-runtime/efs', diagnostic_files)
         stack.callback(nv.close)
         fds = []
         for name in ('umts_ipc0', 'umts_rfs0', 'umts_router'):
@@ -802,7 +810,11 @@ def main():
                         reply = nv.handle(message)
                         if os.write(rfs, reply) != len(reply):
                             raise RuntimeError('Short RFS reply')
-                        print(json.dumps({'rfs_command': message[4], 'bytes': length, 'private_copy_only': True}), flush=True)
+                        event = {'rfs_command': message[4], 'bytes': length, 'private_copy_only': True}
+                        if message[4] in (3, 4, 5, 6, 17):
+                            offset = 10 if message[4] == 5 else 6
+                            event['file_result'], event['file_errno'] = struct.unpack_from('<ii', reply, offset)
+                        print(json.dumps(event), flush=True)
                     else:
                         _, _, _, group, command, kind = struct.unpack_from('<HBBBBB', message)
                         code = group << 8 | command

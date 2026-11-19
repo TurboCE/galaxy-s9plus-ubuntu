@@ -3742,3 +3742,48 @@ boot has two initial sensor zero-accepted-byte retry lines (not error-free);
 strict ACK Y/faultN, fresh accel varies, three drivers active, failedunits0 and
 primaryHTTPS204. Original recovery/radio/identity/bootloader not written. The
 sensor retries and remaining modem support/data failures stay open.
+
+Modern RFS interface review identified command3 READ,4 WRITE,5 SEEK,6 CLOSE,
+17 OPEN. Owner ARM64 interface passes requested OPEN flags to the OS, reads
+fd/count from offsets6/10, and uses bounded14-byte result/errno replies (SEEK
+has18bytes with a reserved word). Added original opt-in implementation for ONLY
+the two observed diagnostic names, mapped to new0700 lab storage/0600 files.
+No CP audio/calibration defaults synthesized; no arbitrary path resolution or
+original EFS access. Limits: two256KiB files,64KiB per I/O,8live virtual handles,
+4096operations; no truncate/append flags, symlink/nonempty reuse refused.
+Default runtime still denies file OPENs; new opt-in does not enable itself.
+
+Ten RFS host tests (five new isolation/protocol cases), ten launcher preflight,
+four CEREG and fourteen PDP tests pass. These are not CP/hardware proof. An
+explicitly guarded native43 cold trial is being prepared with fresh private
+storage, current backup/model/module/BOOT/provenance validation and ordered
+cleanup. Existing native43 sensor-ACK fault remainsN and failed units0. No
+claim that diagnostic file support fixes LTE registration or vendor QoS gaps.
+
+Native43 bounded cold diagnostic trial completed: real CP OPEN17 -> SEEK5 ->
+WRITE4(25bytes) -> CLOSE6 all return errno0 and the RF diagnostic file is25bytes.
+Network-reject diagnostic was NOT requested in this observation; READ3 has host
+round-trip proof only. Missing audio/FLL defaults remain denied. Checked mounted
+read-only owner SYSTEM/VENDOR too: no matching default files. No fabricated
+contents or changes to original partitions/identity. Private NV checksum and
+original-source provenance still verify. Exact source hashes retained privately.
+RIL exits0, twelve acknowledged EPS queries remain0/2, no PDP activation or LTE
+data. CBD RuntimeMax is120seconds for this trial, expires with Resulttimeout/
+status15; this is distinct from the earlier90s observation, not corrected history.
+
+Loaded-trial ring406error-priority/88warnings does NOT retain the early boot
+header. No CallTrace/SError, but ECT4/QoS gaps and optional packet-log failure
+remain. Of93 demux failure groups,91 target IPC after bounded RIL closes while
+CP remains online (monotonic1356.8..1417.0); other not-open observations include
+RFS2/router1. Ordered shutdown/channel lifecycle is still unresolved. No log
+filter or severity change applied; returning to module-off does not fix this.
+
+Guarded normal cleanup reboot completed, modem module absent. Fresh full ring
+has boot header, error0/warning63; journal lacks early boot, not used alone.
+After initialization settles all three sensor/audio/Bluetooth services active,
+strict ACK Y/faultN, accel samples vary, failed units0 and Wi-Fi HTTPS204.
+Accepted private Mesa profile persists. Early activating service/absent IIO
+sample was recorded before readiness, then rechecked successfully. Reloaded
+systemd metadata after a stale-unit-cache notice; no unit source edit. Broader
+LTE/compass/GPU/other hardware limits remain. Final39 host RFS/launcher/CEREG/PDP
+tests pass including private diagnostic writes leaving both NV copies unchanged.

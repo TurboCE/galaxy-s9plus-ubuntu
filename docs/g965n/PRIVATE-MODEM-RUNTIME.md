@@ -446,3 +446,21 @@ CP audio files. Their exact framing/semantics and a confined private namespace
 need review; never expose host paths, original partitions or invented content.
 Raw captures, files, NV and all owner vendor binaries remain private. A normal
 guarded reboot returns the unqualified CP module to its opt-in-off baseline.
+
+### Bounded modern diagnostic file experiment
+
+`run-ril-test.py --serve-private-rfs-diagnostics` is opt-in and creates a new
+`rfs-diagnostics` directory inside the private lab. Keep it out of Git: its
+contents may identify networks or equipment. It is not an EFS substitute.
+Only exact CP names `err/csdiag_mmrj_Info.dat` and `err/csdiag_rf_Mipi.dat` map
+to fixed new lab files. No missing CP audio/default/identity file is invented.
+The default continues to deny OPEN/CLOSE. Existing diagnostic output is never
+reused: repeat trials require a fresh lab directory. The bounded namespace
+implements commands3/4/5/6/17; others fail closed. OPEN flags0/66 only; seek
+supports the owner's nonnegative32-bit offset interface within256KiB. Host
+wire/isolation tests alone are not a successful CP file round trip or LTE
+qualification. No proprietary implementation or disassembly is redistributed.
+
+Native43 qualification: CP OPEN/SEEK/WRITE25bytes/CLOSE succeeds for RF
+diagnostic; network-reject file not requested, READ remains host-only tested.
+LTE still searching; no data qualification. Private evidence retained off Git.

@@ -140,10 +140,13 @@ class StartupPreflightTests(unittest.TestCase):
     def test_parent_has_no_forced_off_and_validation_precedes_startup(self):
         args=SimpleNamespace(apn='fixture.apn',lab_directory=ROOT/'experiments/modem',
             runtime_helper=ROOT/'scripts/g965n/vendor-runtime.py',seconds=30,activate_pdp_s9=False,
-            confirm_reviewed_s9_pdp_layout=False,pdp_cid=1,pdp_seconds=30)
+            confirm_reviewed_s9_pdp_layout=False,pdp_cid=1,pdp_seconds=30,serve_private_rfs_diagnostics=True)
         runtime=self.runtime();runtime.launch_receipt_digest=lambda:'a'*64
         order=[]
-        bus=SimpleNamespace(call_sync=lambda *a,**k:order.append('unit-start'))
+        units=[]
+        def start_unit(method, value, *a):
+            units.append(value);order.append('unit-start')
+        bus=SimpleNamespace(call_sync=start_unit)
         gio=SimpleNamespace(BusType=SimpleNamespace(SYSTEM=0),DBusProxy=SimpleNamespace(new_for_bus_sync=lambda *a,**k:bus))
         repository=ModuleType('gi.repository');repository.Gio=gio
         repository.GLib=SimpleNamespace(Variant=lambda signature,value:value)
@@ -167,6 +170,11 @@ class StartupPreflightTests(unittest.TestCase):
                 patch('builtins.open',side_effect=guarded_open):
             with redirect_stdout(io.StringIO()):launcher.main()
         self.assertEqual(order,['validated','unit-start','vendor-launch'])
+        properties=dict(units[0][2])
+        child=properties['ExecStart'][0][1]
+        flag=child.index('--private-rfs-diagnostics')
+        self.assertEqual(child[flag+1],str(args.lab_directory/'rfs-diagnostics'))
+        runtime.safe_components.assert_called_once_with(args.lab_directory)
         self.assertEqual(sum(c[0]!='systemctl' for c in commands),1)
         tree=ast.parse((ROOT/'scripts/g965n/run-ril-test.py').read_text())
         calls=[n for n in ast.walk(tree) if isinstance(n,ast.Call) and

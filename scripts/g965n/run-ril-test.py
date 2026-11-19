@@ -61,6 +61,8 @@ def main():
     parser.add_argument('--diagnostic-status', action='store_true')
     parser.add_argument('--capture-private-rfs', action='store_true',
                         help='Capture bounded OPEN/CLOSE requests in the private lab, never NV payloads')
+    parser.add_argument('--serve-private-rfs-diagnostics', action='store_true',
+                        help='Opt in to two bounded new private diagnostic files; never original EFS')
     parser.add_argument('--scan-networks', action='store_true',
                         help='One bounded network scan; requires online observe-only mode and >=110seconds')
     parser.add_argument('--scan-networks-s9', action='store_true',
@@ -117,6 +119,9 @@ def main():
         if getattr(args, 'capture_private_rfs', False):
             runtime.safe_components(args.lab_directory)
             command += ['--private-rfs-capture', str(args.lab_directory / 'rfs-open-requests.bin')]
+        if getattr(args, 'serve_private_rfs_diagnostics', False):
+            runtime.safe_components(args.lab_directory)
+            command += ['--private-rfs-diagnostics', str(args.lab_directory / 'rfs-diagnostics')]
         properties = [
             ('Description', GLib.Variant('s', 'Bounded G965N private-copy IPC/RFS lab')),
             ('DevicePolicy', GLib.Variant('s', 'closed')),

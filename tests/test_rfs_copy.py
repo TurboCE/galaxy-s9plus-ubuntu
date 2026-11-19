@@ -55,6 +55,20 @@ class PrivateNVTests(unittest.TestCase):
         with self.assertRaises(OSError):
             rfs.WorkingNV(self.working)
 
+    def test_optional_diagnostic_writes_leave_original_and_working_nv_unchanged(self):
+        directory = self.working.parent / 'diagnostics'; directory.mkdir(mode=0o700)
+        diagnostic = rfs.PrivateDiagnosticFiles(directory.resolve()); self.addCleanup(diagnostic.close)
+        nv = rfs.WorkingNV(self.working, diagnostic); self.addCleanup(nv.close)
+        before = nv.digest(); original = self.original.read_bytes()
+        name = b'err/csdiag_mmrj_Info.dat\0'
+        response = nv.handle(struct.pack('<IBBII',14+len(name),17,1,66,len(name))+name)
+        handle = struct.unpack_from('<i',response,6)[0]
+        response = nv.handle(struct.pack('<IBBiI',18,4,2,handle,4)+b'test')
+        self.assertEqual(struct.unpack_from('<ii',response,6),(4,0))
+        self.assertEqual(nv.digest(),before)
+        self.assertEqual(self.original.read_bytes(),original)
+        self.assertEqual((directory/'network-diagnostic.bin').read_bytes(),b'test')
+
 
 if __name__ == '__main__':
     unittest.main()
