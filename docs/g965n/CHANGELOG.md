@@ -2951,3 +2951,12 @@ this change they misleadingly displayed Edge while GIC configuration was level.
 This qualifies native interrupt-description/probe warning correction. Actual
 IRQ delivery from an active CP, SIM, LTE/PDP/voice and modem endurance remain
 unverified; the modem is not autostarted or powered by this qualification.
+
+Post-reboot IBus virtual-keycode0 comparison again commits `가나다`; standard
+user IBus service auto-started, so login persistence is now observed. The complete
+new boot's sole pre-modem error was the same SSP initial0/36 retry1; subsequent
+vendor modem probe emits additional error-priority progress/config messages
+(including absent optional reset GPIO, ECT tables and packet logger). Those raw
+messages are preserved privately rather than suppressed. The six IRQ translation
+WARNs are absent; CP sequencer/central remain0. No new SIM/data proof inferred.
+Fold7 test-owned received file and UI dump removed after transfer qualification.
