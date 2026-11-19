@@ -652,6 +652,21 @@ def completed_cereg_registration(body, command):
     return cereg_registration(body)
 
 
+def completed_packet_attachment(body, command):
+    """Only the completed read query establishes an already-attached CP."""
+    if (command != 'AT+CGATT?' or b'AT+CGATT?\r' not in body or
+            b'\r\nOK\r\n' not in body or
+            re.search(rb'(?:^|[\r\n])(?:ERROR|\+CME ERROR:)', body)):
+        return None
+    values = re.findall(rb'(?:^|\r\n)\+CGATT: *([01])\r\n', body)
+    return values[0] == b'1' if len(values) == 1 else None
+
+
+def packet_attachment_ready(acknowledged, queried, queried_at, now):
+    return acknowledged or (queried is True and queried_at is not None and
+                            0 <= now - queried_at <= 15)
+
+
 def validate_s9_opt_in(args):
     selected = bool(args.activate_pdp_s9)
     if selected != bool(args.confirm_reviewed_s9_pdp_layout):
@@ -747,6 +762,8 @@ def main():
         phone_normal = False
         ps_attach_issued = False
         ps_attach_acknowledged = False
+        ps_attach_query = None
+        ps_attach_query_at = None
         network_selection_issued = False
         registered = False
         registration_at = None
@@ -854,7 +871,7 @@ def main():
                     at_queue.extend(['AT+CIMI', 'AT+CGSN', 'AT+CSQ', 'AT+CESQ', 'AT+CFUN?', 'AT+CPIN?', 'AT+COPS?',
                                      'AT+CGATT?', 'AT+CGREG?', 'AT+CREG?', 'AT+CEER', 'AT+CEREG=?'])
                 diagnostic_queued = True
-            if pdp_opt_in and pdp_plan is None and registered and registration_at is not None and now-registration_at <= 15 and sim_ready and radio_asked and ps_attach_acknowledged and at_ready and not at_failed:
+            if pdp_opt_in and pdp_plan is None and registered and registration_at is not None and now-registration_at <= 15 and sim_ready and radio_asked and packet_attachment_ready(ps_attach_acknowledged, ps_attach_query, ps_attach_query_at, now) and at_ready and not at_failed:
                 pdp_plan = S9PDPPlan(args.apn, args.pdp_cid, now, timeout=args.pdp_seconds)
                 request = pdp_plan.registered(True, now)
                 if request:
@@ -880,6 +897,8 @@ def main():
             if at_ready and not at_failed and time.monotonic() >= next_at:
                 if 'AT+CEREG?' not in at_queue and (not at_active or at_active[0] != 'AT+CEREG?'):
                     at_queue.append('AT+CEREG?')
+                if pdp_opt_in and 'AT+CGATT?' not in at_queue and (not at_active or at_active[0] != 'AT+CGATT?'):
+                    at_queue.append('AT+CGATT?')
                 next_at += 10
             if at_ready and not at_failed and configured and acknowledged == {0x0D14, 0x080A, 0x0808} and not radio_asked:
                 # The owner's actual RIL uses IPC EXEC, not AT+CFUN, for RF
@@ -932,6 +951,11 @@ def main():
                             ok = b'\r\nOK\r\n' in at_buffer and b'ERROR' not in at_buffer
                             print(json.dumps({'eps_query': cereg_query_status_only(at_buffer) if ok else None,
                                               'reply_ok': ok, 'registered_for_initial_pdp': registered}), flush=True)
+                        elif at_active[0] == 'AT+CGATT?':
+                            ps_attach_query = completed_packet_attachment(at_buffer, at_active[0])
+                            ps_attach_query_at = time.monotonic() if ps_attach_query is not None else None
+                            print(json.dumps({'packet_attachment_query': ps_attach_query,
+                                              'attachment_ack_inferred': False}), flush=True)
                         elif at_active[0] == 'AT+CEREG=?':
                             ok = b'\r\nOK\r\n' in at_buffer and b'ERROR' not in at_buffer
                             print(json.dumps({'eps_reporting_modes': cereg_supported_modes(at_buffer) if ok else None,
@@ -987,6 +1011,8 @@ def main():
                             phone_normal = False
                             ps_attach_issued = False
                             ps_attach_acknowledged = False
+                            ps_attach_query = None
+                            ps_attach_query_at = None
                             network_selection_issued = False
                             registered = False
                             registration_at = None

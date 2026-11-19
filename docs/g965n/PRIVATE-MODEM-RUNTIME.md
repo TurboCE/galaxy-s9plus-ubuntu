@@ -535,3 +535,15 @@ kernel lacks IP_ADVANCED_ROUTER/multiple-table support (`ip rule` unsupported);
 first policy-route preflight made no changes. Host-route testing succeeds while
 Wi-Fi/default routing remains available. Persistent bearer/network integration,
 advanced routing configuration and file-service/shutdown lifecycle remain work.
+
+
+An already-attached CP can report EPS1 and a completed `AT+CGATT?` value1/OK
+while an explicit PS-attach SET returns raw0x8005. That raw result is not decoded
+or treated as an ACK. The PDP gate can instead use a completed, echoed,
+unambiguous attachment query1/OK no older than15seconds, with the existing
+fresh registration/SIM/radio/AT conditions. A negative/invalid reply clears that
+query path and CP boot resets it. Polling remains bounded and PDP-opt-in only.
+A distinct native cold run repeats actual DNS/TLS204 and live query parsing;
+that run had a successful SET ACK, so the no-ACK alternative still needs a
+matching hardware scenario. No automatic reset loop or persistent service is
+introduced by this change.

@@ -4053,3 +4053,28 @@ Cleanup after the data trial completed a verified distinct normal reboot.
 Modem module is absent (default opt-in preserved), no failed systemd units;
 audio/Bluetooth/sensor services are active. This is service restoration, not
 a repeat physical test of every owner-confirmed feature or a clean-ring claim.
+
+
+Cold-start repeat after the successful data trial registers EPS1, but does not
+start PDP: radio EXEC and explicit PS-attach SET return raw0x8005 while the
+completed read-only AT+CGATT? query reports1/OK. Do not interpret raw0x8005 as
+success or infer its namespace. Existing PDP gate required the SET acknowledgement
+and therefore ignored independently verified existing attachment. No network
+mutation/data request occurred in this repeat.
+
+Prepare a second gate path using only an echoed, completed, unambiguous
+AT+CGATT? response1/OK no older than15seconds, plus the existing fresh EPS/SIM/
+radio/AT prerequisites. Unknown/negative/malformed/error/duplicate responses
+invalidate that read path; CP boot notification clears it. Poll the read query
+alongside registration only for explicit PDP trials. Never manufacture an ACK,
+remove the registration guard, or retry a radio mutation blindly. Thirteen radio,
+14PDP and4CEREG host tests pass; this addition awaits hardware qualification.
+
+
+Native cold trial with the query-aware candidate again verifies EPS1, activeCID1,
+modem-only DNS and certificate/hostname verified HTTPS204. RX10/TX9,
+4175RX/1204TXbytes,0interface errors; temporary state restoration passes.
+Completed CGATT queries report false then true while readiness advances.
+This boot returns actual0x8000 for both EXEC and PS-attach SET, so it verifies
+cold-start data and live query parsing, but does not hardware-qualify the specific
+no-SET-ACK alternate gate. Retain that limit; no always-connected claim.

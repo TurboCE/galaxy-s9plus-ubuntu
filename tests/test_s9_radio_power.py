@@ -42,6 +42,21 @@ class RadioWireFacts(unittest.TestCase):
         frame=struct.pack('<HBBBBB',len(body)+7,1,255,command>>8,command&255,kind)+body
         self.assertEqual(frame,bytes.fromhex('0f0001ff08020302000000000000ff'))
 
+    def test_already_attached_requires_completed_unambiguous_read_query(self):
+        good=b'AT+CGATT?\r\r\n+CGATT: 1\r\n\r\nOK\r\n'
+        self.assertIs(ril.completed_packet_attachment(good,'AT+CGATT?'),True)
+        self.assertIs(ril.completed_packet_attachment(good.replace(b': 1',b': 0'),'AT+CGATT?'),False)
+        for body,command in ((good,'AT+CEREG?'),(good.replace(b'AT+CGATT?\r',b''),'AT+CGATT?'),
+                (good.replace(b'OK',b'ERROR'),'AT+CGATT?'),
+                (good.replace(b'OK',b'+CME ERROR: 3'),'AT+CGATT?'),
+                (good.replace(b'+CGATT: 1',b'+CGATT: 2'),'AT+CGATT?'),
+                (good.replace(b'\r\nOK',b'\r\n+CGATT: 0\r\nOK'),'AT+CGATT?')):
+            self.assertIsNone(ril.completed_packet_attachment(body,command))
+        self.assertTrue(ril.packet_attachment_ready(False,True,10,25))
+        self.assertTrue(ril.packet_attachment_ready(True,None,None,25))
+        for state,stamp,now in ((False,10,11),(None,10,11),(True,None,11),(True,10,26),(True,10,9)):
+            self.assertFalse(ril.packet_attachment_ready(False,state,stamp,now))
+
     def test_attach_profile_uses_reviewed_ipv4_mapping_consistent_with_pdp(self):
         body=ril.s9_lte_attach_profile('fixture.example')
         self.assertEqual(len(body),194)
