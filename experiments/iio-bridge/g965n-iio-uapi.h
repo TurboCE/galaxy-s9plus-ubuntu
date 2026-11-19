@@ -16,6 +16,7 @@ typedef uint64_t g965n_le64;
 #define G965N_IIO_LIGHT 2U
 #define G965N_IIO_HEARTBEAT 3U
 #define G965N_IIO_PRESSURE 4U
+#define G965N_IIO_PROXIMITY 5U
 #define G965N_IIO_RANGE_8G_CONFIRMED 1U
 /* Little endian, exactly48bytes. value[] encodes signed32-bit integers.
  * seq starts at1, strictly increases within an exclusive writer session.
@@ -24,6 +25,7 @@ typedef uint64_t g965n_le64;
  * HEARTBEAT: all values/flags zero. reserved[] always zero.
  * PRESSURE: positive LPS22H raw counts (24-bit signed range) in value[0].
  * The other values and flags are zero.
+ * PROXIMITY: firmware detection bit in value[0]; other values/flags zero.
  */
 struct g965n_iio_frame {
  g965n_le32 version, size;

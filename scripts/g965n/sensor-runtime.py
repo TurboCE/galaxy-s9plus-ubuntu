@@ -128,12 +128,14 @@ def validate_profile(profile):
             raise RuntimeError('Orientation evidence does not qualify selected matrix')
     elif 'mount_matrix' in accel or 'orientation_evidence' in profile:
         raise RuntimeError('ALS-only profile must not invent orientation evidence or matrix')
-    if any(key in profile for key in ('magnetic_capture','magnetic_initialization','pressure')):
+    optional_sensors=('pressure','proximity')
+    if any(key in profile for key in ('magnetic_capture','magnetic_initialization',*optional_sensors)):
         program=load_program(profile,'broker')
         program.magnetic_capture_policy(profile)
         program.magnetic_initialization(profile)
-        if 'pressure' in profile:
-            program.pressure_enabled(profile)
+        for name in optional_sensors:
+            if name in profile:
+                program.optional_sensor_enabled(profile,name)
     transport_policy(profile)
     if set(profile['identity'])!={'chip_id','firmware','sensor_mask'} or any(type(v)is not int or v<0 for v in profile['identity'].values()):
         raise RuntimeError('Expected pinned hub identity facts')
@@ -256,10 +258,12 @@ def bridge_policy(profile):
     if enabled:
         matrix=','.join(str(v) for v in profile['accel']['mount_matrix'])
         params.append('accel_mount_matrix='+matrix);expected['accel_mount_matrix']=matrix
-    if 'pressure' in profile:
-        pressure=profile['pressure']['enabled']
-        params.append('enable_pressure='+str(int(pressure)))
-        expected['enable_pressure']='Y' if pressure else 'N'
+    for name in ('pressure','proximity'):
+        if name in profile:
+            parameter='enable_'+name
+            enabled=profile[name]['enabled']
+            params.append(parameter+'='+str(int(enabled)))
+            expected[parameter]='Y' if enabled else 'N'
     return params,expected
 
 

@@ -231,6 +231,20 @@ diagnostic field. Pressure accuracy against a reference and stock per-device
 compensation still need qualification. See the
 [bridge documentation](../../experiments/iio-bridge/README.md).
 
+## Opt-in proximity IIO on native #44
+
+Set `"proximity": {"enabled": true}` in the root-owned sensor profile for
+the pinned TMD4906 SSP configuration. Use the matched broker,
+supervisor and bridge and update their receipt/profile/unit pins as
+above. The broker requires live advertised ID 7 and waits for an actual
+hardware sample. The existing hub sends subsequent updates when the
+detection state changes.
+
+The stock Ubuntu SensorProxy recognizes this IIO device. Its
+`HasProximity` and `ProximityNear` properties are observable with
+`monitor-sensor --proximity`. The interface represents the hub's
+near/far decision. Apps claim the sensor and choose how to respond.
+
 ## Native rotation lock
 
 Use GNOME's existing **Auto Rotate** tile in the top-right quick settings.

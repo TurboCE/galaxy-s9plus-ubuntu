@@ -8,6 +8,7 @@
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
 #include <linux/ktime.h>
+#include <linux/sysfs.h>
 #include <linux/iio/iio.h>
 #include "bridge-core.h"
 
@@ -19,13 +20,16 @@ MODULE_PARM_DESC(enable_accel, "Opt-in acceleration only after actual mounting e
 static bool enable_pressure;
 module_param(enable_pressure, bool, 0444);
 MODULE_PARM_DESC(enable_pressure, "Opt-in LPS22H pressure on the qualified SSP profile");
+static bool enable_proximity;
+module_param(enable_proximity, bool, 0444);
+MODULE_PARM_DESC(enable_proximity, "Opt-in TMD4906 proximity on the qualified SSP profile");
 static int accel_matrix[9], accel_matrix_count;
 module_param_array_named(accel_mount_matrix, accel_matrix, int, &accel_matrix_count, 0444);
 MODULE_PARM_DESC(accel_mount_matrix, "Required explicit9-entry signed permutation, sensor to display axes");
 static DEFINE_MUTEX(lifecycle_lock);
 static DEFINE_MUTEX(sample_lock);
 static struct bridge_cache cache;
-static struct iio_dev *accel_dev, *light_dev, *pressure_dev;
+static struct iio_dev *accel_dev, *light_dev, *pressure_dev, *proximity_dev;
 static bool writer_open;
 static struct iio_mount_matrix mount;
 static struct miscdevice bridge_misc;
@@ -49,6 +53,18 @@ static const struct iio_chan_spec pressure_channels[] = {
  { .type=IIO_PRESSURE, .info_mask_separate=BIT(IIO_CHAN_INFO_RAW),
    .info_mask_shared_by_type=BIT(IIO_CHAN_INFO_SCALE) }
 };
+static ssize_t read_nearlevel(struct iio_dev *dev, uintptr_t private,
+                             const struct iio_chan_spec *chan, char *buf)
+{
+ return sysfs_emit(buf,"1\n");
+}
+static const struct iio_chan_spec_ext_info proximity_ext[] = {
+ { .name="nearlevel", .shared=IIO_SEPARATE, .read=read_nearlevel }, { }
+};
+static const struct iio_chan_spec proximity_channels[] = {
+ { .type=IIO_PROXIMITY, .info_mask_separate=BIT(IIO_CHAN_INFO_RAW),
+   .ext_info=proximity_ext },
+};
 static int read_sample(struct iio_dev *dev,const struct iio_chan_spec *chan,
                        int *val,int *val2,long mask)
 {
@@ -59,6 +75,7 @@ static int read_sample(struct iio_dev *dev,const struct iio_chan_spec *chan,
  case IIO_ACCEL: type=G965N_IIO_ACCEL;axis=chan->channel2-IIO_MOD_X;break;
  case IIO_LIGHT: type=G965N_IIO_LIGHT;break;
  case IIO_PRESSURE: type=G965N_IIO_PRESSURE;break;
+ case IIO_PROXIMITY: type=G965N_IIO_PROXIMITY;break;
  default: return -EINVAL;
  }
  mutex_lock(&sample_lock);
@@ -73,6 +90,10 @@ static int read_sample(struct iio_dev *dev,const struct iio_chan_spec *chan,
  } else if ((mask==IIO_CHAN_INFO_RAW && type!=G965N_IIO_LIGHT) ||
             (mask==IIO_CHAN_INFO_PROCESSED && type==G965N_IIO_LIGHT)) {
   ret=bridge_read(&cache,type,axis,ktime_get_boottime_ns(),&sample);
+  /* Bracket the integer nearlevel and the proxy's hysteresis without
+   * applying a second threshold to the hardware's raw ADC.
+   */
+  if (!ret && type==G965N_IIO_PROXIMITY) sample*=2;
   if (!ret) {*val=sample;ret=IIO_VAL_INT;}
  } else ret=-EINVAL;
  mutex_unlock(&sample_lock);
@@ -97,6 +118,10 @@ static int register_sensor(u32 type)
  case G965N_IIO_PRESSURE:
   if (!enable_pressure) return -EACCES;
   target=&pressure_dev;name="g965n-ssp-pressure";channels=pressure_channels;count=ARRAY_SIZE(pressure_channels);
+  break;
+ case G965N_IIO_PROXIMITY:
+  if (!enable_proximity) return -EACCES;
+  target=&proximity_dev;name="g965n-ssp-proximity";channels=proximity_channels;count=ARRAY_SIZE(proximity_channels);
   break;
  default: return -EINVAL;
  }
@@ -155,6 +180,7 @@ static int bridge_close(struct inode *inode,struct file *file)
  if (light_dev) {iio_device_unregister(light_dev);iio_device_free(light_dev);light_dev=NULL;}
  if (accel_dev) {iio_device_unregister(accel_dev);iio_device_free(accel_dev);accel_dev=NULL;}
  if (pressure_dev) {iio_device_unregister(pressure_dev);iio_device_free(pressure_dev);pressure_dev=NULL;}
+ if (proximity_dev) {iio_device_unregister(proximity_dev);iio_device_free(proximity_dev);proximity_dev=NULL;}
  writer_open=false;
  mutex_unlock(&lifecycle_lock);return 0;
 }

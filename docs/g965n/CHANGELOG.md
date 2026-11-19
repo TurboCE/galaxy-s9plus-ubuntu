@@ -4797,3 +4797,22 @@ error-priority entries and 67 warnings, including a hub reset-line
 warning, two early transmit retries and the Bluetooth capability
 notice. SIM-present reconnection on this changed build, hot
 reinsertion, and pressure accuracy against a reference remain pending.
+
+### 2026-11-20 — TMD4906 proximity through the stock Ubuntu SensorProxy
+
+Added opt-in SSP ID 7 to the pinned IIO broker and bridge. The hub's
+binary detection bit becomes IIO levels 0 (far) and 2 (near), which
+straddle the proxy's integer level 1 and its hysteresis. The runtime
+requires a real hardware frame before registering the device. On-change
+state requires a live broker and is cleared when the broker closes.
+
+After verifying the native #44 BOOT and nine-partition backup, saved
+the old sensor unit and profile and hot-replaced the IIO bridge.
+The stock `monitor-sensor --proximity` claimed the new sensor and
+reported far. An ordinary Ubuntu user read 80 far samples over 20
+seconds while acceleration, lux and pressure remained readable.
+Wi-Fi-bound HTTPS returned 204 and no systemd units failed. No
+warning-priority kernel entries were logged after sensor readiness
+in the observation window. Earlier native #23 physical near/far tests
+covered the raw hub output. The new Ubuntu path's physical transitions,
+distinct boot and suspend/wake behavior remain pending.

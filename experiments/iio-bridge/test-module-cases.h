@@ -6,6 +6,11 @@ static int iio_device_register(struct iio_dev *p)
  /* Device cannot advertise data/scale until its first real sample is ready. */
  if(p->channels[0].type==IIO_ACCEL){assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT);assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_SCALE)==IIO_VAL_INT_PLUS_NANO&&v==0&&v2==2394202);}
  else if(p->channels[0].type==IIO_PRESSURE){assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&v==4161524);assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_SCALE)==IIO_VAL_FRACTIONAL&&v==1&&v2==40960);}
+ else if(p->channels[0].type==IIO_PROXIMITY){
+  char buf[16];
+  assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&v==0);
+  assert(p->channels[0].ext_info->read(p,0,p->channels,buf)==2&&!strcmp(buf,"1\n"));
+ }
  else assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_PROCESSED)==IIO_VAL_INT);
  registrations++;return 0;
 }
@@ -42,9 +47,12 @@ int main(void)
  disabled=frame(G965N_IIO_PRESSURE,2);disabled.value[0]=bridge_le32(4161524);
  assert(bridge_write(&file,(const char *)&disabled,48,NULL)==-EACCES);
  assert(cache.seq==1&&!cache.pressure.valid&&!pressure_dev);
+ disabled=frame(G965N_IIO_PROXIMITY,2);
+ assert(bridge_write(&file,(const char *)&disabled,48,NULL)==-EACCES);
+ assert(cache.seq==1&&!cache.proximity.valid&&!proximity_dev);
  assert(!bridge_close(NULL,&file));bridge_exit();
  assert(frees==allocations);allocations=registrations=unregistrations=frees=0;
- enable_accel=true;enable_pressure=true;assert(bridge_init()==-EINVAL);accel_matrix_count=9;accel_matrix[0]=accel_matrix[4]=accel_matrix[8]=1;assert(!bridge_init());assert(misc_registered==1&&!accel_dev&&!light_dev&&!pressure_dev);
+ enable_accel=true;enable_pressure=true;enable_proximity=true;assert(bridge_init()==-EINVAL);accel_matrix_count=9;accel_matrix[0]=accel_matrix[4]=accel_matrix[8]=1;assert(!bridge_init());assert(misc_registered==1&&!accel_dev&&!light_dev&&!pressure_dev&&!proximity_dev);
  unsigned int before_opens=stream_opens;
  cap=false;assert(bridge_open(NULL,&file)==-EPERM);cap=true;assert(bridge_open(NULL,&bad)==-EACCES);
  assert(stream_opens==before_opens);
@@ -65,12 +73,21 @@ int main(void)
  assert(bridge_write(&file,(const char *)&p,48,NULL)==-ERANGE&&!pressure_dev);
  p.value[0]=bridge_le32(4161524);
  assert(bridge_write(&file,(const char *)&p,48,NULL)==48&&pressure_dev&&registrations==3);
+ p=frame(G965N_IIO_PROXIMITY,4);p.value[0]=bridge_le32(2);
+ assert(bridge_write(&file,(const char *)&p,48,NULL)==-ERANGE&&!proximity_dev);
+ p.value[0]=0;
+ assert(bridge_write(&file,(const char *)&p,48,NULL)==48&&proximity_dev&&registrations==4);
+ p=frame(G965N_IIO_PROXIMITY,5);p.value[0]=bridge_le32(1);
+ assert(bridge_write(&file,(const char *)&p,48,NULL)==48);
+ assert(read_sample(proximity_dev,proximity_channels,&val,&val2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&val==2);
  clock_ns+=G965N_FRESH_NS+1;
  assert(read_sample(accel_dev,accel_channels,&val,&val2,IIO_CHAN_INFO_RAW)==-ENODATA);
  assert(read_sample(light_dev,light_channels,&val,&val2,IIO_CHAN_INFO_PROCESSED)==-ENODATA);
- p=frame(3,4);assert(bridge_write(&file,(const char *)&p,48,NULL)==48);assert(read_sample(light_dev,light_channels,&val,&val2,IIO_CHAN_INFO_PROCESSED)==IIO_VAL_INT&&val==100);assert(read_sample(accel_dev,accel_channels,&val,&val2,IIO_CHAN_INFO_RAW)==-ENODATA);
+ assert(read_sample(proximity_dev,proximity_channels,&val,&val2,IIO_CHAN_INFO_RAW)==-ENODATA);
+ p=frame(3,6);assert(bridge_write(&file,(const char *)&p,48,NULL)==48);assert(read_sample(light_dev,light_channels,&val,&val2,IIO_CHAN_INFO_PROCESSED)==IIO_VAL_INT&&val==100);assert(read_sample(accel_dev,accel_channels,&val,&val2,IIO_CHAN_INFO_RAW)==-ENODATA);
  assert(read_sample(pressure_dev,pressure_channels,&val,&val2,IIO_CHAN_INFO_RAW)==-ENODATA);
- assert(!bridge_close(NULL,&file));assert(!cache.connected&&!accel_dev&&!light_dev&&!pressure_dev&&!writer_open);assert(unregistrations==3&&frees==allocations);
+ assert(read_sample(proximity_dev,proximity_channels,&val,&val2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&val==2);
+ assert(!bridge_close(NULL,&file));assert(!cache.connected&&!accel_dev&&!light_dev&&!pressure_dev&&!proximity_dev&&!writer_open);assert(unregistrations==4&&frees==allocations);
  assert(!bridge_open(NULL,&file));assert(!cache.seq&&!cache.accel.valid&&!cache.light.valid);assert(!bridge_close(NULL,&file));
  bridge_exit();assert(!misc_registered);return 0;
 }

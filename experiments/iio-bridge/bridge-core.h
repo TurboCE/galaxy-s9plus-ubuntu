@@ -21,7 +21,7 @@ typedef uint32_t u32; typedef uint64_t u64; typedef int32_t s32;
 #endif
 #define G965N_FRESH_NS 2000000000ULL
 struct bridge_sample { bool valid; s32 value[3]; u64 when; };
-struct bridge_cache { struct bridge_sample accel, light, pressure; u64 heartbeat, seq; bool connected; };
+struct bridge_cache { struct bridge_sample accel, light, pressure, proximity; u64 heartbeat, seq; bool connected; };
 struct bridge_decoded { u64 seq; u32 type; s32 value[3]; };
 static inline int bridge_decode(const struct g965n_iio_frame *p, unsigned int bytes,
                                 u64 last, struct bridge_decoded *out)
@@ -46,6 +46,10 @@ static inline int bridge_decode(const struct g965n_iio_frame *p, unsigned int by
  case G965N_IIO_PRESSURE:
   if (flags || out->value[1] || out->value[2]) return -EINVAL;
   if (out->value[0]<=0 || out->value[0]>0x7fffff) return -ERANGE;
+  break;
+ case G965N_IIO_PROXIMITY:
+  if (flags || out->value[1] || out->value[2]) return -EINVAL;
+  if (out->value[0]<0 || out->value[0]>1) return -ERANGE;
   break;
  case G965N_IIO_HEARTBEAT:
   if (flags || out->value[0] || out->value[1] || out->value[2]) return -EINVAL;
@@ -78,6 +82,7 @@ static inline void bridge_update(struct bridge_cache *c,const struct bridge_deco
  case G965N_IIO_ACCEL: s=&c->accel; break;
  case G965N_IIO_LIGHT: s=&c->light; break;
  case G965N_IIO_PRESSURE: s=&c->pressure; break;
+ case G965N_IIO_PROXIMITY: s=&c->proximity; break;
  default: s=NULL; break;
  }
  if (s) {
@@ -94,10 +99,12 @@ static inline int bridge_read(const struct bridge_cache *c,u32 type,unsigned int
  case G965N_IIO_ACCEL: s=&c->accel; break;
  case G965N_IIO_LIGHT: s=&c->light; break;
  case G965N_IIO_PRESSURE: s=&c->pressure; break;
+ case G965N_IIO_PROXIMITY: s=&c->proximity; break;
  default: return -EINVAL;
  }
  if (!c->connected || !bridge_fresh(c->heartbeat,now) || !s->valid) return -ENODATA;
- if (type!=G965N_IIO_LIGHT && !bridge_fresh(s->when,now)) return -ENODATA;
+ if ((type==G965N_IIO_ACCEL || type==G965N_IIO_PRESSURE) &&
+     !bridge_fresh(s->when,now)) return -ENODATA;
  *value=s->value[axis];return 0;
 }
 #endif

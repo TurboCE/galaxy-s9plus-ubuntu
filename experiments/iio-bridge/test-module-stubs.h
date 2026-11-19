@@ -25,6 +25,7 @@
 #define IIO_ACCEL 1
 #define IIO_LIGHT 2
 #define IIO_PRESSURE 3
+#define IIO_PROXIMITY 4
 #define IIO_MOD_X 1
 #define IIO_MOD_Y 2
 #define IIO_MOD_Z 3
@@ -36,6 +37,7 @@
 #define IIO_VAL_FRACTIONAL 10
 #define INDIO_DIRECT_MODE 1
 #define IIO_SHARED_BY_TYPE 1
+#define IIO_SEPARATE 0
 #define MISC_DYNAMIC_MINOR 255
 struct mutex {bool locked;};
 #define DEFINE_MUTEX(name) struct mutex name
@@ -64,10 +66,12 @@ static int copy_fail,copy_count;
 static unsigned long copy_from_user(void *d,const void *s,size_t n){copy_count++;if(copy_fail)return n;memcpy(d,s,n);return 0;}
 struct device {int unused;};
 struct iio_mount_matrix {const char *rotation[9];};
-struct iio_chan_spec_ext_info {int dummy;};
-#define IIO_MOUNT_MATRIX(...) {1}
-struct iio_chan_spec {int type,modified,channel2;unsigned int info_mask_separate,info_mask_shared_by_type;const struct iio_chan_spec_ext_info *ext_info;};
 struct iio_dev;
+struct iio_chan_spec;
+struct iio_chan_spec_ext_info {const char *name;int shared;ssize_t (*read)(struct iio_dev *,uintptr_t,const struct iio_chan_spec *,char *);};
+#define IIO_MOUNT_MATRIX(...) {.name="mount_matrix"}
+#define sysfs_emit(buf, text) ((ssize_t)strlen(strcpy(buf,text)))
+struct iio_chan_spec {int type,modified,channel2;unsigned int info_mask_separate,info_mask_shared_by_type;const struct iio_chan_spec_ext_info *ext_info;};
 struct iio_info {int (*read_raw)(struct iio_dev *,const struct iio_chan_spec *,int *,int *,long);};
 struct iio_dev {const char *name;const struct iio_info *info;int modes;const struct iio_chan_spec *channels;unsigned int num_channels;};
 struct file_operations {void *owner;int (*open)(struct inode *,struct file *);ssize_t (*write)(struct file *,const char *,size_t,loff_t *);int (*release)(struct inode *,struct file *);void *llseek;};

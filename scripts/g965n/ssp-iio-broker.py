@@ -151,10 +151,10 @@ def load_module(entry, name):
     return module
 
 
-def pressure_enabled(profile):
-    policy = profile.get('pressure', {'enabled': False})
+def optional_sensor_enabled(profile, name):
+    policy = profile.get(name, {'enabled': False})
     if not isinstance(policy, dict) or set(policy) != {'enabled'} or type(policy['enabled']) is not bool:
-        raise ValueError('Pressure enable must be an explicit boolean')
+        raise ValueError(f'{name} enable must be an explicit boolean')
     return policy['enabled']
 
 
@@ -189,7 +189,8 @@ def verify_profile(path):
             raise ValueError('Acceleration mounting evidence does not match')
     magnetic_capture_policy(profile)
     magnetic_initialization(profile)
-    pressure_enabled(profile)
+    for name in ('pressure', 'proximity'):
+        optional_sensor_enabled(profile, name)
     return profile
 
 
@@ -211,6 +212,9 @@ class Feed:
         elif kind == 4:
             if not 0 < values[0] <= 0x7fffff or values[1:] != (0, 0):
                 raise ValueError('Invalid actual LPS22H pressure tuple')
+        elif kind == 5:
+            if values[0] not in (0, 1) or values[1:] != (0, 0):
+                raise ValueError('Invalid actual TMD4906 detection tuple')
         elif kind != 3 or values != (0, 0, 0):
             raise ValueError('Invalid heartbeat')
         if self.seq == 0xffffffffffffffff:
@@ -234,6 +238,8 @@ def publish_actual(probe, selected, feed, seen, last_accel, now):
             feed.publish(2, (latest[0], 0, 0))
         elif sensor == 5:
             feed.publish(4, (latest[0], 0, 0))
+        elif sensor == 7:
+            feed.publish(5, (latest[0], 0, 0))
         elif sensor == 4:
             pass  # Private raw diagnostic only; never publish an unqualified heading.
         else:
@@ -310,8 +316,9 @@ def run(profile, ssp, ready_fd, stop_fd):
             if any(identity.get(k) != expected.get(k) for k in ('chip_id', 'firmware', 'sensor_mask')):
                 raise ValueError('Live hub identity differs from qualified profile')
             selected = [0, 9] if profile['accel']['enabled'] else [9]
-            if pressure_enabled(profile):
-                selected.append(5)
+            for name, sensor in (('pressure', 5), ('proximity', 7)):
+                if optional_sensor_enabled(profile, name):
+                    selected.append(sensor)
             capture_policy = magnetic_capture_policy(profile)
             if capture_policy is not None:
                 selected.append(4)  # Calibrated only; never enable conflicting raw2/3.

@@ -53,7 +53,7 @@ callback. The file's module reference prevents normal unload while a writer is o
 | --- | --- |
 | version / size | 1 / 48 |
 | seq | First accepted frame1, then strictly increasing unsigned64; no wrap |
-| type | 1 acceleration, 2 illuminance, 3 heartbeat, 4 pressure |
+| type | 1 acceleration, 2 illuminance, 3 heartbeat, 4 pressure, 5 proximity |
 | flags | Acceleration exactly1, otherwise0 |
 | value[3] | Signed32 encoding, constrained by sensor type |
 | reserved[3] | All zero |
@@ -85,6 +85,13 @@ This interpretation follows the pinned Android sensor identity and parser,
 the datasheet and the observed counts. Absolute accuracy and the optional
 Android per-device compensation still require a reference measurement.
 
+Proximity is opt-in with `enable_proximity=1`. The broker forwards the
+actual TMD4906 SSP ID 7 detection bit. The bridge presents it as
+unitless raw levels 0 (far) and 2 (near), with an integer near level of
+1. This preserves the hub's own decision across the stock proxy's
+integer threshold and hysteresis. The separate ADC field remains
+available through the existing SSP diagnostic.
+
 ## Real IIO semantics and freshness
 
 No IIO device is registered until that sensor's first valid real frame. This
@@ -95,11 +102,12 @@ verified. Registration exposes:
   scale and standard `in_accel_mount_matrix` through `IIO_MOUNT_MATRIX`.
 - `g965n-ssp-light`: processed `in_illuminance_input`, integer lux.
 - `g965n-ssp-pressure`: `in_pressure_raw` and `in_pressure_scale`, yielding kPa.
+- `g965n-ssp-proximity`: `in_proximity_raw` and `in_proximity_nearlevel`.
 
 Before the first reading, cache reads return `ENODATA` rather than a fabricated
 sample. Acceleration and pressure each require both their own sample age and
 broker heartbeat age to be at most two seconds. A newer heartbeat does not
-revive an old sample. On-change light readings remain valid while broker heartbeat is fresh;
+revive an old sample. On-change light and proximity readings remain valid while broker heartbeat is fresh;
 the broker must monitor transport/daemon health, not blindly heartbeat through
 lost hardware access. Future timestamps are invalid; timestamps are assigned
 by kernel boottime when a frame is accepted, not supplied by userspace.
@@ -109,7 +117,7 @@ the IIO devices, and resets the session for the next exclusive writer.
 Lifecycle operations serialize open/write/registration/close. Separate sample
 locking protects reads and cache updates. Sample locking is released before
 IIO/kernfs unregister, so an active `read_raw` cannot deadlock removal. There
-are no trigger, buffer, proximity, compass, magnetometer or gyroscope claims.
+are no trigger, buffer, compass, magnetometer or gyroscope claims.
 
 ## Standard Ubuntu integration
 
@@ -124,8 +132,10 @@ No special udev rule is needed beyond the installed upstream sensor rules.
 The proxy's polling path is suitable for screen orientation and ambient light,
 not proof of high-rate motion capture. Its compass path expects a buffered
 actual tilt-compensated magnetic-north heading; raw magnetometer data must not
-be mislabeled as that heading. Proximity support additionally needs a real
-measurement and validated threshold, and is outside this module's scope.
+be mislabeled as that heading. Its proximity rule selects the stock poll driver
+through `in_proximity_raw`, and that driver reads the bridge's
+`in_proximity_nearlevel` when no device-specific udev override is set.
+Run `monitor-sensor --proximity` to observe the published D-Bus state.
 
 ## Host evidence and limits
 
