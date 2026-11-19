@@ -3642,3 +3642,55 @@ private Mesa is not yet accepted/persistent. Full scene/readback/browser/
 endurance and app-grid animation measurements remain pending. /dev/uinput is
 absent; no virtual-input module or unsafe Shell mode was enabled for the
 denied app-grid request. No Tailscale/ChatGPT install/preferences committed.
+
+Started native43 mesa43-full trial after confirming prior natural recovery
+and unchanged exact BOOT/model/verified backup. The same guarded login option
+and private coherent build pass startup;300s rollback remains armed. Rebuilt
+tracked synthetic readback source locally on ARM64 and pinned source/hash,
+then began full33-scene/fullscreen/FIFO/readback qualification. No system
+libraries, firmware, personal profiles or original identity partitions changed.
+
+Native43 full desktop33/33 scenes, exact100-frame synthetic readback and
+fullscreen1440x2960 FIFO60/61/61fps passed on physical Mali with0new GPU faults.
+Fresh SSH verified private EGL/Gallium/GBM maps, whole manager/login environment
+and zero full-ring errors. Accepted mesa43-full only with saved post-startup
+evidence; its rollback timer stopped. Guarded normal reboot then independently
+confirmed changed boot identity, stable private libraries and all selected
+settings persisted. Three services active, full early ring error0/warning63.
+This is accepted bounded desktop deployment, not all GPU/browser/endurance.
+
+First fresh-profile Firefox URL test returned a90s result timeout; no kernel
+GPU error, two browser processes mapped graphics libraries. No browser pixel
+pass inferred. Added explicit visible WebDriver trial using an ephemeral
+automation profile and loopback-only services, page focus/visibility/headless
+checks, strict120-frame/byte comparison and physical-renderer qualification.
+Host evidence test rejects incomplete/software/headless/hidden/malformed
+reports. Mozilla geckodriver0.37.1 ARM64 downloaded privately from official
+release and digest verified; MPL2 binary/logs/profiles excluded from Git.
+No forced GPU/sandbox preference or personal browser profile supplied.
+Preparing actual focused-page rerun with normal wake/unlock and idle inhibitor.
+
+The controlled visible Firefox160.0.1 WebGL trial passes120frames and
+31,457,280 compared bytes with0mismatch/context-loss; focused/visible true,
+headless false. Audited prefs.js/user.js contain no graphics/sandbox overrides.
+Browser reports generic Mali-family label rather than the exact G72 model;
+that label is not used as a model identity. Screen state restored. Final
+runner also explicitly bypasses HTTP proxies for loopback control/browser
+traffic; validating that exact final source before publication.
+
+Final loopback-direct WebDriver source passes native pixel/focus/policy test;
+host proxy regression confirms local control ignores external HTTP proxy
+variables. After accepted-profile warm boot, a separate fullscreen targeted
+render pass completed all3 scenes but FIFO dropped to11/11/11fps: overall
+qualification FAIL despite0GPU faults. Retained failure and accepted deployment
+is not labelled animation-stable. No speculative clock/policy change applied.
+
+Added optional visible small-canvas animation callback observation. Native
+120callback run passes70.5/s, median15ms/p95 21ms with focus/visibility and no
+context loss; this is not hardware scanout proof. A later isolated fullscreen
+FIFO build scene returns60fps without policy changes. During that60fps repeat,
+CPU big1066..2327MHz/little350..1499MHz, GPU260..572MHz and sampled GPU45..49C;
+these are not measurements from the earlier11fps case. Warm-trial changed
+fields are readonly IRQ/power counters only, with0new generation/wait failure.
+Intermittent cadence cause remains open; next correlate focus/frame callbacks
+and clocks during a failing reproduction rather than masking or guessing.
