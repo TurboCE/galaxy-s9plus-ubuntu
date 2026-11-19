@@ -4494,3 +4494,8 @@ through teardown. This verifies the adapter's state inputs. The native
 ModemManager plugin linked and loaded on a separate x86-64 build.
 Device enumeration and the desktop data controls still need hardware
 verification.
+
+The cleanup boot restored the Wi-Fi default and left the trial modem
+unloaded. ModemManager and the sensor service were active. Acceleration
+and light readings were available, with no failed units. The kernel
+ring reported 63 warnings and one SSP zero-byte retry.
