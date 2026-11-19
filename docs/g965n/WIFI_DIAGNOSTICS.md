@@ -191,3 +191,16 @@ repeated pairing, opposite GO roles, persistence and endurance remain pending.
 Two action-frame retry batches preceded acceptance, and a chanspec-52 query
 error occurred. They remain genuine residual errors, alongside an SSP retry in
 the full boot, rather than being hidden or relabeled as repaired.
+
+### Native37 repeat and channel-state correction
+
+Two Fold7 groups on native37 passed dedicated-interface, source-bound1MiB
+transfers in both directions with exact hashes. Explicit active-group channel
+queries succeeded; cleanup preserved STA HTTPS204 and produced zero chanspec
+errors. The scoped inactive-P2P ENODATA guard retains original error behavior
+for active groups/primary/other chips. One action-frame retry batch remains
+in that full boot; the second group added none. A cached-peer attempt failed
+peer-not-found, then fresh NetworkManager Find and connection succeeded.
+Do not reuse a stale peer address or infer all wireless errors are fixed.
+The later native38 initial+warm boots have clean error-priority baselines,
+but that does not substitute for another peer/endurance test on native38.

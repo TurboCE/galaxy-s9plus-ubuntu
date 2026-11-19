@@ -3321,3 +3321,61 @@ S9+ remains unknown. Restore physical insertion as the latest S9+ baseline;
 SIM preparation/subscription/registration are still separate, and cause6 is
 not a conclusive blacklist/settings diagnosis. No CP operation occurred
 between these handoffs; sensor-only build38 continues unchanged.
+
+Latest SIM qualification: owner clarifies the SIM currently in S9+ is a
+data-sharing SIM. Earlier main-SIM READY is recalled but not LTE-data proof.
+5G-only provisioning or carrier device/plan policy is an unconfirmed
+hypothesis; no current blacklist/settings conclusion. Prior other-phone LTE
+report must not be assumed to describe this newly clarified current SIM.
+No further repeated registration/power trial is justified by that ambiguity.
+
+Kernel38 build-only completed: #38 SMP PREEMPT Thu Nov 19 09:51:34 UTC 2026, source8fcb3a1,
+BOOT97661273f8a1e35b21ca202653abf1e731e3c6185460a7faefa135fe9c76246e/27219984bytes.
+Frozen five-module package and owner-stock overlay comparison passed. Sensor
+PMIC candidate source/fault tests passed; native module and boot pending.
+Preparing controlled recovery, fresh nine-partition backup and BOOT-only
+update; original recovery/identity/radio/bootloader remain preserved.
+
+Fresh recovery backup38 has all nine byte/hash checks passed. DTB/DTBO/
+CPEFS/RADIO/RECOVERY/MISC unchanged versus backup37; EFS differs only by
+approved primary ext4 mount/write timestamps (+3525s), mount count+1 and
+lifetime write4KiB. Initial extra PARAM audit stopped on a too-strict all-zero
+append assumption before any BOOT write. Reviewed the current NUL-terminated
+reboot-history area: exactly two N/R timestamp records extend the terminator
+into a stale unused suffix; every byte outside that38-byte extension plus
+terminator is identical. Not a PARAM write or a general comparison waiver.
+Exact new BOOT hash and rollback37 prefix verified; proceeding with guarded
+BOOT-only installation using this fresh matching-device backup.
+
+Native38 BOOT-only write/readback passed and actual USB SSH reports#38. An
+extra adb reboot found no recovery target because the installer had already
+returned the phone to Ubuntu; no second reboot/write occurred from that
+failed command. Frozen package/backups uploaded; exact model/BOOT/kernel/
+module/profile pins verified. Preserved prior profiles/three units, updated
+only selected package/kernel/backup pins, kept orientation/vendor/user policy
+intact. All three driver services active. Actual LDO37 mode-readback verified
+message emitted by the new code; mcu_power reads1, strict SSI Y/faultN.
+Four real accel samples vary, ALS0lux in the dark room, STA-bound HTTPS204.
+Initial unfiltered error-priority kernel lines0, failed units0, no matching
+SError/CallTrace/chanspec/AF/invalid-type faults. Modem remains opt-in unloaded.
+This qualifies the normal new PMIC path/initial boot, not physical voltage
+measurement, injected hardware failures, hub hard reset, or LTE registration.
+Preparing one normal warm reboot to verify persistent startup without TWRP.
+
+Native38 normal warm reboot completed without a TWRP pass. Since the prior
+boot journal is not retained here, verified the current boot epoch is12s
+after the saved initial38 pre-reboot checkpoint, with fresh uptime and#38,
+rather than falsely treating unavailable previous-boot logs as proof. Warm
+startup services all active; fresh varying four-sample accel/ALS0, mcu_power1,
+new checked-readback path executed, strictSSI Y/faultN, STA HTTPS204, failed
+units0 and full error-priority kernel0. MCU_RESP reset warning still present;
+no hard-reset qualification inferred.
+
+The systemctl unit-cache warning recurred after an untouched warm boot.
+Inspection identifies runtime DevicePolicy/DeviceAllow drop-ins written by
+the sensor supervisor's guarded SetUnitProperties setup/revoke sequence.
+Thus the earlier attribution solely to manual kernel staging is incomplete;
+this is runtime policy serialization/cache status, not an unexpected unit edit.
+A normal daemon reload clears NeedDaemonReload; verified effective policy
+remains closed and setup mknod permission revoked. No systemd/portal patch,
+weakened permission or persistent policy change was made.

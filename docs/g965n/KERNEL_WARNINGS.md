@@ -1,4 +1,4 @@
-# Remaining kernel warnings through native37
+# Remaining kernel warnings through native38
 
 Evidence date2026-11-19, one experimental SM-G965N rev26. The initial pair of observed native36
 boots had zero error-priority lines and zero failed units; later trial results
@@ -46,3 +46,10 @@ tests pass. Native37 boot, Fold7 group, active channel query and bidirectional
 1MiB hash checks passed. Actual group teardown produced zero chanspec errors,
 with primary STA HTTPS204 preserved; one action-frame retry batch remains.
 A cached-peer repeat failed discovery and is not counted as a connection pass.
+
+Native38 sensor supply handling now checks ACPM transport/firmware failures
+and mode readback before releasing the hub. Actual-C fault injection and
+initial+normal warm native boots pass the normal path and fresh IIO feeds;
+initial and warm error-priority streams each have zero lines. The MCU_RESP
+warning still occurs and is retained: supply mode readback and successful
+feeds do not demonstrate a physical hard reset or voltage measurement.
