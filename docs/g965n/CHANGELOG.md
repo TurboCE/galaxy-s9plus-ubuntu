@@ -5415,3 +5415,23 @@ in-place conversion. A synthetic 1440x2960 buffer took 2.99 ms
 with the prototype versus 13.49 and 12.19 ms in the surrounding
 scalar runs. The prototype was not built into or installed as Mesa.
 Actual compositor improvement and integrated rendering remain open.
+
+### 2026-11-20 — Build and verify the Mesa NEON swizzle candidate
+
+The live GNOME Shell mapped the accepted Mesa build tree directly.
+Cloned the source and build into a private location, verified separate
+inodes, and applied the swizzle patch with matching before/after
+source hashes. A relocated Ninja dry run proposed 571 rebuild steps.
+Ran only the exact recorded commands for the changed object, its
+archive and the Gallium link. The resulting ARM64 object contained
+NEON table instructions. The accepted source and library hashes
+matched their pretest values.
+
+The tracked patch's exact helper passed the sanitized ARM64 swizzle
+regression. In isolated offscreen sessions, both the accepted and
+candidate Mali-G72 stacks mapped their intended Gallium libraries.
+Each passed 100 alternating RGBA/BGRA texture upload and readback
+frames, with all 6,553,600 output bytes equal to expected. No matching
+GPU/display error appeared in the surrounding log window. The
+desktop remained on its accepted Mesa profile. Actual GNOME
+animation timing on the candidate remains pending.

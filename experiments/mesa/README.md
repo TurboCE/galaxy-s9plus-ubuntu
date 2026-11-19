@@ -83,3 +83,33 @@ record the exact libraries used, successful rendered frames and actual presented
 modifier. A presented LINEAR copy alone may not identify the rendering image on
 a separate render/display GPU path. No GPU repair claim follows from applying or
 building this patch.
+
+## AArch64 four-channel byte swizzle
+
+`0002-mesa-neon-ubyte4-swizzle.patch` speeds up the Mesa byte-to-byte
+texture conversion observed in GNOME overview profiling. It selects the
+NEON table lookup for four-channel unsigned-byte source and destination
+arrays on AArch64 with NEON enabled. The helper supports zero and one
+fill channels, unaligned buffers, in-place conversion and scalar tail
+pixels. Other channel counts, types and unsupported selectors take the
+existing conversion path.
+
+The patch targets Mesa 25.2.8 `src/mesa/main/format_utils.c` and
+preserves the source's [Intel MIT notice](LICENSE.format_utils.MIT).
+Its SHA-256 is
+`cd95fe92bc4e78dab8caaad98fb9741006cb994036963a16c75d68d7d147b65e`.
+The source hashes before and after patching are pinned in the
+regression below. The modifier patch targets a separate source file.
+
+On an ARM64 machine with a C compiler and sanitizer runtime:
+
+```sh
+python3 experiments/mesa/test_ubyte4_swizzle.py --mesa-source /path/to/mesa-25.2.8
+```
+
+The native S9+ trial rebuilt the changed object, Mesa archive and
+Gallium shared library in a separate build copy. Standard EGL/GLES
+readback using the exact trial library passed 100 frames alternating
+RGBA and BGRA uploads, with 6,553,600 output bytes compared. The live
+GNOME session continues to use its accepted profile. Actual overview
+performance remains unqualified.

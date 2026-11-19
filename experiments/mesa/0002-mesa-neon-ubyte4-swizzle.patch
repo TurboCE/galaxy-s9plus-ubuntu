@@ -1,0 +1,71 @@
+--- a/src/mesa/main/format_utils.c
++++ b/src/mesa/main/format_utils.c
+@@ -23,6 +23,10 @@
+  */
+ 
+ #include <stdlib.h>
++
++#if defined(__aarch64__) && defined(__ARM_NEON)
++#include <arm_neon.h>
++#endif
+ 
+ #include "errors.h"
+ #include "format_utils.h"
+@@ -970,6 +974,45 @@
+    }
+ }
+ 
++#if defined(__aarch64__) && defined(__ARM_NEON)
++static bool
++swizzle_convert_ubyte4_neon(void *dst_ptr, const void *src_ptr,
++                           const uint8_t swizzle[4], bool normalized, int count)
++{
++   uint8_t *dst = dst_ptr;
++   const uint8_t *src = src_ptr;
++   uint8_t indices[16], fills[16];
++   const uint8_t one = normalized ? UINT8_MAX : 1;
++
++   if (count < 4)
++      return false;
++
++   for (unsigned channel = 0; channel < 4; ++channel) {
++      unsigned sample = swizzle[channel];
++      if (sample > 5)
++         return false;
++      for (unsigned pixel = 0; pixel < 4; ++pixel) {
++         unsigned offset = pixel * 4 + channel;
++         indices[offset] = sample < 4 ? pixel * 4 + sample : 255;
++         fills[offset] = sample == 5 ? one : 0;
++      }
++   }
++
++   uint8x16_t index = vld1q_u8(indices);
++   uint8x16_t fill = vld1q_u8(fills);
++   for (; count >= 4; count -= 4, dst += 16, src += 16) {
++      uint8x16_t rgba = vld1q_u8(src);
++      vst1q_u8(dst, vorrq_u8(vqtbl1q_u8(rgba, index), fill));
++   }
++   for (; count > 0; --count, dst += 4, src += 4) {
++      const uint8_t channels[] = {src[0], src[1], src[2], src[3], 0, one};
++      for (unsigned channel = 0; channel < 4; ++channel)
++         dst[channel] = channels[swizzle[channel]];
++   }
++   return true;
++}
++#endif
++
+ static void
+ convert_ubyte(void *void_dst, int num_dst_channels,
+               const void *void_src, GLenum src_type, int num_src_channels,
+@@ -993,6 +1036,11 @@
+       }
+       break;
+    case MESA_ARRAY_FORMAT_TYPE_UBYTE:
++#if defined(__aarch64__) && defined(__ARM_NEON)
++      if (num_dst_channels == 4 && num_src_channels == 4 &&
++          swizzle_convert_ubyte4_neon(void_dst, void_src, swizzle, normalized, count))
++         break;
++#endif
+       SWIZZLE_CONVERT(uint8_t, uint8_t, src);
+       break;
+    case MESA_ARRAY_FORMAT_TYPE_BYTE:
