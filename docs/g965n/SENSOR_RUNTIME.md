@@ -252,3 +252,16 @@ failed stream without kernel replay or reset in that TX-error path. A new
 exclusive LHD open explicitly starts a new stream. Bootstrap and streaming
 protocol semantics are not yet hardware-qualified. Do not enable this option
 as an alleged fix merely because host tests or module compilation pass.
+
+
+Before an unattended strict-ACK boot trial, preserve a known workingNprofile
+and its matching unit as root-only snapshots, pin both and exactBOOT/kernel
+in a private rollback state, and review the inert rollback templates. Enable
+the90s-onboot timer WITHOUT `--now` immediately before the authorized reboot:
+starting it in an already-old boot would fire immediately. The restore helper
+requires explicit model/backup/consent flags, validates before any stop/write,
+atomically restores only the fixed sensor profile/unit/hash paths, disables
+its one-shot timer and reboots when explicitly requested. A failed stop only
+permits staging baseline when reboot was explicitly selected. Cancel/disable
+the timer after a successful trial or observe recovery completely before
+claiming anything. No script/build automatically arms this mechanism.

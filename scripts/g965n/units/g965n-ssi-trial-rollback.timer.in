@@ -1,0 +1,11 @@
+# Enable WITHOUT --now immediately before the separately authorized trial reboot.
+[Unit]
+Description=Bounded recovery for an explicitly armed G965N SSI boot trial
+
+[Timer]
+OnBootSec=90s
+AccuracySec=1s
+Unit=g965n-ssi-trial-rollback.service
+
+[Install]
+WantedBy=timers.target

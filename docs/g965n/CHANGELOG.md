@@ -2533,3 +2533,11 @@ Added optional strict-ACK supervisor policy inferred from pinned ELF modinfo:
 new-capability modules default to explicitN, preventing adoption of a loadedY
 trial under a default profile; old modules remain compatible and rejectY.
 Runtime18/C-ACK1 regressions pass. No strict-ACK hardware test yet.
+
+## 2026-11-19 — Touch controller handover fixed in bounded native trials
+
+Kernel30 built from7cdb737,BOOT cf7aa7119df88db4157ec15403e71a0483deb3952fefad58fa2f254f3fc7183d/27219984bytes. Fresh9backup,guardedBOOTwrite/readback/nativeboot passed. First native boot reset TSP bus at5.269s and registered input at5.285s without timeout. Three further warmboots all reset stale controller status000a0006→00080001 before first access and registered input at5.295/5.297/5.289s without-110. This supports the post-power HSI2C handover correction, not a longer ASIC delay. Sensor/audio/BT auto-started each time. Cold/deep-suspend/endurance and new physical-touch interaction remain separate.
+
+New exact30 sensor profile pins supervisor policy and explicitly selects strict_tx_ack=false; native strict/fault flags N/N. Other pinned modules and real accel/ALS runtime stay qualified. No checked-ACK hardware improvement claimed yet. Added exact-BOOT private baseline rollback helper+inert90s-onboot timer/service for a separately armed strict trial: validate state/profile/unit hashes/model/kernel before action; knownNbaseline, atomicfile restore, disable one-shot timer and explicit reboot.4rollback tests pass. Builds do not install/enable this helper.
+
+WiFiP2P source review found required DOWN/APSTA/UP/discovery-disable errors were ignored by setup and the caller. Added exact-source-pinned Star2/4361/primary-only checks with numeric step diagnostics, preserve normal UP restoration on APSTA rejection, and propagate errors before IF_ADD wait. Other boards retain old behavior, no fabricated interface or capability suppression. ActualC failure injection2tests and full AArch64p2p.o compile passed. First test logging stub discarded arguments and failedWerror; fixed stub only. This candidate is not in native30 and does not establish working P2P.

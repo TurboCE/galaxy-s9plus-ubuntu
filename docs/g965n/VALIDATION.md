@@ -12,7 +12,7 @@ A build or a driver node is not sufficient evidence of a working function.
 | CPU / RAM | 8 online cores; 5523MiB usable RAM | Verified |
 | Native builds / Git | Git clone+pull; real fixdep C source compiled on each CPU, 8 identical object hashes | Short test passed |
 | Storage | USERDATA mounted as root and grew to 230GiB | Verified |
-| Display / touch | Owner confirmed desktop/touch; 2x desktop scaling persisted at 720x1480 logical pixels | #14 rail-reset boot passed; latest#28 initial probe-110 at5.40s then bound/input registered at7.59s, so initialization is not error-free; basic interaction previously owner verified; apps wider than 720 minimum still need adaptations |
+| Display / touch | Owner confirmed desktop/touch; 2x desktop scaling persisted at 720x1480 logical pixels | #30 scoped post-power controller reset passed initial native boot and3warmboots with first input registration~5.29s and no initial-110; previous delay-only#29 failed; basic interaction previously owner verified; apps wider than 720 minimum still need adaptations |
 | GPU | #21 isolated patched Mesa with nocrc,noafbc: exact128x128 readback100, full33 positive scene rows, fullscreen1440x2960 U-tiled presentation and FIFO61/61/61fps;0 new matching GPU faults/timeouts; actual private-library maps verified | Bounded isolated rendering passed.100us IRQ generation-check rejections +1 with40ms completion wait failures0; frame impact unconfirmed. System desktop remains on the previously failing Mesa stack. Desktop/browser/endurance, CRC-enabled operation and allocation policy remain unqualified |
 | Wi-Fi | Native#25 HTTPS204 explicitly bound to Wi-Fi after policy correction; earlier NTP/connection observations | Data path verified; long reconnect tests pending |
 | Wi-Fi Direct / roaming | #24 policy5 and rawBADOPTION(-3) identified; #25 scoped product-profile preservation removes legacy-trigger initialization failure | Initialization correction hardware verified; P2P IF_ADD timeout and real access-point handover remain unverified |
@@ -139,3 +139,11 @@ settling, but both subsequent warm boots still timed out before binding later.
 Do not label the timing change repaired; actual readiness signaling is under
 investigation. SSP strict-ACK candidate is source/compile tested only, default
 off and not deployed. Production29 sensor service uses the pre-candidate module.
+
+Latest#30 touch correction supersedes the failed#29 fixed-delay candidate:
+real IRQ asserted103ms after rail-on, so the I2C controller is reinitialized
+once per ACPM power generation before first TSP transfer. Native initialboot
+and3warmboots passed with no initial touch error; warm controller status
+000a0006→00080001 was observed. Suspend/cold/endurance remain unqualified.
+Native30 explicitly keeps checkedSSIACK modeN; its hardware trial is pending.
+P2P required-step checks are source/C-object tested only, not in this BOOT.

@@ -1,0 +1,13 @@
+# Inert template; never enabled by builds. Use only with pinned private state.
+[Unit]
+Description=One-shot exact-BOOT G965N SSI trial baseline recovery
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 @ROLLBACK@ --state @STATE@ --state-sha256 @STATE_SHA256@ --model SM-G965N --confirm-backup-verified --consent-profile-rollback --reboot
+TimeoutStartSec=300
+NoNewPrivileges=yes
+PrivateTmp=yes
+DevicePolicy=closed
+DeviceAllow=/dev/sda10 r
