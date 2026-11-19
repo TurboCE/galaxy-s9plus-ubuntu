@@ -140,6 +140,8 @@ struct bcm_rxtx_work {
 
 struct bcm_spi_priv {
 	unsigned int tx_sequence;
+	u64 tx_last_complete_ns;
+	unsigned int tx_last_complete_len;
 	struct spi_device *spi;
 
 	/* Char device stuff */

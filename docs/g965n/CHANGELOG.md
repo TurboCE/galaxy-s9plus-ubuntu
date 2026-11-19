@@ -5116,3 +5116,29 @@ with a P2P interface and zero failed units. One 36-byte write still
 needed its checked ACK retry despite the controller reporting the
 expected length. The check rules out a reported short transfer for
 that retry; physical bus timing remains unmeasured.
+
+### 2026-11-20 — Time the sensor firmware ACK retry
+
+Extended the existing opt-in short-ACK diagnostics with the duration
+of the SPI call, time and size of the preceding accepted transaction,
+and before/after HOST_REQ and MCU_RESP samples. The timing is observed
+by the host, with no frame contents logged by the new diagnostics.
+
+After checking model, BOOT and backup and preserving the previous
+sensor configuration, booted the exact #44 module with diagnostics
+enabled. The 36-byte transaction received a zero ACK after a 39.8 us
+SPI call, 49.249 ms after a complete 14-byte transaction. HOST_REQ was
+low at both samples and MCU_RESP high at both. The second attempt
+accepted all 36 bytes. The patch finished 146.8 ms after the short
+ACK. All six IIO devices delivered 80 samples each, Wi-Fi HTTPS204 and
+no-SIM cleanup passed, and no unit failed. A short previous-transfer
+gap was not present in this observation; neither the GPIO samples nor
+the host timestamps measure sub-transfer edges or prove a root cause.
+
+Restored diagnostics to the default off setting with the same module
+binary on a second warm boot. All six IIO devices, Wi-Fi HTTPS204 and
+no-SIM cleanup passed again. The default boot logged two zero ACK
+attempts for 36-byte writes, with no reported length or controller
+errors. On this setup the board's hardware SPI path programs prescaler
+3 independently of the advertised device speed. The timestamps above
+measure the driver's elapsed time and do not establish SCK frequency.

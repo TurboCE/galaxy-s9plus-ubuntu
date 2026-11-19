@@ -28,6 +28,7 @@
 //#include <plat/gpio-cfg.h>
 #include <linux/miscdevice.h>
 #include <linux/time.h>
+#include <linux/timekeeping.h>
 
 #include "bbd.h"
 #include "bcm_gps_spi.h"
@@ -237,6 +238,8 @@ static int bcm_spi_open(struct inode *inode, struct file *filp)
 	priv->write_buf.head = priv->write_buf.tail = 0;
 	WRITE_ONCE(ssi_tx_fault, false); /* New exclusive LHD stream only. */
 	priv->tx_sequence = 0;
+	priv->tx_last_complete_ns = 0;
+	priv->tx_last_complete_len = 0;
 
 	priv->packet_received = 0;
 
@@ -695,6 +698,10 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledge
 	int retry_ctr = ssi_fc;
 	unsigned int tx_sequence = ++priv->tx_sequence;
 	int ssi_tx_fc_retries_copy = ssi_tx_fc_retries;
+	u64 transfer_start_ns = 0;
+	u64 transfer_end_ns = 0;
+	int host_req_before = 0;
+	int mcu_resp_before = 0;
 	unsigned short frame_data_size = strm->frame_len - strm->ctrl_len;
 	struct ssi_ack_state ack = { .remaining = length };
 	*acknowledged = 0;
@@ -721,7 +728,14 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledge
 			bcm_ssi_clr_len(strm->ctrl_byte, tx->data + bytes_to_write + strm->pckt_len );  // Clear fc field. Just for debug and understanding SPI Streaming protocol in dump
 		}
 
+		if (tx_ack_diagnostics) {
+			host_req_before = gpio_get_value(priv->host_req);
+			mcu_resp_before = gpio_get_value(priv->mcu_resp);
+			transfer_start_ns = ktime_get_ns();
+		}
 		ret = bcm_spi_sync(priv, tx, rx, bytes_to_write + strm->ctrl_len, bits_per_word);  // ctrl_len is for tx len + fc
+		if (tx_ack_diagnostics)
+			transfer_end_ns = ktime_get_ns();
 
 		if ( ret ) {
 			ssi_tx_fail++;
@@ -775,11 +789,21 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledge
 					(rx->status & HSI_F_MOSI_CTRL_SZE_MASK) >> HSI_F_MOSI_CTRL_SZE_SHIFT];
 				unsigned long count = (rx->status & HSI_F_MOSI_CTRL_CNT_MASK) >>
 					HSI_F_MOSI_CTRL_CNT_SHIFT;
+				u64 gap_ns = priv->tx_last_complete_ns ?
+					transfer_start_ns - priv->tx_last_complete_ns : 0;
+				int host_req_after = gpio_get_value(priv->host_req);
+				int mcu_resp_after = gpio_get_value(priv->mcu_resp);
 
 				pr_info_ratelimited("[SSPBBD]: short-ack tx=%u attempt=%d request=%u ack=%u stat=%02x credit=%lu prior-credit=%lu mcu-ready=%d\n",
 						tx_sequence, ssi_fc - retry_ctr + 1,
 						Mwrite, Bwritten, rx->status, block * count,
-						g_rx_buffer_avail_bytes, gpio_get_value(priv->mcu_resp));
+							g_rx_buffer_avail_bytes, mcu_resp_after);
+				pr_info_ratelimited("[SSPBBD]: short-ack timing tx=%u attempt=%d spi-ns=%llu prior-len=%u gap-ns=%llu host-req=%d/%d mcu-ready=%d/%d\n",
+							tx_sequence, ssi_fc - retry_ctr + 1,
+							transfer_end_ns - transfer_start_ns,
+							priv->tx_last_complete_len, gap_ns,
+							host_req_before, host_req_after,
+							mcu_resp_before, mcu_resp_after);
 			}
 
 			if ( g_bcm_debug_fc || Mwrite != Bwritten ) {
@@ -830,6 +854,10 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledge
 		ret = ssi_ack_result(&ack, ret);
 		if (ret)
 			return ret; /* Do not issue another register query after failure. */
+	}
+	if (tx_ack_diagnostics && !ret) {
+		priv->tx_last_complete_ns = transfer_end_ns;
+		priv->tx_last_complete_len = length;
 	}
 	bcm_ssi_chk_pzc(priv, rx->status, ssi_dbg_pzc || (ssi_tx_fc_retries > ssi_tx_fc_retries_copy));
 	if (tx_ack_diagnostics && strict_tx_ack && ssi_tx_fc_retries > ssi_tx_fc_retries_copy)

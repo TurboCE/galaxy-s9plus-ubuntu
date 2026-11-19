@@ -47,6 +47,13 @@ whose acknowledgement required one retry. No controller error or
 reported length mismatch occurred. Physical bus timing remains
 unmeasured.
 
+The opt-in matching native44 timing trial measured a 39.8 us SPI call
+with a zero ACK, 49.249 ms since the preceding accepted write. Both
+HOST_REQ samples were low and both MCU_RESP samples high. The first
+retry succeeded and patch completion followed 146.8 ms later. This
+was not an immediately adjacent transfer or a sampled GPIO change.
+The observations do not resolve the remote firmware's state.
+
 A later native44 startup profile explicitly selects one standby
 attempt. The driver still records a high MCU_RESP as an unconfirmed
 reset. The sensor service continues to require the pinned hub
