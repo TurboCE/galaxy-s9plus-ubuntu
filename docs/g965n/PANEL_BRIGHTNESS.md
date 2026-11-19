@@ -13,7 +13,7 @@ Use the normal model/consent/fresh-nine-backup BOOT-only installer separately;
 do not flash a generic S9 image or change the Samsung bootloader.
 
 The candidate registers the standard raw backlight `g965n-panel-aor`, with
-levels0..16. Level0 sends display-off;1..16 select strictly decreasing stock
+levels0..401 in the new smoothing candidate (the previously qualified kernel28..32 used0..16). Level0 sends display-off;1..401 select strictly decreasing stock
 AOR dark-time values. These are discrete duty levels, not nits or a linear
 luminance curve. Maximum selects stock AOR000c and preserves inherited gamma
 and voltage commands. This is a limited duty-only implementation, **not** the
@@ -28,6 +28,13 @@ No extracted firmware, private MTP or owner calibration is published.
 
 The packet writer accepts only reviewed1..3byte DCS writes, refuses inherited
 packet-go batching, bounds FIFO waits, and always attempts vendor-key closure.
+A bounded delayed worker slews output at most4 levels per40ms; a complete
+1↔401 traversal takes about4seconds plus command/scheduler time. Pending targets
+replace older ones, failures stop the worker, zero/off is immediate, and DPMS
+down/device cleanup drains queued work. Wake restores the requested level
+directly. Actual readback remains the last completed transaction, not the target.
+These output transitions never filter or fabricate ALS samples.
+
 One mutex serializes brightness with DPMS. It never sends brightness commands
 while the panel is asleep; requested brightness is applied on wake. Successful
 software readback means the bounded command transaction completed; it is not
@@ -84,3 +91,20 @@ load also contribute. The earlier locked-screen current trial was
 inconclusive. In remote tests, merely setting Mutter PowerSave0 does not
 reset a pre-existing idle state. Use normal session activity; do not enable
 test-only idle-reset APIs or weaken GNOME unit/polkit restrictions.
+
+## Native automatic-brightness control
+
+Use Settings → Power → Power Saving → Automatic Screen Brightness. Native32
+stock Control Center's visible switch was exercised through its normal toggle
+action: ambient-enabled true→false→true. SensorProxy reports the real light
+sensor. No duplicate brightness daemon or modified Settings application.
+
+The401-level candidate uses unique duty values from the pinned Samsung PAC512
+source, sorted for fixed inherited gamma. Original PAC order has gamma-boundary
+reversals and must not be used unchanged in this limited duty-only driver.
+No interpolation/new register range or voltage/gamma/HBM change. Host actualC
+transaction/ramp/worker fault tests pass; native401 smoothness and DPMS results
+must be recorded separately from the earlier16-level qualification above.
+Rollback state pins exact BOOT and exact16or401 range; a range mismatch refuses
+writes. Recovery waits up to6seconds for completed output rather than confusing
+an accepted ramp target with applied brightness.

@@ -2661,3 +2661,8 @@ its existing OF compatible (SPI core expects vendor-stripped modalias), keeping
 existing ssp-spi binding. Warning disappearance and sensor data require native
 boot proof. CPU heterogeneity, GPT and unqualified RGB/haptic warnings are not
 being hidden or declared repaired by these changes.
+
+Brightness recovery helper now accepts only the exact saved16or401 range and
+waits up to6s for completed maximum output. WrongBOOT/range refusal and old/new
+recovery tests pass. No timer is automatically created by the helper or build.
+No native401 deployment yet; build underway fromba712c2 kernel inputs.

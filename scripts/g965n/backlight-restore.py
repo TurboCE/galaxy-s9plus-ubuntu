@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import stat
 import subprocess
+import time
 
 BACKLIGHT = Path('/sys/class/backlight/g965n-panel-aor')
 
@@ -57,7 +58,7 @@ def load_state(path, expected):
         raise ValueError('Saved state differs')
     value = json.loads(data)
     if (value.get('schema') != 1 or value.get('model') != 'SM-G965N' or
-            type(value.get('ambient_enabled')) is not bool or value.get('maximum') != 16):
+            type(value.get('ambient_enabled')) is not bool or value.get('maximum') not in (16, 401)):
         raise ValueError('Wrong backlight rollback state')
     return value
 
@@ -70,12 +71,16 @@ def desktop_settings(*args):
 
 def restore(value, keep_disabled):
     verify_boot(value['boot_sha256'], value['boot_bytes'])
-    if BACKLIGHT.joinpath('max_brightness').read_text().strip() != '16':
+    maximum = value['maximum']
+    if maximum not in (16, 401) or BACKLIGHT.joinpath('max_brightness').read_text().strip() != str(maximum):
         raise ValueError('Backlight range differs; no guessed restore')
     desktop_settings('set', 'org.gnome.settings-daemon.plugins.power', 'ambient-enabled', 'false')
-    BACKLIGHT.joinpath('brightness').write_text('16\n')
-    if BACKLIGHT.joinpath('actual_brightness').read_text().strip() != '16':
-        raise RuntimeError('Maximum brightness transaction was not confirmed')
+    BACKLIGHT.joinpath('brightness').write_text(str(maximum)+'\n')
+    deadline = time.monotonic() + 6
+    while BACKLIGHT.joinpath('actual_brightness').read_text().strip() != str(maximum):
+        if time.monotonic() >= deadline:
+            raise RuntimeError('Maximum brightness transaction was not confirmed')
+        time.sleep(0.04)
     if not keep_disabled:
         desktop_settings('set', 'org.gnome.settings-daemon.plugins.power', 'ambient-enabled',
                          'true' if value['ambient_enabled'] else 'false')
@@ -101,7 +106,7 @@ def main():
         state_parent(args.state)
         verify_boot(args.boot_sha256 or '', args.boot_bytes)
         maximum = int(BACKLIGHT.joinpath('max_brightness').read_text())
-        if maximum != 16:
+        if maximum not in (16, 401):
             raise ValueError('Unexpected backlight range')
         ambient = desktop_settings('get', 'org.gnome.settings-daemon.plugins.power', 'ambient-enabled')
         if ambient not in ('true', 'false'):
