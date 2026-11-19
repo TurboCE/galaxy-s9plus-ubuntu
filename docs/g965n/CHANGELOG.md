@@ -4125,3 +4125,11 @@ tables. The build verifies the resolved Kconfig dependencies. Native43 lacks
 this support, which prevented policy routing before the first data trial.
 The earlier host-route proof remains valid. No live route or boot behavior
 is claimed for this build change.
+
+Added an opt-in, bounded IPv4 policy-routing qualification to the modem data
+probe. Linux namespace rehearsal verified that the source-bound lookup selects
+the separate table and an ordinary lookup still uses the existing interface.
+The probe refuses a pre-existing table or rule priority, checks the two paths
+before HTTPS and verifies teardown. On-device qualification is pending.
+The existing kernel43 boot recorded two retries accepting zero of 36 bytes
+about 1.5 ms apart, with strict ACK enabled and no latched transmit fault.

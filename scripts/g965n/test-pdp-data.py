@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-only
-"""Guarded temporary host routes for source/device-bound modem DNS and TLS.
+"""Guarded temporary routes for source/device-bound modem DNS and TLS.
 
-No default route, gateway invention or Wi-Fi fallback. Raw evidence stays private.
+Preserve the main default route. Raw evidence stays private.
 """
 import argparse
 import hashlib
@@ -61,7 +61,11 @@ def candidate_from(events):
     return candidate
 
 
-def network_trial(config):
+POLICY_TABLE = '9650'
+POLICY_PRIORITY = '19650'
+
+
+def network_trial(config, policy_route=False):
     name='rmnet0';address=str(ipaddress.IPv4Address(config['ipv4']));servers=config['dns4']
     def output(command):return subprocess.check_output(command,text=True,timeout=5)
     def run(command):subprocess.run(command,check=True,capture_output=True,text=True,timeout=5)
@@ -70,10 +74,26 @@ def network_trial(config):
     if json.loads(output(['ip','-j','address','show','dev',name]))[0]['addr_info']:
         raise ValueError('Preserve existing modem addresses')
     before=json.loads(output(['ip','-j','route','show']))
+    policy_rule = ['ip', '-4', 'rule']
+    policy_default = ['default', 'dev', name, 'src', address, 'table', POLICY_TABLE]
+    policy_selector = ['priority', POLICY_PRIORITY, 'from', address+'/32', 'lookup', POLICY_TABLE]
+    def policy_objects():
+        rules = json.loads(output(['ip', '-4', '-j', '-N', 'rule', 'show']))
+        routes = json.loads(output(['ip', '-4', '-j', '-N', 'route', 'show', 'table', 'all']))
+        return ([rule for rule in rules if str(rule.get('priority')) == POLICY_PRIORITY or
+                 str(rule.get('table')) == POLICY_TABLE],
+                [route for route in routes if str(route.get('table')) == POLICY_TABLE])
+    if policy_route and any(policy_objects()):
+        raise ValueError('Reserved modem test rule priority or route table is in use')
+    default_routes = [route for route in before if route.get('dst') == 'default']
     added=[];up=False;assigned=False
+    rule_added = table_default_added = False
     result={'internet_verified':False,'dns_over_modem':False,'route_interface_verified':False,
-            'source_and_device_bound':True,'default_route_changed':False,'gateway_invented':False}
+            'source_and_device_bound':True,'default_route_changed':False,'gateway_invented':False,
+            'policy_route_test':policy_route}
     def host_route(target):
+        if policy_route:
+            return
         dst=str(ipaddress.IPv4Network(target+'/32'))
         for route in before:
             old=route.get('dst','default')
@@ -94,6 +114,11 @@ def network_trial(config):
         # /32 is a local point-to-point address assignment, not a claimed
         # network mask supplied by the modem (which may supply no prefix).
         run(['ip','address','add',address+'/32','dev',name]);assigned=True
+        if policy_route:
+            run(['ip', '-4', 'route', 'add', *policy_default])
+            table_default_added = True
+            run([*policy_rule, 'add', *policy_selector])
+            rule_added = True
         host='connectivitycheck.gstatic.com';ident=int.from_bytes(os.urandom(2),'big')
         query=struct.pack('!HHHHHH',ident,0x100,1,0,0,0)+b''.join(bytes([len(x)])+x.encode() for x in host.split('.'))+b'\0'+struct.pack('!HH',1,1)
         target=None
@@ -110,6 +135,14 @@ def network_trial(config):
             except (OSError,ValueError,IndexError,struct.error):continue
         if not target:raise ValueError('No DNS answer through modem')
         host_route(target)
+        if policy_route:
+            ordinary = json.loads(output(['ip', '-4', '-j', 'route', 'get', target]))[0]
+            selected = json.loads(output(['ip', '-4', '-j', '-N', 'route', 'get', target,
+                                          'from', address]))[0]
+            if (ordinary['dev'] == name or selected['dev'] != name or
+                    str(selected.get('table')) != POLICY_TABLE):
+                raise ValueError('Policy route did not isolate the modem source')
+            result['policy_route_isolated'] = True
         with bound(socket.SOCK_STREAM) as plain:
             plain.connect((target,443))
             with ssl.create_default_context().wrap_socket(plain,server_hostname=host) as tls:
@@ -123,6 +156,10 @@ def network_trial(config):
                 result['internet_verified']=result['https_status']==204
     except Exception as error:result['failure_type']=type(error).__name__
     finally:
+        if rule_added:
+            subprocess.run([*policy_rule, 'del', *policy_selector], capture_output=True, timeout=5)
+        if table_default_added:
+            subprocess.run(['ip', '-4', 'route', 'del', *policy_default], capture_output=True, timeout=5)
         for target in reversed(added):
             subprocess.run(['ip','route','del',target+'/32','dev',name,'src',address],capture_output=True)
         if assigned:subprocess.run(['ip','address','del',address+'/32','dev',name],capture_output=True)
@@ -135,7 +172,13 @@ def network_trial(config):
         current_addr=json.loads(output(['ip','-j','address','show','dev',name]))[0]['addr_info']
         current_routes=json.loads(output(['ip','-j','route','show']))
         remaining=any(str(x.get('dst','')).split('/')[0] in added and x.get('dev')==name for x in current_routes)
-        result['temporary_state_restored']=not remaining and not current_addr and 'UP' not in current_link['flags'] and current_link['mtu']==link['mtu']
+        result['default_route_changed'] = default_routes != [
+            route for route in current_routes if route.get('dst') == 'default']
+        policy_remaining = policy_route and any(policy_objects())
+        result['temporary_state_restored'] = (
+            not remaining and not policy_remaining and not result['default_route_changed']
+            and not current_addr and 'UP' not in current_link['flags']
+            and current_link['mtu'] == link['mtu'])
     return result
 
 
@@ -148,6 +191,8 @@ def main():
     p.add_argument('--trial',type=Path,required=True)
     p.add_argument('--confirm-backup-verified',action='store_true')
     p.add_argument('--consent-pdp-network-test',action='store_true')
+    p.add_argument('--policy-route', action='store_true',
+                   help='Verify a temporary source rule and separate modem routing table')
     args=p.parse_args();os.umask(0o077)
     if os.geteuid()!=0 or not args.confirm_backup_verified or not args.consent_pdp_network_test:
         raise ValueError('Root, verified backup and network-test consent required')
@@ -167,7 +212,7 @@ def main():
         except ValueError:pass
     def interrupted(number,frame):raise InterruptedError('Bounded network trial interrupted')
     signal.signal(signal.SIGTERM,interrupted)
-    result=network_trial(candidate_from(events))
+    result=network_trial(candidate_from(events), policy_route=args.policy_route)
     out=args.trial/'network-test-private.json'
     with out.open('x') as f:json.dump(result,f,indent=2)
     out.chmod(0o600);print(json.dumps(result))

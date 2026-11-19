@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import struct
 import unittest
+from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('data_trial',ROOT/'scripts/g965n/test-pdp-data.py')
@@ -15,6 +16,21 @@ def packet(ident=7,flags=0x8180):
 
 
 class DataTrialTests(unittest.TestCase):
+    def test_policy_collision_refuses_before_changing_interface_or_routes(self):
+        config = {'ipv4': '192.0.2.3', 'dns4': ['192.0.2.53'], 'mtu': 1450}
+        for rules, routes in (
+            ('[{"priority":19650,"table":"100"}]', '[]'),
+            ('[{"priority":19649,"table":"9650"}]', '[]'),
+            ('[]', '[{"table":"9650","dev":"existing"}]'),
+        ):
+            responses = ['[{"flags":[],"link_type":"ppp"}]', '[{"addr_info":[]}]',
+                         '[]', rules, routes]
+            with patch.object(trial.subprocess, 'check_output', side_effect=responses), \
+                    patch.object(trial.subprocess, 'run') as mutate:
+                with self.assertRaisesRegex(ValueError, 'in use'):
+                    trial.network_trial(config, policy_route=True)
+                mutate.assert_not_called()
+
     def test_real_dns_answer_matching_id_and_compressed_name(self):
         self.assertEqual(trial.dns_a(packet(),7),'203.0.113.8')
         for value in (packet(8),packet(flags=0x8183),packet(flags=0x8380),packet()[:8],packet()[:-2]):
