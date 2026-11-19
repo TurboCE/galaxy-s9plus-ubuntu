@@ -127,6 +127,16 @@ p95 was 24.596 ms. Closing paint p95 was 4.280 ms. The run restored the
 desktop and unloaded the temporary driver. These durations are evidence
 of actual app-list frame-budget pressure, with scanout cadence unmeasured.
 
+Three native #44 A/B/A trials compared app-list opening under the
+existing policy, a bounded intervention, and the restored policy.
+The big-cluster performance governor reduced paint p95 from
+21.271/22.636 ms in the two controls to 17.790 ms, with the sampled GPU
+at 260 MHz. A 455 MHz GPU floor left dispatch p95 near 30.5 ms and a
+main-thread utilization clamp gave mixed results. Each trial still
+had four opening paints over 16.7 ms. The measured evidence favors
+investigating the CPU-side opening workload, with the original power
+policy restored on the handset.
+
 Kernel#13 additionally corrects the board's ACPM-owned supply description.
 The whole-boot missing-mali-regulator error is absent. Another full33-scene/
 100-frame exact pass reports0 matching errors.50ms sampling observes260/455/

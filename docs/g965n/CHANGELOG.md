@@ -5330,3 +5330,32 @@ The desktop was restored and the temporary module unloaded,
 with zero failed units and zero matching GPU/display faults
 in the surrounding three-minute log window. The capture stays
 private. The source of the slow app-list work remains open.
+
+### 2026-11-20 — Compare CPU and GPU clocks during app-list transitions
+
+On native #44, ran three bounded A/B/A comparisons using the same
+GNOME profiler and four actual app-list opens/closes per phase.
+The CPU trial temporarily held the big cluster at its existing
+2327 MHz limit. The GPU trial raised the devfreq floor to the
+existing 455 MHz step. The task-scoped trial set the GNOME Shell
+main thread's minimum utilization clamp to 512 of 1024.
+
+| Intervention | Open paint p95 baseline/trial/restored (ms) | Open dispatch p95 baseline/trial/restored (ms) |
+|---|---|---|
+| Big CPU performance governor | 21.271 / 17.790 / 22.636 | 30.285 / 23.078 / 30.114 |
+| GPU floor 455 MHz | 22.988 / 20.203 / 20.944 | 30.669 / 30.549 / 34.709 |
+| GNOME Shell main-thread clamp | 17.795 / 19.450 / 18.060 | 30.999 / 26.576 / 24.514 |
+
+GPU sampling stayed at 260 MHz throughout the CPU comparison's
+opening windows. During the GPU trial, 62 of 63 opening samples
+showed 455 MHz, with a 1066 MHz median big-cluster frequency in
+all phases. Each phase of each comparison still had four paints
+above 16.7 ms. The CPU intervention shortened the heavier opening
+work, but changing the GPU floor or GNOME Shell main-thread clamp
+gave no consistent opening improvement across both controls.
+
+Verified CPU schedutil, GPU floor 260 MHz, original main-thread
+clamp, desktop state and temporary input teardown after the trials.
+Sensors and Wi-Fi HTTPS204 passed, with no failed units or matching
+GPU/display faults in the surrounding log window. These short trials
+do not qualify any permanent power-policy change.
