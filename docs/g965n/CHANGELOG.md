@@ -4221,3 +4221,8 @@ window, without a CP restart. The later LPM handshake completed separately.
 This qualifies the observed release sequence for the tested CID and firmware.
 A same-session reactivation after release and automatic failure recovery
 have not yet been qualified.
+
+After the release trial, the distinct cleanup reboot restored the
+modem-off state, all three driver services and readable accel/ALS.
+No failed units or error-priority lines appeared. The ring contained
+63 warnings and no SSP zero-ACK retry in this boot.
