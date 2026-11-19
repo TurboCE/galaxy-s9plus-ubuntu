@@ -1,0 +1,18 @@
+[Unit]
+Description=SM-G965N desktop LTE
+Wants=ModemManager.service NetworkManager.service
+After=NetworkManager.service g965n-sensors.service
+ConditionPathExists=@ROOT@/enabled
+
+[Service]
+Type=exec
+User=root
+UMask=0077
+Restart=no
+KillMode=mixed
+TimeoutStopSec=90
+ExecStart=/usr/bin/python3 @ROOT@/desktop-lte-service.py --config @ROOT@/config.json --config-sha256 @PROFILE_SHA256@ --confirm-desktop-lte
+ExecStopPost=/usr/bin/python3 @ROOT@/desktop-lte-service.py --cleanup
+
+[Install]
+WantedBy=multi-user.target

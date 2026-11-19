@@ -4636,3 +4636,29 @@ preferred default, and the test released the bearer, removed the
 profile and restored stock ModemManager. The test supervisor itself
 was bounded. A persistent boot installation and unexpected-stop
 recovery still require separate verification.
+
+### 2026-11-20 — Opt-in desktop LTE on ordinary boots
+
+Added a pinned startup supervisor and a systemd unit for the approved
+native44 profile. It verifies model, kernel, backup, module and
+program digests, then starts the isolated modem stack and lets
+NetworkManager create the LTE route. An optional temporary GSM
+profile waits for the system WWAN setting to allow activation.
+
+Manual service start passed LTE DNS and HTTPS204. The first stop
+released the context and reached radio low power, but the explicit
+ordering after ModemManager delayed its restart until a timeout.
+Removed that unit ordering and moved the stock-manager readiness
+check into the supervisor. Then verified real LTE traffic on two
+distinct ordinary enabled boots, with Wi-Fi preferred. Between the
+two boots a normal stop confirmed release ACK and idle indication,
+radio low power, no remaining lease or LTE route, and restoration of
+stock ModemManager. The runtime profile and private modem mounts were
+removed. The service remains enabled and connected on native44.
+
+The second enabled boot had no failed units and readable acceleration
+and light values. The kernel ring contained 67 warnings and 121
+error-priority messages, including 120 SIPC startup diagnostics and
+one SSP zero-byte retry. These messages remain visible. Direct GNOME
+interaction, unexpected-stop recovery and extended access after
+network loss have not been qualified.

@@ -96,6 +96,49 @@ In a guarded native44 trial, the same RIL invocation, CBD and
 NetworkManager bearer passed LTE-bound DNS and HTTPS204 at 0.7,
 90.6 and 306.5 seconds after connection. The test supervisor
 disconnects the temporary profile and restores the stock manager.
-This verifies over five minutes without the child deadline. It does
-not establish unattended service installation, shutdown recovery or
-multi-boot operation.
+This verifies over five minutes without the child deadline.
+
+## Opt-in desktop service
+
+`scripts/g965n/desktop-lte-service.py` is the supervisor for the
+`g965n-desktop-lte.service.in` template in `scripts/g965n/units`.
+Its configuration is a root-private `config.json` under
+`/var/lib/g965n-lte/<name>`. The service uses the verified native44
+kernel and backup receipts, a physical-port SIPC module and the
+ARM64 test bundle. Build and review those artifacts first.
+
+The configuration holds `model`, `apn`, `auto_profile`,
+`kernel_profile`, `guard_sha256`, `receipt_sha256`,
+`backup_sha256` and `files`. The model is `SM-G965N`, the APN
+must match the provisioned SIM, and `auto_profile` is a boolean.
+The three receipt digests cover the device's own reviewed guard,
+startup receipt and backup receipt. The `files` object maps each of
+the supervisor's required relative paths to its SHA-256. Copy
+`ril-lab.py` and `rfs-copy.py` from `experiments/modem`. Copy
+`modem/g965n-modem.ko` from the verified physical-port build and
+the `mm/` files from the ARM64 bundle. The other scripts come from
+`scripts/g965n`.
+
+Render the unit with the approved directory and the digest of its
+`config.json`. The directory, files and activation marker
+`enabled` must be root-owned, with the directory private to root.
+After verifying the model, backup and running BOOT, install and
+verify the rendered unit. Enabling it before a reboot opts in to
+desktop LTE on that boot. With `auto_profile=true`, the service
+supplies a temporary GSM profile with an IPv4 route metric of 20000.
+NetworkManager owns the routes and honors the saved WWAN setting.
+
+On normal service stop, the temporary profile and service override
+are removed and the installed ModemManager returns. If the modem
+module is still resident, the next clean boot starts the service
+with a fresh modem session. The build script does no device setup
+and leaves the service opt-in.
+
+On the native44 handset, the persistent service automatically
+connected on two distinct ordinary boots. LTE-bound DNS and HTTPS204
+passed on both while Wi-Fi retained the preferred default. Between
+them, an explicit service stop confirmed modem bearer release and
+radio low power, removed the LTE route and restored the stock manager.
+The matched service is enabled on the test handset. Direct GNOME
+interaction, recovery from an unexpected service exit and additional
+hardware remain outside this verification.
