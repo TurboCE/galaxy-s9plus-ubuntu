@@ -5079,3 +5079,22 @@ index stayed the same, with Wi-Fi HTTPS204 during and after every cycle
 and no new Wi-Fi/P2P warning/error. One peer was reported; its name
 and previously verified address did not identify it as the Fold7.
 No group connection or transfer was attempted with that peer.
+
+### 2026-11-20 — Bound modem packet previews to the available packet data
+
+Replaced the modem diagnostic formatter's variable-length stack array
+with the kernel hex formatter. The existing preview limit is 16 bytes.
+The skb path now obtains the prefix through the kernel accessor that
+can read from fragments, and skips formatting if those bytes cannot be
+read. The host harness covers empty, short, capped and fragmented
+previews and the accessor's failure path. The native #44 module no
+longer emits the packet formatter's variable-length-array warning.
+
+Checked the model, BOOT and backup, preserved the previous module and
+configuration, and verified the new build ID after a distinct warm boot.
+All nine real modem packet previews had the expected lengths and
+format, including two capped at 16 bytes. Modem initialization and
+no-SIM shutdown passed. Six IIO devices, Wi-Fi HTTPS204 and the P2P
+interface remained available, and no unit failed. Packet contents were
+excluded from the evidence. Fragment handling was verified on the
+host; the no-SIM boot did not verify LTE traffic.

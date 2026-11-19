@@ -326,17 +326,15 @@ static inline bool count_flood(int cnt, int mask)
 void mif_pkt(u8 ch, const char *tag, struct sk_buff *skb);
 
 /* print buffer as hex string */
-int pr_buffer(const char *tag, const char *data, size_t data_len,
-							size_t max_len);
+#define MIF_PACKET_LOG_BYTES 16
+int pr_buffer(const char *tag, const void *data, size_t data_len);
 
 /* print a sk_buff as hex string */
-#define pr_skb(tag, skb) \
-	pr_buffer(tag, (char *)((skb)->data), (size_t)((skb)->len), (size_t)16)
+int pr_skb(const char *tag, const struct sk_buff *skb);
 
 /* print a urb as hex string */
 #define pr_urb(tag, urb) \
-	pr_buffer(tag, (char *)((urb)->transfer_buffer), \
-			(size_t)((urb)->actual_length), (size_t)16)
+	pr_buffer(tag, (urb)->transfer_buffer, (urb)->actual_length)
 
 /* Stop/wake all TX queues in network interfaces */
 void stop_net_iface(struct link_device *ld, unsigned int channel);

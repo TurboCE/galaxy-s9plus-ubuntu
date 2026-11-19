@@ -80,8 +80,6 @@ static unsigned long wakeup_dflags = (1 << DEBUG_FLAG_FMT | 1 << DEBUG_FLAG_RFS 
 module_param(wakeup_dflags, ulong, S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(wakeup_dflags, "modem_v1 wakeup debug flags");
 
-static const char *hex = "0123456789abcdef";
-
 static struct raw_notifier_head cp_crash_notifier;
 
 struct mif_buff_mng *g_mif_buff_mng = NULL;
@@ -242,36 +240,6 @@ void _mif_time_log(enum mif_log_id id, struct modem_shared *msd,
 			(len > MAX_IRQ_LOG_SIZE) ? MAX_IRQ_LOG_SIZE : len);
 }
 
-/* dump2hex
- * dump data to hex as fast as possible.
- * the length of @buff must be greater than "@len * 3"
- * it need 3 bytes per one data byte to print.
- */
-static inline void dump2hex(char *buff, size_t buff_size,
-			    const char *data, size_t data_len)
-{
-	char *dest = buff;
-	size_t len;
-	size_t i;
-
-	if (buff_size < (data_len * 3))
-		len = buff_size / 3;
-	else
-		len = data_len;
-
-	for (i = 0; i < len; i++) {
-		*dest++ = hex[(data[i] >> 4) & 0xf];
-		*dest++ = hex[data[i] & 0xf];
-		*dest++ = ' ';
-	}
-
-	/* The last character must be overwritten with NULL */
-	if (likely(len > 0))
-		dest--;
-
-	*dest = 0;
-}
-
 static inline bool sipc_csd_ch(u8 ch)
 {
 	return (ch >= SIPC_CH_ID_CS_VT_DATA && ch <= SIPC_CH_ID_CS_VT_VIDEO) ?
@@ -337,16 +305,24 @@ void mif_pkt(u8 ch, const char *tag, struct sk_buff *skb)
 }
 
 /* print buffer as hex string */
-int pr_buffer(const char *tag, const char *data, size_t data_len,
-							size_t max_len)
+int pr_buffer(const char *tag, const void *data, size_t data_len)
 {
-	size_t len = min(data_len, max_len);
-	unsigned char str[len ? len * 3 : 1]; /* 1 <= sizeof <= max_len*3 */
-	dump2hex(str, (len ? len * 3 : 1), data, len);
+	int len = min_t(size_t, data_len, MIF_PACKET_LOG_BYTES);
 
-	/* don't change this printk to mif_debug for print this as level7 */
-	return pr_info("%s: %s(%ld): %s%s\n", MIF_TAG, tag, (long)data_len,
-			str, (len == data_len) ? "" : " ...");
+	return pr_info("%s: %s(%zu): %*ph%s\n", MIF_TAG, tag, data_len,
+		       len, data, ((size_t)len == data_len) ? "" : " ...");
+}
+
+int pr_skb(const char *tag, const struct sk_buff *skb)
+{
+	u8 prefix[MIF_PACKET_LOG_BYTES];
+	int len = min_t(unsigned int, skb->len, sizeof(prefix));
+	const void *data = skb_header_pointer(skb, 0, len, prefix);
+
+	if (!data)
+		return -EFAULT;
+
+	return pr_buffer(tag, data, skb->len);
 }
 
 /* flow control CM from CP, it use in serial devices */
