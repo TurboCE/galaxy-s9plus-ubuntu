@@ -3534,3 +3534,32 @@ links; generic kernel fallback after DT cache setup failure assumes global
 sharing above L1. This is a source-correlated metadata deficiency, not proof
 of actual cache wiring. No guessed geometry/topology patch applied. Fresh
 post-warm IIO accel samples vary; physical pose was not requested.
+
+Prepared opt-in one-shot CPU cache register probe for missing topology audit.
+It samples actual online CPUs with hotplug lock; temporary CSSELR selection
+is IRQ-protected/restored before returning. No cache maintenance, clocks,
+physical memory, partition or persistent changes. Actual-C mock test passes
+all cache types/reserved skips, multilevel selectors and prior IRQ restoration;
+module links against exact42 prepared kernel. Samsung M3 primary presentation
+confirms private L2/shared L3, but A55 geometry remains hardware-unverified.
+Preparing guarded bounded load/unload; no automatic DT/topology change.
+
+Native42 exact model/BOOT/backup and probe hash guard passed. One-shot cache
+probe sampled all8 CPUs; every selector restored and probe unloaded. Measured
+A55 L1I/D32KiB and unified512KiB architectural L2; M3 L1I/D64KiB, private512KiB
+L2/shared4MiB L3 geometry agrees with Samsung design. Full register logs stay
+private; decoded capacities/line/ways/sets documented in CPU_CACHE.md. Prepared
+board DT candidate with measured geometry and explicit cache ownership. No
+CPU feature masking, cache maintenance or clock policy change. A55 no-private-
+L2 interpretation still being checked against Arm primary documentation;
+source candidate is not boot-qualified.
+
+Arm A55 TRM B2.23/page330 confirms shared outer-cache encoding when no
+private L2 is present; all measured A55 CCSIDR values match its512KiB case.
+Initial standalone DT compile rejected added subnodes before existing root
+properties; moved cache nodes after all root properties. No image/device
+write followed the failed compile. Recompiled real DTB now passes cache
+phandle graph/geometry verification, and a deliberately wrong cache size is
+rejected. Added this check to the build-only kernel pipeline. Actual probe
+callback test and shell syntax pass. Preparing43 build; native cache graph,
+scheduler and absence of cache warning remain unverified.

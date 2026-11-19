@@ -28,6 +28,86 @@
 &cpu6 { capacity-dmips-mhz = <1024>; };
 &cpu7 { capacity-dmips-mhz = <1024>; };
 
+
+/* Native G965N rev26 architectural CLIDR/CCSIDR audit, 2026-11-19.
+ * Geometry is measured on every core; ownership follows the A55 TRM and
+ * Samsung M3 HotChips2018 slide9. A55 has no private L2: its DSU cache is
+ * architecturally enumerated as level2. M3 has private L2 and shared L3.
+ * These are descriptions, not cache enable/clock/maintenance operations.
+ */
+&cpu0 {
+	d-cache-size = <32768>;
+	d-cache-line-size = <64>;
+	d-cache-sets = <128>;
+	i-cache-size = <32768>;
+	i-cache-line-size = <64>;
+	i-cache-sets = <128>;
+	next-level-cache = <&a55_cluster_cache>;
+};
+&cpu1 {
+	d-cache-size = <32768>;
+	d-cache-line-size = <64>;
+	d-cache-sets = <128>;
+	i-cache-size = <32768>;
+	i-cache-line-size = <64>;
+	i-cache-sets = <128>;
+	next-level-cache = <&a55_cluster_cache>;
+};
+&cpu2 {
+	d-cache-size = <32768>;
+	d-cache-line-size = <64>;
+	d-cache-sets = <128>;
+	i-cache-size = <32768>;
+	i-cache-line-size = <64>;
+	i-cache-sets = <128>;
+	next-level-cache = <&a55_cluster_cache>;
+};
+&cpu3 {
+	d-cache-size = <32768>;
+	d-cache-line-size = <64>;
+	d-cache-sets = <128>;
+	i-cache-size = <32768>;
+	i-cache-line-size = <64>;
+	i-cache-sets = <128>;
+	next-level-cache = <&a55_cluster_cache>;
+};
+&cpu4 {
+	d-cache-size = <65536>;
+	d-cache-line-size = <64>;
+	d-cache-sets = <128>;
+	i-cache-size = <65536>;
+	i-cache-line-size = <128>;
+	i-cache-sets = <128>;
+	next-level-cache = <&m3_l2_0>;
+};
+&cpu5 {
+	d-cache-size = <65536>;
+	d-cache-line-size = <64>;
+	d-cache-sets = <128>;
+	i-cache-size = <65536>;
+	i-cache-line-size = <128>;
+	i-cache-sets = <128>;
+	next-level-cache = <&m3_l2_1>;
+};
+&cpu6 {
+	d-cache-size = <65536>;
+	d-cache-line-size = <64>;
+	d-cache-sets = <128>;
+	i-cache-size = <65536>;
+	i-cache-line-size = <128>;
+	i-cache-sets = <128>;
+	next-level-cache = <&m3_l2_2>;
+};
+&cpu7 {
+	d-cache-size = <65536>;
+	d-cache-line-size = <64>;
+	d-cache-sets = <128>;
+	i-cache-size = <65536>;
+	i-cache-line-size = <128>;
+	i-cache-sets = <128>;
+	next-level-cache = <&m3_l2_3>;
+};
+
 / {
 	model = "Samsung Galaxy S9+ (SM-G965F)";
 	compatible = "samsung,star2lte", "samsung,exynos9810";
@@ -45,6 +125,65 @@
 	model_info-subtype = "samsung";
 	model_info-hw_rev = <0x1a>;
 	model_info-hw_rev_end = <0xff>;
+
+	/* The DSU cache is presented as level2 when private A55 L2 is absent. */
+	a55_cluster_cache: l2-cache-a55 {
+		compatible = "cache";
+		cache-level = <2>;
+		cache-unified;
+		cache-size = <524288>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+	};
+
+	m3_l2_0: l2-cache-m3-0 {
+		compatible = "cache";
+		cache-level = <2>;
+		cache-unified;
+		cache-size = <524288>;
+		cache-line-size = <64>;
+		cache-sets = <1024>;
+		next-level-cache = <&m3_cluster_cache>;
+	};
+
+	m3_l2_1: l2-cache-m3-1 {
+		compatible = "cache";
+		cache-level = <2>;
+		cache-unified;
+		cache-size = <524288>;
+		cache-line-size = <64>;
+		cache-sets = <1024>;
+		next-level-cache = <&m3_cluster_cache>;
+	};
+
+	m3_l2_2: l2-cache-m3-2 {
+		compatible = "cache";
+		cache-level = <2>;
+		cache-unified;
+		cache-size = <524288>;
+		cache-line-size = <64>;
+		cache-sets = <1024>;
+		next-level-cache = <&m3_cluster_cache>;
+	};
+
+	m3_l2_3: l2-cache-m3-3 {
+		compatible = "cache";
+		cache-level = <2>;
+		cache-unified;
+		cache-size = <524288>;
+		cache-line-size = <64>;
+		cache-sets = <1024>;
+		next-level-cache = <&m3_cluster_cache>;
+	};
+
+	m3_cluster_cache: l3-cache-m3 {
+		compatible = "cache";
+		cache-level = <3>;
+		cache-unified;
+		cache-size = <4194304>;
+		cache-line-size = <64>;
+		cache-sets = <4096>;
+	};
 
 	chosen {
 		#address-cells = <2>;
