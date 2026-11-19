@@ -43,5 +43,26 @@ class KernelHealthTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):m.collect(p)
             self.assertFalse((p/'summary.json').exists())
 
+    def test_current_messages_are_counted_separately_in_ring_and_journal(self):
+        logs = {key: '' for key in m.COMMANDS}
+        hub = 'zrn-bbd: MCU_RESP remained high after 1 standby attempt(s); reset unconfirmed'
+        pll = 's9p-g3d: PLL_G3D did not lock for 260000 kHz (con0=80a00402)'
+        rollback = 's9p-g3d: PLL rollback failed (-110), con0=81c71a00'
+        gpio = 'WARNING: drivers/gpio/gpiolib.c:429 at gpiochip_get_direction+0x30/0x3c'
+        qos = 'g965n-mif: vendor bus QoS is not implemented'
+        logs['ring'] = '\n'.join((hub, gpio, qos, qos))
+        logs['journal'] = '\n'.join((hub, 'MCU_RESP still high', pll, rollback, qos, 'PMC reset unconfirmed'))
+        result = m.summary(logs)
+        ring = result['known_message_counts']
+        journal = result['journal_known_message_counts']
+        self.assertEqual(ring['hub_reset_unconfirmed'], 1)
+        self.assertEqual(journal['hub_reset_unconfirmed'], 2)
+        self.assertEqual(ring['gpu_pll_lock_failures'], 0)
+        self.assertEqual(journal['gpu_pll_lock_failures'], 1)
+        self.assertEqual(journal['gpu_pll_rollback_failures'], 1)
+        self.assertEqual(ring['gpio_direction_warnings'], 1)
+        self.assertEqual(ring['modem_qos_unimplemented'], 2)
+        self.assertEqual(journal['modem_qos_unimplemented'], 1)
+
 
 if __name__=='__main__':unittest.main()

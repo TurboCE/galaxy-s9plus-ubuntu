@@ -5623,3 +5623,20 @@ stock SensorProxy compass path still reports `HasCompass=false` to
 GeoClue. Its buffered backend requires a tilt-compensated heading
 channel and its `magn_3d-devN` trigger. Validating the magnetic
 mount matrix and headings before exposing that path remains pending.
+
+### 2026-11-20 — Detect current kernel warnings in the health report
+
+The health tool previously matched only the old sensor reset warning
+text. It now matches both versions and reports the identified G3D
+PLL failures, GPIO direction warning and unsupported modem bus QoS.
+The kernel buffer and system journal have independent counters.
+Priority totals and private raw-log handling stay as before.
+
+Ran the updated summary against both live #44 sources and checked the
+counts against the actual log messages. Both contained one hub reset
+warning, one PLL lock failure, one PLL rollback failure, 23 GPIO
+direction warnings and four modem QoS messages. The kernel buffer
+retained the boot header. The journal had started later. The QoS
+messages describe an implementation gap: the only registered devfreq
+device on this build is the GPU, and no CP frequency-vote activity
+was logged during the observed no-SIM boot.

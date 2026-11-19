@@ -24,11 +24,17 @@ COMMANDS = {
 PATTERNS = {
     'cpu_register_variations': r'Unexpected variation in ',
     'unsupported_cpu_variation': r'Unsupported CPU feature variation',
-    'hub_reset_unconfirmed': r'MCU_RESP still high',
+    'hub_reset_unconfirmed': (
+        r'MCU_RESP (?:still high|remained high after [0-9]+ standby attempt\(s\); reset unconfirmed)'
+    ),
     'hub_standby_observations': r'hub held [0-9]+ ms:',
     'pmic_firmware_failures': r'PMIC firmware failure',
     'action_frame_retry_failures': r'Failed to send Action Frame',
     'chanspec_failures': r'chanspec failed',
+    'gpu_pll_lock_failures': r's9p-g3d: PLL_G3D did not lock',
+    'gpu_pll_rollback_failures': r's9p-g3d: PLL rollback failed',
+    'gpio_direction_warnings': r'WARNING: drivers/gpio/gpiolib\.c:[0-9]+ at gpiochip_get_direction',
+    'modem_qos_unimplemented': r'g965n-mif: vendor bus QoS is not implemented',
     'call_traces': r'Call trace:',
     'serror_mentions': r'\bSError\b',
 }
@@ -45,6 +51,9 @@ def summary(logs):
         'ring_warning_priority_lines': len(logs['ring-warnings'].splitlines()),
         'journal_error_priority_lines': len(logs['journal-errors'].splitlines()),
         'known_message_counts': {name: len(re.findall(pattern, ring)) for name, pattern in PATTERNS.items()},
+        'journal_known_message_counts': {
+            name: len(re.findall(pattern, journal)) for name, pattern in PATTERNS.items()
+        },
         'all_hardware_qualified': False,
     }
 
