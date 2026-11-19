@@ -3302,3 +3302,13 @@ Actual extracted-C tests compile/pass injected transport errors, positive
 firmware failures, bad readback, sysfs behavior and sequencing/no premature
 hub release. Native new module/build/reboot verification pending. Preparing
 a fresh source-pinned kernel build instead of hot-reloading an active hub.
+
+OWNER BASELINE CORRECTION (latest voice handoff, supersedes current-SIM
+assumptions above): this exact S9+ was previously used on stock Android;
+there is currently NO physical USIM inserted. Earlier CP SIM READY/CIMI/
+registration-failure reports cannot establish present physical SIM presence
+or a live carrier refusal. Their freshness/cache/hot-detection needs separate
+validation after a confirmed insertion. Raw cause6 alone is not evidence of
+a blacklist or a settings defect; the owner's settings explanation remains
+a hypothesis. Stop further LTE registration/data experiments until an active
+SIM is physically confirmed. Sensor/kernel work continues independently.
