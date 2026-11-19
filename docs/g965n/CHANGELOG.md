@@ -1850,3 +1850,31 @@ configuration, startup service or portal setting was changed. Earlier portal
 observations inside GPU session logs remain historical context, not an active
 repair task. Further work here focuses on drivers and basic hardware/system
 functions. The working tree is kept clean after the split.
+
+
+## 2026-11-19 — Follow boot/kernel evidence; built-in initramfs contract
+
+Owner directed work toward actual boot/kernel errors rather than repeated
+individual function trials. Read-only native #21 warning review confirms the
+external-initramfs unpack failure, CLKOUT parent mismatch, pinctrl IRQ metadata,
+MAX77705 child-node warnings and Wi-Fi roam/P2P errors remain. CPU feature
+variation and cache hierarchy messages need source/DT interpretation; no CPU
+capability is fabricated and no warning filter is applied. Historical GPU
+timeouts in the same boot remain historical evidence, not new failures.
+
+The external image is a valid empty gzip placeholder, while the intended /init
+is built into Linux. Explicit INITRAMFS_FORCE selects that existing design;
+a post-olddefconfig contract rejects absent flags, wrong source, empty/wrong
+entry or symlinks before Image build. Loader bytes/addresses are unchanged.
+Four host regression tests and shell syntax pass; isolated real olddefconfig
+retains the intended settings. Hardware warning removal is not yet verified.
+
+The prior final desktop trial rejected a post-startup manager environment
+mismatch and restored all owned files, original environment and actual stock
+Shell automatically. Fresh SSH, unchanged DECON2/0 and no new GPU faults were
+verified; normal screen-off/locked state restored. The initiating differing
+key was not retained, so its cause is unknown. The helper now saves the
+whitelisted apply observation privately before rollback, separately from the
+rollback observation; 26 host regressions pass. No further desktop trial or
+persistent private-Mesa acceptance is claimed. Individual trials are deferred
+under the owner's latest instruction.

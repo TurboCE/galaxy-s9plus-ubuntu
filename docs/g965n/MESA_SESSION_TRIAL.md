@@ -193,8 +193,30 @@ Shell's wrapper used `nocrc,noafbc`, but the user manager held `nocrc` because
 `/usr/lib/environment.d/99-environment.conf` links to `/etc/environment`, whose
 later filename-order assignment overrode the original `91-*` trial file.
 This is independent of the successful Shell startup and automatic rollback.
-The `99-z-*` filename and exact post-startup manager check address that source
-ordering issue without changing global configuration. Those latest changes
-require a new device trial before application-wide environment correctness
-can be claimed. No accepted persistent desktop profile is implied by either
+The `99-z-*` filename addresses that identified filename ordering issue
+without changing global configuration, but the next actual trial still failed
+the exact post-startup manager comparison. The guard reverted once and a
+stock Shell, original environment, removed owned files and screen-off/locked
+state were verified with no new GPU faults. Therefore application-wide
+environment correctness remains unresolved; filename order alone did not
+establish it. That failed version saved only a mismatch boolean, so its
+original differing key/value cannot be recovered after rollback. No accepted persistent desktop profile is implied by either
 natural rollback test.
+
+## Root-private mismatch observations
+
+The instrumented helper stores `apply_environment_observation` atomically in
+the root-only state **before** automatic rollback can reset the manager. It
+contains the expected selected GPU dictionary, actual selected GPU dictionary,
+sorted `differing_keys`, a timestamp and `matches`. Only whitelist variables
+are captured; unrelated environment variables are excluded. Missing keys and
+empty values remain distinct. Rollback records its own separate
+`rollback_environment_observation`, preserving the original apply evidence.
+Console errors name differing GPU variables only, never their values.
+
+Keep this state and all observations private: do not copy real values to Git
+or public logs. After source review and separate authorization, the next
+single trial can obtain the causal dictionary difference while retaining the
+same fail-closed automatic recovery. Review that evidence before any further
+environment fix or repeat trial. No new trial or automatic acceptance is
+implied by adding this instrumentation.

@@ -126,6 +126,10 @@ cfg --enable SECURITY
 cfg --enable SECURITY_NETWORK
 cfg --enable BLK_DEV_INITRD
 cfg --set-str INITRAMFS_SOURCE "$RAMFS"
+# uniLoader must retain its known bootable empty-gzip placeholder. The real
+# /init is embedded above; do not try to unpack that unused external stream.
+# CMDLINE_FORCE is enabled below, satisfying INITRAMFS_FORCE's Kconfig dependency.
+cfg --enable INITRAMFS_FORCE
 cfg --set-val INITRAMFS_ROOT_UID 0
 cfg --set-val INITRAMFS_ROOT_GID 0
 # display: bootloader framebuffer until the real DECON driver lands
@@ -365,6 +369,30 @@ for extra in "$@"; do
 	cfg $extra
 done
 make -s O=out olddefconfig
+# BEGIN G965N BUILTIN INITRAMFS CONTRACT
+python3 - "$RAMFS" "$PROJ/device" "${INIT:-probe}" <<'INITRAMFS_CONTRACT'
+from pathlib import Path
+import os
+import stat
+import sys
+ramfs, device = Path(sys.argv[1]), Path(sys.argv[2])
+config = dict(line.split("=", 1) for line in Path("out/.config").read_text().splitlines()
+              if line.startswith("CONFIG_") and "=" in line)
+for name in ("CONFIG_BLK_DEV_INITRD", "CONFIG_INITRAMFS_FORCE", "CONFIG_CMDLINE_FORCE"):
+    if config.get(name) != "y":
+        raise SystemExit("Built-in initramfs contract requires " + name + "=y")
+if config.get("CONFIG_INITRAMFS_SOURCE") != '"' + str(ramfs) + '"':
+    raise SystemExit("Built-in initramfs source must be the staged port initramfs")
+init = ramfs / "init"
+expected = device / ("mainline-init-boot" if sys.argv[3] == "boot" else "mainline-init")
+if not stat.S_ISREG(init.lstat().st_mode) or not os.access(init, os.X_OK):
+    raise SystemExit("Built-in init must be an executable ordinary file")
+if not init.read_bytes() or init.read_bytes() != expected.read_bytes().replace(b"\r", b""):
+    raise SystemExit("Built-in init does not match the selected boot/probe entry")
+print("Built-in initramfs contract verified; external placeholder is unused")
+INITRAMFS_CONTRACT
+if [ "$?" -ne 0 ]; then exit 1; fi
+# END G965N BUILTIN INITRAMFS CONTRACT
 grep -E '^CONFIG_(PSTORE|PSTORE_RAM|PSTORE_CONSOLE|PSTORE_COMPRESS|DEVMEM|MAGIC_SYSRQ|SYSCON_REBOOT_MODE|DRM_SIMPLEDRM|CMDLINE)=' out/.config
 
 echo "=== build ==="

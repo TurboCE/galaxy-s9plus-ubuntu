@@ -63,3 +63,12 @@ A separate isolated fullscreen targeted run now passes3/3 with all11772
 committed buffers1440x2960/U-tiled and0 new GPU faults/timeouts. The later full33/FIFO suite also completes without new GPU journal faults,
 with one internal100us IRQ-check rejection of undetermined frame impact.
 Desktop and endurance qualification remain pending; system Mesa unchanged.
+
+
+Boot-log maintenance checkpoint: INITRAMFS_FORCE plus pre-build embedded-init
+contract passes four host tests and isolated real olddefconfig; no new Image
+or native boot qualified yet. CLKOUT, pinctrl IRQ metadata, MAX77705 child
+nodes and Wi-Fi warnings remain under source review. The latest desktop
+profile trial failed manager-environment validation and automatically restored
+the stock desktop; the mismatch cause remains unknown. Its new private
+pre-rollback observation passes 26 host tests, with no subsequent native trial.

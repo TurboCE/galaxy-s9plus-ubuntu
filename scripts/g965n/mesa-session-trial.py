@@ -203,12 +203,18 @@ def restore_environment(previous):
     manager('daemon-reload')
 
 
-def manager_environment_matches(expected):
+def manager_environment_observation(expected):
     actual = previous_environment(manager('show-environment', capture_output=True).stdout)
-    # Dictionary equality deliberately distinguishes an absent key from KEY=.
-    # All selected variables must match and every other GPU whitelist key must
-    # remain absent; a healthy private Shell alone does not prove app defaults.
-    return actual == expected
+    # Keep values only in the root-private atomic state. Explicit membership
+    # distinguishes an absent key from KEY=, including EGL vendor selection.
+    differing = sorted(key for key in set(actual) | set(expected)
+                       if (key in actual) != (key in expected) or actual.get(key) != expected.get(key))
+    return {'captured_at_unix': time.time(), 'expected': dict(expected),
+            'actual': actual, 'differing_keys': differing, 'matches': not differing}
+
+
+def manager_environment_matches(expected):
+    return manager_environment_observation(expected)['matches']
 
 
 def shell_metadata(expected_prefix):
@@ -285,7 +291,9 @@ def rollback_locked(directory, automatic=False):
         write_state(directory, state)
         run(['systemctl', 'start', 'gdm.service'], timeout=45)
         state.update(wait_stable_shell(Path('/usr/lib')))
-        state['environment_restored'] = manager_environment_matches(state['previous_environment'])
+        observation = manager_environment_observation(state['previous_environment'])
+        state['rollback_environment_observation'] = observation
+        state['environment_restored'] = observation['matches']
         state['rolled_back'] = not changed and state['environment_restored']
         write_state(directory, state)
     except BaseException:
@@ -294,7 +302,7 @@ def rollback_locked(directory, automatic=False):
     if changed:
         raise RuntimeError('Rollback preserved modified files; manual review required: ' + ', '.join(changed))
     if not state['environment_restored']:
-        raise RuntimeError('Rollback GPU manager environment differs after startup; no restart retry performed')
+        raise RuntimeError('Rollback GPU manager environment differs after startup: ' + ', '.join(state['rollback_environment_observation']['differing_keys']) + '; no restart retry performed')
     if not state['desktop_recovered']:
         raise RuntimeError('Files/environment restored but GNOME desktop did not recover; no restart retry performed')
 
@@ -385,10 +393,12 @@ def apply(args):
         write_state(directory, state)
         run(['systemctl', 'start', 'gdm.service'], timeout=45)
         state.update(wait_stable_shell(build.resolve()))
-        state['manager_environment_matches'] = manager_environment_matches(environment)
+        observation = manager_environment_observation(environment)
+        state['apply_environment_observation'] = observation
+        state['manager_environment_matches'] = observation['matches']
         write_state(directory, state)
         if not state['manager_environment_matches']:
-            raise RuntimeError('Trial GPU manager environment differs after startup; reverting once')
+            raise RuntimeError('Trial GPU manager environment differs after startup: ' + ', '.join(observation['differing_keys']) + '; reverting once')
         if not state['desktop_recovered']:
             raise RuntimeError('Trial GNOME Shell did not become stable; reverting once')
     except BaseException:
