@@ -107,17 +107,30 @@ def matrix_arg(value):
     return values
 
 
+def capture_rows(path):
+    if path.suffix != '.jsonl':
+        yield from json.loads(path.read_bytes())['rows']
+        return
+    with path.open(encoding='utf-8') as stream:
+        header = json.loads(stream.readline())
+        if header != {'schema': 1, 'kind': 'raw-magnetic-acceleration-capture',
+                      'clock': 'host-monotonic-receive', 'heading_qualified': False}:
+            raise ValueError('Unexpected SSP broker capture header')
+        for line in stream:
+            yield json.loads(line)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--capture', type=Path, required=True, help='Private pose JSON containing rows')
+    parser.add_argument('--capture', type=Path, required=True,
+                        help='Private SSP broker JSONL or pose JSON containing rows')
     parser.add_argument('--accel-matrix', type=matrix_arg, required=True)
     parser.add_argument('--magnetic-matrix', type=matrix_arg, required=True,
                         help='Explicit candidate, not inferred from acceleration or DT position number')
     parser.add_argument('--allow-low-accuracy-diagnostic', action='store_true')
     parser.add_argument('--reference-degrees', type=float)
     args = parser.parse_args()
-    value = json.loads(args.capture.read_bytes())
-    result = evaluate(value['rows'], args.accel_matrix, args.magnetic_matrix,
+    result = evaluate(capture_rows(args.capture), args.accel_matrix, args.magnetic_matrix,
                       1 if args.allow_low_accuracy_diagnostic else 2)
     if args.reference_degrees is not None:
         if not math.isfinite(args.reference_degrees) or not 0 <= args.reference_degrees < 360:

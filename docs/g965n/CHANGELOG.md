@@ -5605,3 +5605,21 @@ lookup in the debug listing. The AArch64 GPIO object compiled.
 Hardware boot and a repeated debug listing on the fixed kernel
 remain pending.
 [Upstream commit d761c7e38a00](https://github.com/torvalds/linux/commit/d761c7e38a000603a9d16270a1af770a0e8efb5e).
+
+### 2026-11-20 — Read verified magnetic capture files directly
+
+The offline heading tool now accepts the SSP broker's private JSONL
+format alongside the earlier pose JSON. It checks the format header
+and preserves the host-receive-time and quality gates. Tested the
+CLI on the handset using its recorded #44 capture. It accepted all
+135 high-quality batches; the earlier calibrated #27 capture yielded
+280 usable batches, and the uncalibrated #27 capture rejected all
+2,997 batches at the default quality threshold. The two calibrated
+captures each had circular concentration above 0.9999 with the
+candidate magnetic matrix and the live acceleration mount matrix.
+
+These captures provide no new independent direction reference. The
+stock SensorProxy compass path still reports `HasCompass=false` to
+GeoClue. Its buffered backend requires a tilt-compensated heading
+channel and its `magn_3d-devN` trigger. Validating the magnetic
+mount matrix and headings before exposing that path remains pending.

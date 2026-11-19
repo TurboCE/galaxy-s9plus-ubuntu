@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-only
 import importlib.util
+import json
 import math
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -39,5 +41,22 @@ class HeadingMathTests(unittest.TestCase):
   self.assertTrue(result['diagnostic_only']);self.assertFalse(result['heading_qualified'])
   self.assertEqual(result['diagnostic_magnetic_heading_deg'],0)
   with self.assertRaises(ValueError):h.evaluate(list(reversed(rows)),IDENTITY,IDENTITY)
+
+ def test_broker_jsonl_and_pose_json_produce_the_same_diagnostic(self):
+  header={'schema':1,'kind':'raw-magnetic-acceleration-capture',
+          'clock':'host-monotonic-receive','heading_qualified':False}
+  rows=[{'receive_monotonic_s':1.,'samples':{'0':[[0,0,4096]]}},
+        {'receive_monotonic_s':1.1,'samples':{'4':[[0,300,-400,3,0]]}}]
+  with TemporaryDirectory() as directory:
+   broker=Path(directory)/'capture.jsonl'
+   pose=Path(directory)/'pose.json'
+   broker.write_text(''.join(json.dumps(row)+'\n' for row in (header,*rows)))
+   pose.write_text(json.dumps({'rows':rows}))
+   expected=h.evaluate(h.capture_rows(pose),IDENTITY,IDENTITY)
+   self.assertEqual(h.evaluate(h.capture_rows(broker),IDENTITY,IDENTITY),expected)
+   self.assertEqual(expected['usable_batches'],1)
+   self.assertFalse(expected['heading_qualified'])
+   broker.write_text(json.dumps(dict(header,clock='hardware')))
+   with self.assertRaises(ValueError):list(h.capture_rows(broker))
 
 if __name__=='__main__':unittest.main()
