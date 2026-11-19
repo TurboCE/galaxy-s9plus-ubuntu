@@ -4382,3 +4382,26 @@ The Samsung IPC/AT access nodes are in the miscellaneous subsystem;
 rmnet0 is a data netdev. This confirms a missing native control adapter,
 not missing LTE packet connectivity. GNOME Mobile Network UI control
 has not been qualified. No probe tags were forced onto the raw ports.
+
+### 2026-11-20 — Associate G965N cellular ports with the real modem device
+
+The native module can opt in to linking only the primary Samsung router
+control port and rmnet0 data interface to their shared platform modem
+device. Other SIPC channel parents and legacy behavior are preserved.
+The option is off by default and does not expose the raw router as a
+generic AT modem.
+
+Rebuilt the module for native44. On the handset, umts_router and rmnet0
+moved from separate virtual sysfs paths to one mif_sipc5 platform
+parent. umts_ipc0 and rmnet1 stayed virtual, and the device names did
+not change. A cold LTE trial with the option enabled passed source-bound
+DNS and certificate-verified HTTPS204, RX10/TX9 and zero RX/TX errors.
+The Wi-Fi default was preserved and the temporary route restored.
+With the candidate running actual LTE, stock ModemManager 1.23.4
+still reported no modems, so the GNOME mobile network controls remain
+unavailable. The sensor service and both feeds stayed up.
+
+A distinct cleanup boot restored modem off and the Wi-Fi default.
+Audio, Bluetooth, sensors and ModemManager were active, with readable
+accel/ALS and no failed units. The ring recorded 63 warnings and one
+error-priority SSP zero-ACK retry, which remains open.

@@ -33,6 +33,10 @@
 #include "modem_utils.h"
 #include "modem_klat.h"
 
+static bool link_wwan_parent;
+module_param(link_wwan_parent, bool, 0444);
+MODULE_PARM_DESC(link_wwan_parent, "associate primary G965N cellular ports with their modem parent");
+
 static u8 sipc5_build_config(struct io_device *iod, struct link_device *ld,
 			     unsigned int count);
 
@@ -1490,6 +1494,8 @@ int sipc5_init_io_device(struct io_device *iod)
 		iod->miscdev.minor = MISC_DYNAMIC_MINOR;
 		iod->miscdev.name = iod->name;
 		iod->miscdev.fops = &misc_io_fops;
+		if (link_wwan_parent && !strcmp(iod->name, "umts_router"))
+			iod->miscdev.parent = iod->mc->dev;
 
 		ret = misc_register(&iod->miscdev);
 		if (ret)
@@ -1535,6 +1541,8 @@ int sipc5_init_io_device(struct io_device *iod)
 			return -ENOMEM;
 		}
 
+		if (link_wwan_parent && !strcmp(iod->name, "rmnet0"))
+			SET_NETDEV_DEV(iod->ndev, iod->mc->dev);
 		ret = register_netdev(iod->ndev);
 		if (ret) {
 			mif_info("%s: ERR! register_netdev fail\n", iod->name);

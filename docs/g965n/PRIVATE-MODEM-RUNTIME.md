@@ -697,3 +697,22 @@ Samsung IPC control adapter, along with a handoff of the qualified
 bearer to NetworkManager. Only one owner should issue modem control
 commands or configure the same bearer at a time. The existing LTE
 path is verified independently of the standard desktop panel.
+
+### Physical grouping for a native modem adapter
+
+The optional `link_wwan_parent=1` module parameter attaches only
+`umts_router` and `rmnet0` to the real `mif_sipc5` platform device. The
+shared parent gives discovery code a hardware anchor. It passed native44
+LTE data and independent sensor operation. The raw control port still
+belongs to the miscellaneous subsystem. Stock ModemManager does not
+handle this Samsung SIPC device after grouping, and no generic probe
+tags have been added.
+
+Reviewed the exact Ubuntu Noble 1.23.4-0ubuntu2 source. Its
+[ModemManager port-detection model](https://modemmanager.org/docs/modemmanager/port-and-device-detection/)
+groups kernel ports into devices before plugin selection.
+The native adapter still needs a supported control endpoint and a
+bearer handoff to NetworkManager. The stock generic modem must not
+independently open the lab's router channel while the SIPC owner is
+running. Qualification requires real modem enumeration, controls and
+data from the Ubuntu mobile network path.
