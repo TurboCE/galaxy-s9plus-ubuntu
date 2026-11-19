@@ -1843,7 +1843,8 @@ versus empty. Rollback also checks the final effective manager environment.
 
 At the owner's request, removed the document-portal/FUSE compatibility recipe
 from this driver/system branch and moved its source and dedicated verification
-notes to codex/g965n-document-portal-wip. The host-only exact-kernel module build
+notes to codex/g965n-document-portal-wip, preserved as draft PR#1
+(https://github.com/TurboCE/galaxy-s9plus-ubuntu/pull/1). The host-only module build
 completed, but no module was loaded or installed on the handset. No kernel
 configuration, startup service or portal setting was changed. Earlier portal
 observations inside GPU session logs remain historical context, not an active
