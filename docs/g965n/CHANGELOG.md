@@ -3787,3 +3787,35 @@ sample was recorded before readiness, then rechecked successfully. Reloaded
 systemd metadata after a stale-unit-cache notice; no unit source edit. Broader
 LTE/compass/GPU/other hardware limits remain. Final39 host RFS/launcher/CEREG/PDP
 tests pass including private diagnostic writes leaving both NV copies unchanged.
+
+Prepared opt-in cold-test RF quiesce before IPC/RFS close. Owner RadioPower
+OFF interface and Lineage pwr.h agree on SIPC0107 EXEC body0100 (LPM); this is
+not physical CP shutdown or a secure reset. Existing-online/observe-only use
+refused before I/O. Exit requests prior PDP/scan cleanup, consumes stale input,
+requests LPM once and keeps RFS/IPC open for at most10seconds plus a2second tail
+inside that bound. Only fresh exact phone-state LPM response/notification may
+confirm it; generic ACK, late reply, restart, return to normal or rejection
+cannot. Incomplete pre-request frames fail closed, no retries or reset fallback.
+Five transport/state/guard host tests and ten launcher tests pass; pending
+native cold trial. Default behavior unchanged until explicitly opted in.
+
+Native43 cold90s LPM trial: one request, fresh LPM confirmed, eight IPC/RFS
+frames serviced and full2second tail completed, no physical reset requested.
+RIL exits0. EPS codes0/2 only, no PDP or data proof. Private NV/source provenance
+verify. Full loaded ring retains early header,128error-priority/67warnings,
+0CallTrace/SError. Preliminary post-close IPC count0 later becomes1 at
+monotonic624.535; startup RFS-not-open1 at496.468 also remains. These are NOT
+fully resolved. Earlier non-LPM trial had91IPC-not-open events, but different
+observation durations prohibit a controlled reduction/performance claim. ECT/
+QoS/optional packet logging and module diagnostics remain. No log masking.
+
+Ordered normal cleanup reboot returned43 to modem-off. Next investigate the
+parent starting CBD asynchronously without proof that child IPC/RFS descriptors
+are open: the initial RFS packet may race service readiness. Do not replace
+this with a guessed sleep, or assume a future readiness barrier already works.
+
+Settled LPM-trial cleanup boot: full ring header present/error0/warning63,
+three services active, failedunits0, strictACKY/faultN, accel changes -601->-607,
+source-bound Wi-Fi HTTPS204 and accepted private Mesa persists. Reloaded stale
+systemd metadata without changing unit source. This module-off baseline does
+not erase the loaded-trial support gaps above.

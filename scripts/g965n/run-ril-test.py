@@ -63,11 +63,16 @@ def main():
                         help='Capture bounded OPEN/CLOSE requests in the private lab, never NV payloads')
     parser.add_argument('--serve-private-rfs-diagnostics', action='store_true',
                         help='Opt in to two bounded new private diagnostic files; never original EFS')
+    parser.add_argument('--quiesce-radio-on-exit', action='store_true',
+                        help='Cold test only: bounded RF low-power handshake/drain at exit, no physical reset')
     parser.add_argument('--scan-networks', action='store_true',
                         help='One bounded network scan; requires online observe-only mode and >=110seconds')
     parser.add_argument('--scan-networks-s9', action='store_true',
                         help='One stock-layout Samsung network scan; same observe-only guards')
     args = parser.parse_args()
+    if getattr(args, 'quiesce_radio_on_exit', False) and (
+            getattr(args, 'attach_online', False) or getattr(args, 'observe_only', False)):
+        parser.error('Radio quiesce is cold-test only, never existing-online observation')
     if getattr(args, 'scan_networks', False) and getattr(args, 'scan_networks_s9', False):
         parser.error('Choose one scan transport')
     if (getattr(args, 'scan_networks', False) or getattr(args, 'scan_networks_s9', False)) and (not getattr(args, 'observe_only', False) or
@@ -122,13 +127,16 @@ def main():
         if getattr(args, 'serve_private_rfs_diagnostics', False):
             runtime.safe_components(args.lab_directory)
             command += ['--private-rfs-diagnostics', str(args.lab_directory / 'rfs-diagnostics')]
+        if getattr(args, 'quiesce_radio_on_exit', False):
+            command += ['--quiesce-radio-on-exit']
         properties = [
             ('Description', GLib.Variant('s', 'Bounded G965N private-copy IPC/RFS lab')),
             ('DevicePolicy', GLib.Variant('s', 'closed')),
             ('DeviceAllow', GLib.Variant('a(ss)', [('/dev/' + p, 'rw') for p in ('umts_ipc0', 'umts_rfs0', 'umts_router')])),
             ('UMask', GLib.Variant('u', 0o077)),
             ('NoNewPrivileges', GLib.Variant('b', True)),
-            ('RuntimeMaxUSec', GLib.Variant('t', (args.seconds + 5) * 1000000)),
+            ('RuntimeMaxUSec', GLib.Variant('t', (args.seconds + (
+                15 if getattr(args, 'quiesce_radio_on_exit', False) else 5)) * 1000000)),
             ('Restart', GLib.Variant('s', 'no')),
             ('ExecStart', GLib.Variant('a(sasb)', [(command[0], command, False)])),
         ]

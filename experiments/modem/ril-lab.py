@@ -46,6 +46,125 @@ def s9_radio_normal():
     return (0x0107, b'\x02\x02', 1)
 
 
+def s9_radio_low_power():
+    """Owner RadioPower OFF branch and Lineage pwr.h agree on LPM0001.
+
+    This is RF functionality control through SIPC, not a physical CP reset,
+    secure-monitor call, bootloader operation or proof that CP is powered off.
+    """
+    return (0x0107, b'\x01\x00', 1)
+
+
+class RadioLowPowerDrain:
+    """Confirm LPM from a fresh phone-state response, never a generic ACK."""
+    def __init__(self, now, seconds=10):
+        if not 0 < seconds <= 10:
+            raise ValueError('Bounded radio drain required')
+        self.deadline = now + seconds
+        self.confirmed_at = None
+        self.failure = None
+
+    def event(self, message, now):
+        if len(message) < 7 or struct.unpack_from('<H', message)[0] != len(message):
+            raise ValueError('Invalid drain IPC frame')
+        command = message[4] << 8 | message[5]
+        if command == 0x0101:
+            self.failure = 'cp-restarted'
+        elif command == 0x0107 and message[6] in (2, 3) and len(message) == 8:
+            if message[7] == 1 and self.confirmed_at is None and now < self.deadline:
+                self.confirmed_at = now
+            elif message[7] != 1 and self.confirmed_at is not None:
+                self.failure = 'left-lpm'
+        elif command == 0x8001 and len(message) == 12:
+            group, index, kind, result = struct.unpack_from('<BBBH', message, 7)
+            if (group, index, kind) == (1, 7, 1) and result != 0x8000:
+                self.failure = 'lpm-rejected'
+
+    def pending(self, now):
+        return not self.failure and now < self.deadline and (
+            self.confirmed_at is None or now < self.confirmed_at + 2)
+
+    def result(self, now=None):
+        return {'radio_lpm_confirmed': self.confirmed_at is not None and not self.failure,
+                'radio_drain_failure': self.failure or (None if self.confirmed_at is not None else 'deadline'),
+                'radio_tail_drain_complete': (now is not None and self.confirmed_at is not None
+                                               and not self.failure and now >= self.confirmed_at + 2),
+                'cp_power_off_verified': False}
+
+
+def drain_radio_low_power(send, fds, buffers, nv, capture, seconds=10):
+    """Keep IPC/RFS open during LPM handshake, then a bounded tail drain.
+
+    Only for a cold test which explicitly configured RF. The caller excludes
+    online/observe-only attachment. No retries or fallback resets on failure.
+    Existing buffered messages are consumed BEFORE the request so a stale LPM
+    response cannot acknowledge it. Their RFS requests are still serviced.
+    """
+    ipc, rfs, at = fds
+    plan = RadioLowPowerDrain(time.monotonic(), seconds)
+    frames = 0
+
+    def consume(fd, allow_confirmation):
+        nonlocal frames
+        buffer = buffers[fd]
+        header = 6 if fd == rfs else 7
+        while len(buffer) >= header:
+            length = struct.unpack_from('<I' if fd == rfs else '<H', buffer)[0]
+            if length < header or length > 16 * 1024 * 1024 + 14:
+                raise ValueError('Invalid drain frame size')
+            if len(buffer) < length:
+                return
+            message = bytes(buffer[:length]); del buffer[:length]
+            frames += 1
+            if frames > 4096:
+                raise ValueError('Drain frame bound exceeded')
+            if fd == rfs:
+                if capture is not None:
+                    capture.record(message)
+                response = nv.handle(message)
+                if os.write(rfs, response) != len(response):
+                    raise RuntimeError('Short drain RFS reply')
+            elif allow_confirmation:
+                plan.event(message, time.monotonic())
+
+    # Consume already queued kernel data without treating it as a response to
+    # the request which has not been sent yet. Bound a busy/broken channel too.
+    for _ in range(64):
+        ready, _, _ = select.select(fds, [], [], 0)
+        if not ready:
+            break
+        for fd in ready:
+            chunk = os.read(fd, 65536)
+            if not chunk:
+                raise RuntimeError('Pre-request channel closed')
+            if fd != at:
+                buffers[fd].extend(chunk)
+                consume(fd, False)
+    else:
+        raise RuntimeError('Pre-request channels did not settle')
+    for fd in (ipc, rfs):
+        consume(fd, False)
+        if buffers[fd]:
+            # Do not join an old partial phone-state frame with a new response.
+            raise RuntimeError('Cannot quiesce with an incomplete pre-request frame')
+    send(*s9_radio_low_power())
+    print(json.dumps({'radio_lpm_requested': True, 'physical_reset_requested': False}), flush=True)
+    while plan.pending(time.monotonic()):
+        ready, _, _ = select.select(fds, [], [], min(0.2, max(0, plan.deadline - time.monotonic())))
+        for fd in ready:
+            chunk = os.read(fd, 65536)
+            if not chunk:
+                plan.failure = 'channel-closed'
+                break
+            if fd != at:
+                buffers[fd].extend(chunk)
+                consume(fd, True)
+    result = plan.result(time.monotonic())
+    result['radio_drain_frames'] = frames
+    print(json.dumps(result), flush=True)
+    return result
+
+
 def sim_ready_after_status(previous, status):
     """Phonebook completion is not removal of an already initialized SIM.
 
@@ -550,11 +669,15 @@ def main():
     parser.add_argument('--private-rfs-capture', type=Path)
     parser.add_argument('--private-rfs-diagnostics', type=Path,
                         help='New private lab directory for two bounded diagnostic files only')
+    parser.add_argument('--quiesce-radio-on-exit', action='store_true',
+                        help='Cold-test only: request RF low power and drain replies before closing channels')
     parser.add_argument('--scan-networks', action='store_true',
                         help='One bounded COPS test; online observation only, no operator selection')
     parser.add_argument('--scan-networks-s9', action='store_true',
                         help='One stock-layout Samsung0804 scan; online observation only')
     args = parser.parse_args()
+    if args.quiesce_radio_on_exit and (not args.configure_radio or args.attach_online):
+        parser.error('Radio quiesce requires a cold configuring test, never existing-online attachment')
     if args.scan_networks and args.scan_networks_s9:
         parser.error('Choose one scan transport')
     if (args.scan_networks or args.scan_networks_s9) and (not args.attach_online or args.configure_radio or args.activate_pdp_s9 or not args.diagnostic_status or args.seconds < 110):
@@ -684,6 +807,19 @@ def main():
         for number in (signal.SIGTERM, signal.SIGINT):
             previous = signal.signal(number, stop)
             stack.callback(signal.signal, number, previous)
+
+        def quiesce_radio():
+            if not radio_asked:
+                print(json.dumps({'radio_lpm_skipped': 'radio-not-requested'}), flush=True)
+                return
+            cleanup_scan()
+            cleanup_pdp()
+            drain_radio_low_power(send, fds, buffers, nv, capture)
+
+        if args.quiesce_radio_on_exit:
+            # Registered after the descriptor callbacks: drain completes while
+            # channels/private NV/runtime lease and stop handlers remain live.
+            stack.callback(quiesce_radio)
 
         while not stop_requested and time.monotonic() - started < args.seconds:
             now = time.monotonic()

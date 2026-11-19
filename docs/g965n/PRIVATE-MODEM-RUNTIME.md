@@ -464,3 +464,19 @@ qualification. No proprietary implementation or disassembly is redistributed.
 Native43 qualification: CP OPEN/SEEK/WRITE25bytes/CLOSE succeeds for RF
 diagnostic; network-reject file not requested, READ remains host-only tested.
 LTE still searching; no data qualification. Private evidence retained off Git.
+
+### Cold-test RF quiesce before channel close
+
+Use `--quiesce-radio-on-exit` for a bounded cold configuring trial that is
+ending, rather than intentionally leaving RF active for another observer. This
+option is refused for existing-online or observe-only attachment. It requests
+SIPC RF low power once, continues servicing private RFS and IPC, and waits for
+an exact LPM phone-state response plus a two-second tail inside a ten-second
+bound. Generic acknowledgement alone does not qualify. No fallback reset,
+secure-monitor operation or physical power-off claim is added. The unit gets
+fifteen seconds of cleanup headroom. Startup, rejection or timeout failures are
+retained; the normal modem-off cleanup reboot remains separately guarded.
+
+Native43 cold90s trial confirms LPM and two-second tail with8frames. One
+delayed IPC-not-open and one startup RFS-not-open remain; physical CP shutdown
+and loss-free channel lifecycle are not qualified. LTE remains unresolved.
