@@ -5056,3 +5056,26 @@ No-SIM shutdown, stock ModemManager restoration, six IIO devices and
 Wi-Fi HTTPS204 passed, with a P2P interface present and no failed units.
 The early signal and missing signal were qualified on the host only.
 This boot did not exercise SIM-present data or P2P file transfer.
+
+### 2026-11-20 — Respect manual Wi-Fi disconnect during recovery
+
+The recovery service treated NetworkManager's disconnected state as
+retryable even when the user had blocked device autoconnect. It now
+requires the device's autoconnect permission on each sample and
+rechecks the device before activating an eligible saved profile.
+Host tests cover manual disconnect, a late change before activation and
+missing device permission alongside the automatic retry path.
+
+Checked the model and BOOT/backup provenance, saved the original service
+script and applied the new one. The running service left a real
+NetworkManager device disconnect in place for 72 seconds, past two
+polling intervals. Manually reactivating the original profile restored
+Wi-Fi and HTTPS204. The guard remained active; no unit failed and no
+new Wi-Fi/P2P kernel warnings or errors appeared in that window.
+
+After manual reconnection, three 10-second stock NetworkManager P2P
+find/stop cycles also passed. The original Wi-Fi profile and interface
+index stayed the same, with Wi-Fi HTTPS204 during and after every cycle
+and no new Wi-Fi/P2P warning/error. One peer was reported; its name
+and previously verified address did not identify it as the Fold7.
+No group connection or transfer was attempted with that peer.

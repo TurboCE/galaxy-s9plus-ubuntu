@@ -17,6 +17,16 @@ class Guard:
         self.run = run
         self.down = {}
 
+    def retry_allowed(self, name):
+        rows = self.run("-t", "-f", "GENERAL.STATE,GENERAL.AUTOCONNECT",
+                        "device", "show", name).splitlines()
+        fields = dict(row.split(":", 1) for row in rows if ":" in row)
+        state = fields.get("GENERAL.STATE", "").split()
+        # 30 = disconnected, 120 = failed. Respect a user disconnect and
+        # leave devices with an ongoing activation alone.
+        return (fields.get("GENERAL.AUTOCONNECT") == "yes"
+                and bool(state) and state[0] in ("30", "120"))
+
     def step(self):
         if self.run("-t", "radio", "wifi") != "enabled":
             self.down.clear()
@@ -28,10 +38,7 @@ class Guard:
                 devices.append(name)
         self.down = {name: n for name, n in self.down.items() if name in devices}
         for name in devices:
-            state = self.run("-g", "GENERAL.STATE", "device", "show", name).split()[0]
-            # 30 = disconnected, 120 = failed. Never interrupt authentication,
-            # IP configuration, device removal, or an unmanaged interface.
-            if state not in ("30", "120"):
+            if not self.retry_allowed(name):
                 self.down.pop(name, None)
                 continue
             self.down[name] = self.down.get(name, 0) + 1
@@ -50,6 +57,8 @@ class Guard:
                 mode = self.run("-g", "802-11-wireless.mode", "connection", "show", "uuid", uuid)
                 if mode not in ("", "infrastructure"):
                     continue
+                if not self.retry_allowed(name):
+                    break
                 print(name + ": retrying saved auto-connect Wi-Fi", flush=True)
                 self.run("--wait", "20", "connection", "up", "uuid", uuid, "ifname", name)
                 break

@@ -216,3 +216,10 @@ and interface index. The control device returned to its disconnected
 state and the kernel recorded no new Wi-Fi/P2P warning or error.
 The scan saw one peer; its identity was not verified. Connection and
 payload transfer on native44 still require a confirmed peer.
+
+After deliberately disconnecting and manually restoring the saved Wi-Fi
+profile to qualify the recovery guard change, repeated three 10-second
+find/stop cycles. The restored station profile, interface index and
+Wi-Fi HTTPS204 held during and after each cycle. No new Wi-Fi/P2P
+warning or error was logged. The reported peer did not match the
+previously verified Fold7 name or address.
