@@ -3312,3 +3312,12 @@ validation after a confirmed insertion. Raw cause6 alone is not evidence of
 a blacklist or a settings defect; the owner's settings explanation remains
 a hypothesis. Stop further LTE registration/data experiments until an active
 SIM is physically confirmed. Sensor/kernel work continues independently.
+
+OWNER DEVICE-ATTRIBUTION CORRECTION: the immediately preceding no-USIM/
+previous-stock-use voice statement referred to S8+, NOT this S9+. Withdraw
+that statement's S9+ attribution. Final explicit owner statement confirms a
+physical SIM IS inserted in S9+. Previous stock-Android LTE use of this exact
+S9+ remains unknown. Restore physical insertion as the latest S9+ baseline;
+SIM preparation/subscription/registration are still separate, and cause6 is
+not a conclusive blacklist/settings diagnosis. No CP operation occurred
+between these handoffs; sensor-only build38 continues unchanged.

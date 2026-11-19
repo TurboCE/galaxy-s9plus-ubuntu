@@ -415,9 +415,8 @@ name6 Illegal ME. Treat network-side equipment refusal as a hypothesis until
 the relevant domain/procedure and same-handset Android/network history are
 corroborated. No identity alteration or forced CP recovery follows this code.
 
-Latest owner correction: **no physical USIM is currently inserted**. The
-previously queried READY/identity/cause values therefore do not prove current
-SIM presence or a live network rejection. Cache/freshness/hot-detection must
-be checked against a confirmed physical insertion before further registration
-or data trials. The handset had previously been used on stock Android. No
-carrier blacklist or settings diagnosis is established by the recorded cause.
+Final owner/device clarification: **S9+ has a physical SIM inserted**. The
+preceding no-USIM/prior-stock-use statement referred to S8+ and must not be
+applied to S9+. Previous stock-Android LTE use of this exact S9+ is unknown.
+Physical insertion does not independently prove readiness, service eligibility
+or registration. No blacklist/settings conclusion follows the recorded cause.
