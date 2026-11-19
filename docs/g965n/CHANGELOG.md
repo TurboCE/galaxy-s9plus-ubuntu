@@ -4954,3 +4954,27 @@ remained because the hardware reset was unconfirmed. Both boots
 passed six live IIO reads, Wi-Fi HTTPS204, P2P interface presence and
 normal no-SIM cleanup without failed systemd units. Cold boot and
 suspend/resume with the option remain unqualified.
+
+### 2026-11-20 — Screen-only background operation and suspend preflight
+
+Verified the active native44 BOOT and backup, and that the installed
+button handler matched the repository. The first proof command
+stopped on the nonzero status returned by `systemctl is-enabled` for
+a masked unit. The corrected proof read UnitFileState and used the
+installed handler's normal display method as the desktop user.
+
+In two 8.2-second intervals Mutter reported display power off and the
+panel CRTC became inactive. A background process successfully read
+all six IIO devices 32 and 33 times, with maximum sample gaps of
+253.8 and 255.9 ms for a 250 ms target. Wi-Fi HTTPS204 passed before,
+during and after. The original display and session lock state were
+restored, with the same boot and handler process.
+
+The running kernel lists only `s2idle` under `mem_sleep` and has no
+RTC class device. Stock revision 26 describes the on-SoC RTC with
+the Exynos8 variant, whose stock driver skips explicit clock control.
+The pinned Ubuntu kernel has the S3C RTC driver built in, but lacks
+the Exynos8 match and a live RTC device-tree node. Sleep targets
+remained masked. This check qualifies screen-only background
+operation; physical power-key behavior, suspend wake and comparative
+battery drain still require hardware tests.
