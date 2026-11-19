@@ -4520,3 +4520,8 @@ regular disconnect each returned to idle after exact release evidence.
 Sensor readings and the existing Wi-Fi route survived the trial.
 Cancel during an outstanding activation acknowledgment and operation
 through GNOME or NetworkManager remain to be checked separately.
+
+The final cleanup boot restored the Wi-Fi default with the trial modem
+unloaded. ModemManager and the sensor service were active and both IIO
+feeds were readable. There were no failed units, 63 kernel warnings and
+two SSP zero-byte transmit retries.
