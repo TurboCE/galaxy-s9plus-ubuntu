@@ -7,6 +7,7 @@ file access. Network layouts follow the documented stock S9 protocol research
 in ztOS modem/README.md at8bfb09011757f06c68a055fbfd95ea07d5e4fbe1; original code.
 """
 import argparse
+import csv
 from contextlib import ExitStack
 import fcntl
 import importlib.util
@@ -91,7 +92,7 @@ def home_network_only(buffer):
 
 
 def at_log_record(chunk, command):
-    if command in ('AT+CIMI', 'AT+CGSN', 'AT+COPS=?'):
+    if command in ('AT+CIMI', 'AT+CGSN', 'AT+COPS=?', 'AT+CEREG?', 'AT+CEREG=?'):
         return {'at_status_redacted': True, 'bytes': len(chunk)}
     return {'at_status': chunk.decode('ascii', 'replace')}
 
@@ -466,6 +467,57 @@ def cereg_registration(body):
     return int(matches[-1][1]) in (1, 5) if matches else None
 
 
+def cereg_query_status_only(body):
+    """Completed query fields only; never return TAC/cell identity or timers.
+
+    This is not a URC decoder. Do not enable an interleaved extended-URC
+    subscription without separately validating/demultiplexing that stream.
+    """
+    matches = list(re.finditer(rb'(?:^|[\r\n])\+CEREG:[ \t]*([^\r\n]*)(?=\r?\n)', body))
+    if not matches:
+        return None
+    try:
+        fields = [field.strip() for field in next(csv.reader([matches[-1][1].decode('ascii')], skipinitialspace=True, strict=True))]
+        if not 2 <= len(fields) <= 9 or not re.fullmatch('[0-5]', fields[0]) or not re.fullmatch('[0-9]{1,2}', fields[1]):
+            return None
+        result = {'reporting_mode': int(fields[0]), 'registration_code': int(fields[1]),
+                  'location_fields_redacted': True}
+        for index, key, maximum in [(4, 'access_technology_code', 99),
+                                    (5, 'cause_type_code', 1), (6, 'reject_cause_code', 255)]:
+            if len(fields) > index and fields[index]:
+                if not re.fullmatch('[0-9]{1,3}', fields[index]) or int(fields[index]) > maximum:
+                    return None
+                result[key] = int(fields[index])
+        return result
+    except (UnicodeError, csv.Error):
+        return None
+
+
+def cereg_supported_modes(body):
+    matches = list(re.finditer(rb'(?:^|[\r\n])\+CEREG:[ \t]*\(([0-5, \t-]+)\)[ \t]*(?=\r?\n)', body))
+    if not matches:
+        return None
+    modes = set()
+    for item in matches[-1][1].decode('ascii').split(','):
+        item = item.strip()
+        if re.fullmatch('[0-5]', item):
+            modes.add(int(item))
+        elif re.fullmatch('[0-5]-[0-5]', item) and item[0] <= item[2]:
+            modes.update(range(int(item[0]), int(item[2]) + 1))
+        else:
+            return None
+    return sorted(modes) if modes else None
+
+
+def completed_cereg_registration(body, command):
+    if (command != 'AT+CEREG?' or b'AT+CEREG?\r' not in body or
+            b'\r\nOK\r\n' not in body or
+            re.search(rb'(?:^|[\r\n])(?:ERROR|\+CME ERROR:)', body) or
+            cereg_query_status_only(body) is None):
+        return None
+    return cereg_registration(body)
+
+
 def validate_s9_opt_in(args):
     selected = bool(args.activate_pdp_s9)
     if selected != bool(args.confirm_reviewed_s9_pdp_layout):
@@ -635,7 +687,7 @@ def main():
                     at_queue.append('AT+COPS=?')
                 elif not args.scan_networks_s9:
                     at_queue.extend(['AT+CIMI', 'AT+CGSN', 'AT+CSQ', 'AT+CESQ', 'AT+CFUN?', 'AT+CPIN?', 'AT+COPS?',
-                                     'AT+CGATT?', 'AT+CGREG?', 'AT+CREG?', 'AT+CEER'])
+                                     'AT+CGATT?', 'AT+CGREG?', 'AT+CREG?', 'AT+CEER', 'AT+CEREG=?'])
                 diagnostic_queued = True
             if pdp_opt_in and pdp_plan is None and registered and registration_at is not None and now-registration_at <= 15 and sim_ready and radio_asked and ps_attach_acknowledged and at_ready and not at_failed:
                 pdp_plan = S9PDPPlan(args.apn, args.pdp_cid, now, timeout=args.pdp_seconds)
@@ -706,13 +758,20 @@ def main():
                     at_buffer.extend(chunk)
                     if len(at_buffer) > 65536:
                         raise RuntimeError('AT response exceeds bounded buffer')
-                    reported = cereg_registration(at_buffer)
-                    if reported is not None:
-                        registered = reported
-                        registration_at = time.monotonic()
                     echoed = at_active and (at_active[0] + '\r').encode('ascii') in at_buffer
                     if echoed and (b'\r\nOK\r\n' in at_buffer or b'ERROR' in at_buffer):
-                        if at_active[0] == 'AT+CIMI':
+                        if at_active[0] == 'AT+CEREG?':
+                            reported = completed_cereg_registration(at_buffer, at_active[0])
+                            registered = reported is True
+                            registration_at = time.monotonic() if reported is not None else None
+                            ok = b'\r\nOK\r\n' in at_buffer and b'ERROR' not in at_buffer
+                            print(json.dumps({'eps_query': cereg_query_status_only(at_buffer) if ok else None,
+                                              'reply_ok': ok, 'registered_for_initial_pdp': registered}), flush=True)
+                        elif at_active[0] == 'AT+CEREG=?':
+                            ok = b'\r\nOK\r\n' in at_buffer and b'ERROR' not in at_buffer
+                            print(json.dumps({'eps_reporting_modes': cereg_supported_modes(at_buffer) if ok else None,
+                                              'reply_ok': ok, 'reporting_policy_changed': False}), flush=True)
+                        elif at_active[0] == 'AT+CIMI':
                             network = home_network_only(at_buffer)
                             print(json.dumps({'sim_home_network': network,
                                               'subscriber_identity_redacted': True}), flush=True)

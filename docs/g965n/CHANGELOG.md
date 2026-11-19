@@ -3694,3 +3694,19 @@ these are not measurements from the earlier11fps case. Warm-trial changed
 fields are readonly IRQ/power counters only, with0new generation/wait failure.
 Intermittent cadence cause remains open; next correlate focus/frame callbacks
 and clocks during a failing reproduction rather than masking or guessing.
+
+Prepared native43 LTE observation with current readiness fix and improved
+read-only EPS diagnostics. AT+CEREG=? queries supported reporting modes; no
+subscription/setter/reset command added. Numeric CEREG query parsing drops
+location/timer fields and reports reason domain separately without interpreting
+vendor cause6 as a confirmed carrier rejection. Initial PDP registration gate
+now updates only from a complete acknowledged own CEREG query, not a partial
+or unrelated chunk. Four new diagnostics tests,14PDP and10runtime-launch tests
+pass. Extended interleaved-URC subscription remains unqualified/not enabled.
+
+Verified all9 lengths/hashes in archived37/40/43 backups, unchanged CPEFS/RADIO,
+and both bounded EFS-superblock-only hops. Preparing exact43 module/BOOT/backup
+checks and private receipt maintenance through checkpoint40. Original identity/
+radio/recovery/bootloader untouched; working NV copies and old receipt preserved.
+A fresh bounded stock CBD/RIL trial will verify live phonebook readiness and
+EPS reporting capability, with no blind auth/reset retry loop.
