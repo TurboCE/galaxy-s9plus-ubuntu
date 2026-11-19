@@ -35,6 +35,44 @@ def magnetic_capture_policy(profile):
     return value
 
 
+def magnetic_initialization(profile):
+    entry = profile.get('magnetic_initialization')
+    if entry is None:
+        return None
+    if magnetic_capture_policy(profile) is None:
+        raise ValueError('Magnetic initialization currently requires an explicit bounded capture')
+    raw = read_owned(entry['path'], private=True)
+    if (hashlib.sha256(raw).hexdigest() != entry.get('sha256') or
+            len(raw) != entry.get('bytes')):
+        raise ValueError('Private magnetic initialization checksum differs')
+    value = json.loads(raw)
+    if any(value.get(k) != v for k, v in {
+            'schema': 1, 'model': 'SM-G965N', 'revision': 26, 'mag_type': 1,
+            'stock_mag_position': 5, 'position_command_sent': False}.items()):
+        raise ValueError('Wrong board magnetic initialization facts')
+    for key, size in (('pdc', 27), ('mag_calibration', 13)):
+        data = value.get(key)
+        if (not isinstance(data, list) or len(data) != size or
+                any(type(x) is not int or not 0 <= x <= 255 for x in data) or
+                not any(data) or all(x == 255 for x in data)):
+            raise ValueError('Missing or invalid actual magnetic initialization bytes')
+    for key in ('own_stock_boot_sha256', 'own_efs_backup_sha256'):
+        digest = value.get(key, '')
+        if not isinstance(digest, str) or len(digest) != 64 or any(c not in '0123456789abcdef' for c in digest):
+            raise ValueError('Missing own-backup magnetic provenance')
+    return value
+
+
+def initialize_magnetic(probe, ssp, identity, value):
+    # Samsung magnetic_common.c: initialize_magnetic_sensor. No F1 position
+    # command: it would invalidate the separately qualified acceleration axes.
+    fuse = ssp.read_magnetic_fuse(probe, identity['sensor_mask'])
+    if not fuse['valid_factory_bytes']:
+        raise RuntimeError('Magnetic factory fuse read is invalid; no calibration sent')
+    probe.transaction(0xFD, bytes(value['pdc']))
+    probe.transaction(0x46, bytes(value['mag_calibration']))
+
+
 class MagneticCapture:
     """Record separate received batches, not invented simultaneous samples."""
     def __init__(self, policy):
@@ -143,6 +181,7 @@ def verify_profile(path):
                 evidence.get('mount_matrix') != matrix):
             raise ValueError('Acceleration mounting evidence does not match')
     magnetic_capture_policy(profile)
+    magnetic_initialization(profile)
     return profile
 
 
@@ -264,6 +303,9 @@ def run(profile, ssp, ready_fd, stop_fd):
             ssp.require_advertised(selected, identity['sensor_mask'])
             if 0 in selected and probe.transaction(0xE1, length=1) != b'\x08':
                 raise ValueError('Live acceleration range is not 8G; no sensor enabled')
+            magnetic_init = magnetic_initialization(profile)
+            if magnetic_init is not None:
+                initialize_magnetic(probe, ssp, identity, magnetic_init)
             feed_fd = os.open(DEVICE, os.O_WRONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
             info = os.fstat(feed_fd)
             if not stat.S_ISCHR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
@@ -294,6 +336,8 @@ def run(profile, ssp, ready_fd, stop_fd):
                     probe.samples[4] = []
                     capture.close()
                     capture = None
+                    print(json.dumps({'magnetic_capture_completed': True,
+                                      'magnetic_sensor_removed': True}), flush=True)
                 last_accel = publish_actual(probe, selected, feed, seen, last_accel, now)
                 if now >= next_heartbeat:
                     feed.publish(3)

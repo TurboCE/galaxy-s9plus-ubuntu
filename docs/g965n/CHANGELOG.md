@@ -2361,3 +2361,30 @@ S9_EXPERIMENTAL_PANEL_AOR=1 explicitly opts the build into the trial; default
 remains off. Actual C failure-injection/sequence tests and shell syntax pass.
 No successful build, boot, visible dimming or automatic brightness claimed.
 Original Samsung GPL register/table attribution retained in panel-aor.h.
+
+## 2026-11-19 — Physical cardinal magnetic trial and calibration candidate
+
+On native#27 the bounded broker trial kept real accel/ALS available and
+received calibrated ID4 without raw2/3. Owner completed8-shaped motion and
+four flat cardinal poses against a second compass. Each cardinal window had
+60magnetic and67acceleration samples; accuracy stayed1,overflow0. A tentative
+shared-axis planar calculation differed from reference by up to36.8degrees
+(west). This is a failed heading-quality check, not a working compass. Raw
+records remain private. Capture stopped appending at600s while sensor service
+and both IIO devices stayed active; the explicit ID4 remove path returned.
+
+Prepared an offline-only own-backup extractor: verifies G965N manifests and
+BOOT/EFS hashes, matches actual revision26 stock sensor properties, reads
+only the existing25byte FactoryApp/gyro_cal_data via read-only debugfs and
+keeps the13byte magnetic state plus27byte own board PDC private. No original
+EFS mount, O_CREAT fallback, NVM save or zero-filled calibration allowed.
+Actual verified own extraction passed with nonzero NVM state. Added explicit
+private-pinned trial initialization matching stock fuse-read,FD PDC,46 state
+commands; neverF1 because that could invalidate qualified acceleration axes.
+Host payload/command/backup guards pass; native initialization and its effect
+on heading quality are pending. Owner has left; no further physical pose or
+visible-brightness confirmation is available now.
+
+Backlight candidate built successfully as kernel#28 from1b2d58e,BOOT
+10cbb650cb6bc78b3035c2451a09f0c91fb27da72a5cb1b67c1569acf8673541,
+27219984bytes. No new-kernel boot or actual brightness success yet.

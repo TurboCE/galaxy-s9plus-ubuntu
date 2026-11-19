@@ -4,6 +4,7 @@ import importlib.util
 import os
 import io
 import json
+import hashlib
 from pathlib import Path
 import stat
 import types
@@ -15,6 +16,39 @@ spec=importlib.util.spec_from_file_location('broker',ROOT/'scripts/g965n/ssp-iio
 b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
 
 class BrokerTests(unittest.TestCase):
+    def test_magnetic_initialization_checks_actual_private_payload_and_provenance(self):
+        value={'schema':1,'model':'SM-G965N','revision':26,'mag_type':1,
+               'stock_mag_position':5,'position_command_sent':False,
+               'pdc':list(range(27)),'mag_calibration':list(range(13)),
+               'own_stock_boot_sha256':'a'*64,'own_efs_backup_sha256':'b'*64}
+        def profile(v):
+            data=json.dumps(v).encode()
+            return {'accel':{'enabled':True},'magnetic_capture':{
+                'output':'/var/lib/g965n-sensors/magnetic-trials/test.jsonl','seconds':60},
+                'magnetic_initialization':{'path':'/private/test.json','bytes':len(data),
+                                         'sha256':hashlib.sha256(data).hexdigest()}},data
+        p,data=profile(value)
+        with patch.object(b,'read_owned',return_value=data) as read:
+            self.assertEqual(b.magnetic_initialization(p),value)
+            read.assert_called_once_with('/private/test.json',private=True)
+        for update in ({'pdc':[0]*27},{'mag_calibration':[0]*13},
+                       {'mag_calibration':[True]*13},{'revision':25},
+                       {'position_command_sent':True},{'own_efs_backup_sha256':''}):
+            p,data=profile({**value,**update})
+            with patch.object(b,'read_owned',return_value=data),self.assertRaises(ValueError):
+                b.magnetic_initialization(p)
+
+    def test_magnetic_initialization_never_changes_position_or_writes_nvm(self):
+        q=types.SimpleNamespace(transaction=unittest.mock.Mock())
+        ssp=types.SimpleNamespace(read_magnetic_fuse=unittest.mock.Mock(return_value={'valid_factory_bytes':True}))
+        value={'pdc':list(range(27)),'mag_calibration':list(range(13))}
+        b.initialize_magnetic(q,ssp,{'sensor_mask':20},value)
+        self.assertEqual(q.transaction.call_args_list,[unittest.mock.call(0xFD,bytes(range(27))),
+                                                     unittest.mock.call(0x46,bytes(range(13)))])
+        q.transaction.reset_mock();ssp.read_magnetic_fuse.return_value={'valid_factory_bytes':False}
+        with self.assertRaisesRegex(RuntimeError,'fuse'):b.initialize_magnetic(q,ssp,{'sensor_mask':20},value)
+        q.transaction.assert_not_called()
+
     def test_magnetic_trial_is_opt_in_private_bounded_and_accel_qualified(self):
         p={'accel':{'enabled':True}}
         self.assertIsNone(b.magnetic_capture_policy(p))
