@@ -74,13 +74,13 @@ static const unsigned short s9p_aor_values[] = {
 #define S9P_AOR_RAMP_MS 40
 
 /* Slew only output brightness; never alter the real illuminance samples. */
-static unsigned int s9p_aor_next(unsigned int current, unsigned int target)
+static unsigned int s9p_aor_next(unsigned int applied, unsigned int target)
 {
-	if (current < target)
-		return target - current > S9P_AOR_RAMP_STEP ?
-			current + S9P_AOR_RAMP_STEP : target;
-	return current - target > S9P_AOR_RAMP_STEP ?
-		current - S9P_AOR_RAMP_STEP : target;
+	if (applied < target)
+		return target - applied > S9P_AOR_RAMP_STEP ?
+			applied + S9P_AOR_RAMP_STEP : target;
+	return applied - target > S9P_AOR_RAMP_STEP ?
+		applied - S9P_AOR_RAMP_STEP : target;
 }
 
 /* Always attempt to close the vendor key, including a failed unlock/latch.
