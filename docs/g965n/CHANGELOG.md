@@ -4456,3 +4456,8 @@ temporary routes, sensors remained active with both feeds readable, and
 the socket disappeared at teardown. Stock ModemManager remained active
 and reported no modems. Ubuntu's desktop Mobile Network controls still
 need the Samsung IPC adapter and NetworkManager bearer handoff.
+
+The cleanup boot restored the Wi-Fi default and left the lab modem
+unloaded. ModemManager, sensors and Bluetooth were active with no failed
+units and readable acceleration and light sensors. The kernel recorded
+63 warnings and one SSP transmit retry.
