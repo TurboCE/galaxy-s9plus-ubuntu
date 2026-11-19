@@ -430,7 +430,7 @@ static int mcu_ipc_probe(struct platform_device *pdev)
 	int err = 0;
 	u32 id = 0;
 
-	dev_err(&pdev->dev, "%s: mcu_ipc probe start.\n", __func__);
+	dev_info(dev, "initializing CP mailbox\n");
 
 	err = of_property_read_u32(dev->of_node, "mcu,id", &id);
 	if (err) {
@@ -469,6 +469,8 @@ static int mcu_ipc_probe(struct platform_device *pdev)
 
 	/* Request IRQ */
 	mcu_ipc_irq = platform_get_irq(pdev, 0);
+	if (mcu_ipc_irq < 0)
+		return mcu_ipc_irq;
 	err = devm_request_irq(&pdev->dev, mcu_ipc_irq, mcu_ipc_handler, 0,
 			pdev->name, &mcu_dat[id]);
 	if (err) {
@@ -496,7 +498,7 @@ static int mcu_ipc_probe(struct platform_device *pdev)
 	spin_lock_init(&mcu_dat[id].lock);
 	spin_lock_init(&mcu_dat[id].reg_lock);
 
-	dev_err(&pdev->dev, "%s: mcu_ipc probe done.\n", __func__);
+	dev_info(dev, "CP mailbox ready\n");
 
 	return 0;
 }

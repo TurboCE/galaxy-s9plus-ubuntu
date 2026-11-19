@@ -559,17 +559,18 @@ static int shm_probe(struct platform_device *pdev)
 	void __iomem *cp_mem_base;
 	char table_id_ver[5];
 
-	dev_err(dev, "%s: shmem driver init\n", __func__);
+	dev_info(dev, "initializing CP shared memory\n");
 
 	cp_mem_base = shm_request_region(pdata.p_addr, PAGE_SIZE);
+	if (!cp_mem_base) {
+		of_node_put(np_acpm);
+		return -ENOMEM;
+	}
 	dev_info(dev, "cp_mem_base: 0x%lx, 0x%pK\n", pdata.p_addr, cp_mem_base);
 	/* 0x200: TOC, 0xa0: cp memory map offset */
-	memcpy(&cp_mem_map, cp_mem_base + 0x200 + 0xa0, sizeof(struct cp_reserved_map_table));
-
-	if (cp_mem_base) {
-		iounmap(cp_mem_base);
-		cp_mem_base = NULL;
-	}
+	BUILD_BUG_ON(0x200 + 0xa0 + sizeof(cp_mem_map) > PAGE_SIZE);
+	memcpy_fromio(&cp_mem_map, cp_mem_base + 0x200 + 0xa0, sizeof(cp_mem_map));
+	iounmap(cp_mem_base);
 
 	tmp = ntohl(cp_mem_map.table_id_ver + 0x30);
 	if (strncmp((const char *)&tmp, "MEM", 3) == 0) {
@@ -591,21 +592,21 @@ static int shm_probe(struct platform_device *pdev)
 				if (strncmp((const char *)ptr, "IPC", 3) == 0) {
 					pdata.ipc_off = cp_mem_map.sExtBin[i].ext_bin_addr;
 					pdata.ipc_size = cp_mem_map.sExtBin[i].ext_bin_size;
-					dev_err(dev, "IPC: 0x%08x: 0x%08X\n", pdata.ipc_off, pdata.ipc_size);
+					dev_info(dev, "IPC: 0x%08x: 0x%08X\n", pdata.ipc_off, pdata.ipc_size);
 				} else if (strncmp((const char *)ptr, "VSS", 3) == 0) {
 					pdata.vss_size = cp_mem_map.sExtBin[i].ext_bin_size;
-					dev_err(dev, "VSS: 0x%08X: 0x%08X\n",
+					dev_info(dev, "VSS: 0x%08X: 0x%08X\n",
 							cp_mem_map.sExtBin[i].ext_bin_addr, pdata.vss_size);
 				} else if (strncmp((const char *)ptr, "VPA", 3) == 0) {
 					pdata.vparam_size = cp_mem_map.sExtBin[i].ext_bin_size;
-					dev_err(dev, "VSS PARAM: 0x%08X: 0x%08X\n",
+					dev_info(dev, "VSS PARAM: 0x%08X: 0x%08X\n",
 							cp_mem_map.sExtBin[i].ext_bin_addr, pdata.vparam_size);
 				} else if (strncmp((const char *)ptr, "ZMC", 3) == 0) {
 					pdata.zmb_off = cp_mem_map.sExtBin[i].ext_bin_addr;
 					pdata.zmb_size = cp_mem_map.sExtBin[i].ext_bin_size;
-					dev_err(dev, "ZMC: 0x%08X: 0x%08X\n", pdata.zmb_off, pdata.zmb_size);
+					dev_info(dev, "ZMC: 0x%08X: 0x%08X\n", pdata.zmb_off, pdata.zmb_size);
 				} else if (strncmp((const char *)ptr, "LOG", 3) == 0) {
-					dev_err(dev, "LOG: 0x%08X: 0x%08X\n",
+					dev_info(dev, "LOG: 0x%08X: 0x%08X\n",
 							cp_mem_map.sExtBin[i].ext_bin_addr, cp_mem_map.sExtBin[i].ext_bin_size);
 				}
 			}

@@ -3193,18 +3193,6 @@ static int exynos_devfreq_parse_ect(struct mem_link_device *mld, char *dvfs_doma
 
 	return 0;
 }
-#else
-static int exynos_devfreq_parse_ect(struct mem_link_device *mld, char *dvfs_domain_name)
-{
-	mif_err("ECT is not defined(%s)\n", __func__);
-
-	mld->cl0_table.num_of_table = 0;
-	mld->cl1_table.num_of_table = 0;
-	mld->mif_table.num_of_table = 0;
-	mld->int_table.num_of_table = 0;
-
-	return 0;
-}
 #endif
 
 static void remap_4mb_map_to_ipc_dev(struct mem_link_device *mld)
@@ -4001,26 +3989,26 @@ struct link_device *shmem_create_link_device(struct platform_device *pdev)
 	}
 #endif
 
-	/* Parsing devfreq, cpufreq table from ECT */
-	mif_err("Parsing MIF table...\n");
+	/* Legacy CP QoS requests need the vendor ECT tables. */
+#if defined(CONFIG_ECT)
 	err = exynos_devfreq_parse_ect(mld, "dvfs_mif");
 	if (err < 0)
 		mif_err("Can't get MIF table!!!!!\n");
 
-	mif_err("Parsing CL0 table...\n");
 	err = exynos_devfreq_parse_ect(mld, "dvfs_cpucl0");
 	if (err < 0)
 		mif_err("Can't get CPU table!!!!!\n");
 
-	mif_err("Parsing CL1 table...\n");
 	err = exynos_devfreq_parse_ect(mld, "dvfs_cpucl1");
 	if (err < 0)
 		mif_err("Can't get CPU table!!!!!\n");
 
-	mif_err("Parsing INT table...\n");
 	err = exynos_devfreq_parse_ect(mld, "dvfs_int");
 	if (err < 0)
 		mif_err("Can't get INT table!!!!!\n");
+#else
+	mif_info("legacy ECT tables unavailable; CP frequency votes are disabled\n");
+#endif
 
 	/**
 	 * For TX Flow-control command from CP
@@ -4037,9 +4025,11 @@ struct link_device *shmem_create_link_device(struct platform_device *pdev)
 		goto error;
 	}
 
+#ifdef CONFIG_DEBUG_PKTLOG
 	mld->pktlog = create_pktlog("shmem");
 	if (!mld->pktlog)
 		mif_err("packet log device create fail\n");
+#endif
 
 	mld->syscp_info = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 

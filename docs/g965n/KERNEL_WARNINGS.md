@@ -34,6 +34,15 @@ zero credit and zero acknowledged bytes. The checked retry path
 recovered. Investigate the status transition or SPI response on that
 transaction before changing retry or credit behavior.
 
+With desktop LTE enabled, native44 additionally records legacy SIPC
+startup messages. The exact-module follow-up checks the initial memory
+mapping and mailbox IRQ before using them. Known optional ECT and
+packet-log paths no longer register false failures during startup.
+Normal boot and LTE/Wi-Fi HTTPS204 passed with that module. The build
+has no vendor ECT vote table, and the optional ACPM crash-dump region
+remains unavailable. The observed ring still contained 103
+error-priority messages and 67 warnings.
+
 Wi-Fi Direct IF_ADD timeout is separately repaired by a real firmware-backed
 control context, with native boot/reboot, lifecycle/scans, existing STA HTTPS
 and owner-assisted bidirectional discovery evidence in WIFI_DIAGNOSTICS.md.

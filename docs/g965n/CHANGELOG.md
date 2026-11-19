@@ -4662,3 +4662,27 @@ error-priority messages, including 120 SIPC startup diagnostics and
 one SSP zero-byte retry. These messages remain visible. Direct GNOME
 interaction, unexpected-stop recovery and extended access after
 network loss have not been qualified.
+
+### 2026-11-20 — Check SIPC probe prerequisites and configured features
+
+The enabled modem boot exposed unconditional error messages for absent
+ECT frequency tables and a disabled packet logger. The non-ECT build
+now skips table lookups and reports the CP frequency-vote limitation
+once. Packet logger initialization is conditional on its build option.
+Mailbox and shared-memory setup report successful progress at info
+level. Mapping failures, malformed metadata and IRQ request failures
+retain error handling.
+
+Shared-memory probe now rejects a failed map before accessing the
+header, bounds the header to the mapped page, and copies it using the
+MMIO accessor. Mailbox probe returns a negative IRQ lookup result
+before requesting that IRQ. The failure branches were reviewed and
+compiled. The phone exercised the successful paths.
+
+Rebuilt the module for native44 and installed it after the enabled
+desktop service released the modem and restored its stock manager.
+On the next enabled boot, LTE autoconnect, LTE-bound DNS and HTTPS204,
+Wi-Fi HTTPS204, and acceleration and light reads passed. The optional
+packet-log failure and repeated ECT error were absent. The full boot
+still had 103 error-priority messages and 67 warnings, with no failed
+units or SSP retry on this boot. The matched module remains in service.
