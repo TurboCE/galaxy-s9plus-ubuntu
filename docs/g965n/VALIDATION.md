@@ -12,10 +12,10 @@ A build or a driver node is not sufficient evidence of a working function.
 | CPU / RAM | 8 online cores; 5523MiB usable RAM | Verified |
 | Native builds / Git | Git clone+pull; real fixdep C source compiled on each CPU, 8 identical object hashes | Short test passed |
 | Storage | USERDATA mounted as root and grew to 230GiB | Verified |
-| Display / touch | Owner confirmed desktop/touch; 2x desktop scaling persisted at 720x1480 logical pixels | #30 scoped post-power controller reset passed initial native boot and3warmboots with first input registration~5.29s and no initial-110; previous delay-only#29 failed; basic interaction previously owner verified; apps wider than 720 minimum still need adaptations |
+| Display / touch | Owner confirmed desktop/touch; 2x desktop scaling persisted at 720x1480 logical pixels | #30 scoped post-power controller reset passed initial native boot and3warmboots;#31/#32 initial boots also passed with first input registration~5.29s and no initial-110; previous delay-only#29 failed; basic interaction previously owner verified; apps wider than 720 minimum still need adaptations |
 | GPU | #21 isolated patched Mesa with nocrc,noafbc: exact128x128 readback100, full33 positive scene rows, fullscreen1440x2960 U-tiled presentation and FIFO61/61/61fps;0 new matching GPU faults/timeouts; actual private-library maps verified | Bounded isolated rendering passed.100us IRQ generation-check rejections +1 with40ms completion wait failures0; frame impact unconfirmed. System desktop remains on the previously failing Mesa stack. Desktop/browser/endurance, CRC-enabled operation and allocation policy remain unqualified |
 | Wi-Fi | Native#25 HTTPS204 explicitly bound to Wi-Fi after policy correction; earlier NTP/connection observations | Data path verified; long reconnect tests pending |
-| Wi-Fi Direct / roaming | #24 policy5 and rawBADOPTION(-3) identified; #25 scoped product-profile preservation removes legacy-trigger initialization failure | Initialization correction hardware verified; P2P IF_ADD timeout and real access-point handover remain unverified |
+| Wi-Fi Direct / roaming | #24 policy5 and rawBADOPTION(-3) identified; #25 scoped product-profile preservation removes legacy-trigger initialization failure | Initialization correction hardware verified; P2P IF_ADD timeout persists on#31/#32 despite all setup steps returning0 and actual event-mask IFbit=1; real access-point handover remains unverified |
 | USB networking / SSH | Mac received address automatically; key-only SSH works | Verified |
 | Manual wired disconnect recovery | Console identified Wi-Fi path; privileged reconnection + gadget rebind restored USB SSH | Verified |
 | System services | #25 failed system units0; initramfs/pinctrl/CLKOUT/phantom charger/roam-trigger errors absent; earlier SO_PASSSEC/Dbusmenu fixes retained | Bounded observation; RGB/haptic/P2P and CPU/cache limitations remain |
@@ -158,3 +158,8 @@ Native31: BOOTreadback+nativeboot+sensoractualreads/audioBTstartup passed.
 P2P setup0..4 succeeded but IF_ADD timed out: still failing. Two initialSSI
 retries followed by strictY/faultN datafeed; all-error-free claim false.
 New readonlyIFevent-mask diagnostic is not yet hardware-qualified.
+
+Latest#32 initial+warm boot: touch reset before first access/no-110, sensor/
+audio/BT auto-start and realaccel/ALS; strictY/faultN, failedsystemunits0.
+P2P still fails with actual event-mask IFbit1; one initialSSI retry on warmboot.
+These observations do not establish all-modules-working or error-free kernel.

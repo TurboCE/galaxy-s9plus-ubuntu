@@ -2599,3 +2599,33 @@ bounded256byte buffer, validated firmware-mask length, reports only numeric
 IF-subscription bit/result/length, no addresses or event payload, no replay or
 subscription write. Original Broadcom notice retained. This new observation
 is source-stage until another native kernel boot.
+
+## 2026-11-19 — Native32 rules out disabled IF-event subscription
+
+Kernel32 built fromf6bef1e, #32 SMP PREEMPT Thu Nov19 05:38:06 UTC2026;
+BOOT419c260c3d09f5b3f3732228919098113f50985cf655fe206e100b64cd7adfc0,
+27219984bytes. Fresh9backup passed, fail-fast precomparison verified
+RECOVERY/CPEFS/RADIO unchanged and all EFS byte changes confined to the known
+ext4 recovery mount-accounting fields; guardedBOOTwrite/readback passed.
+Native boot reached sensors/audio/BT active, strictY/faultN, actual accel/ALS.
+TSP first-access reset5.269s without-110. Read-only P2P event-mask observation
+returned0 with length27 and actual IFbit1; all setup0..4 returned0, yet IF_ADD
+still timed out6.053s. Thus a disabled IF subscription is not supported as the
+cause. No subscription write, fake event, forced-success interface or firmware
+replacement. No initial SSI retry in this one32 observation; this does not
+invalidate31's two retries or prove all-mode/long-run integrity.
+
+Pinned Lineage101_16 discovery logic uses real p2p_dev query/index with control
+interface index0 rather than IF_ADD completion. A future compatibility path
+must qualify actual firmware BSS context and preserve primary-interface
+mapping/flow cleanup; merely treating timeout as success is not acceptable.
+No such path is enabled by this diagnostic patch. Actual32 fresh backup/profile
+pins staged before the next native reboot; no modem service enabled.
+
+Native32 further warm reboot passed: post-powerTSP reset5.269s with old
+status000a0006→00080001 and no initial-110; sensor/audio/BT auto-start active,
+strictY/faultN, three live accel/ALS samples, failedsystemunits0. One initialSSI
+retry returned on this reboot, so the earlier no-retry boot is not generalized.
+P2P again readback IFbit1/len27/ret0 and timed out. Timer remains disabled;
+latest32 fresh backup/profile pins active. No pending diagnostic reboot timer,
+firmware publication or uncommitted device driver source left by this trial.

@@ -114,3 +114,14 @@ all disposition values, absent private string output, short IF lengths zero
 through four with no handler access and exactly one free, and valid five-byte
 IF dispatch. Separate tests cover exact hashes, preserved source notices,
 idempotence and refusing a second-file drift before modifying the first.
+
+## Native follow-up: required setup and event-mask readback
+
+2026-11-19 native31/32: scoped required setup stages DOWN/APSTA/UP/discovery-off/
+address override all returned0. Native32 read-only event_msgs query returned0,
+length27, IF-event bit1 before discovery-on. IF_ADD still timed out. Checked
+setup propagation and subscription readback diagnose the failure; neither is
+reported as working peer discovery/group formation/traffic. No firmware event
+was synthesized or subscription mask changed. Next compatibility work needs
+an actual qualified firmware discovery BSS query and primary-ifidx0 lifecycle
+review, following the pinned source evidence above.
