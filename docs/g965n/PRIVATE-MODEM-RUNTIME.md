@@ -379,3 +379,14 @@ sensitive filenames: never commit/publish it. This is diagnostic evidence for
 reviewing a future fixed, read-only allowlist, not such an allowlist already.
 Status diagnostics redact subscriber/device identity response fragments before
 journaling; they retain only the home network prefix or format-validity booleans.
+
+### Identity diagnostic privacy and limits
+
+The bounded CGSN diagnostic never journals raw response fragments. It reports
+only format/Luhn validity and default-value classification. An unknown reply
+can also expose fixed booleans and at most eight numeric-field lengths, never
+identity digits or hashes. The parser accepts exactly one whole14..16-digit
+field in a completed response, rejects ambiguous/longer fields and terminal
+errors, and never gates radio/PDP operations. Native37 verified a valid
+nondefault identity classification and absence of identity digits in its
+private journal. This is not network authorization or LTE data evidence.

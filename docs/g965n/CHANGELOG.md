@@ -3216,3 +3216,25 @@ announcement of the deliberately set BROKEN_READ_TRANSMIT_POWER quirk, and
 hci_le_read_tx_power_sync skips the unsupported operation when that bit is set.
 The existing board-scoped patch already implements this safeguard. Retain the
 notice; no log suppression or speculative Bluetooth capability claim.
+
+Preparing native37 existing-online read-only30s trial to classify unknown
+CGSN response shape. New diagnostic emits only fixed booleans and up to eight
+numeric-field lengths, never digits/hash/raw reply; existing fragment redaction
+is retained. Nine radio/privacy/state tests and eight runtime preflight tests
+pass. Exact protected BOOT/model/fresh-backup guard precedes sensor stop and
+exclusive runtime preparation. No CBD/reset or radio configuration requested.
+
+Native37 shape3 observe-only trial completed and fully restored sensors.
+Unknown CGSN reply has exactly one15-digit field, no terminal error, no CGSN
+prefix or quoted field. The bare-line-only diagnostic parser was too strict.
+Changed only read-only status parsing to accept exactly one whole14..16-digit
+field in the completed bounded CGSN reply; rejects multiple fields, substrings
+of longer numbers and terminal errors. No radio/PDP decision uses this result.
+Nine radio/privacy/state tests pass, including labels/quotes/ambiguity/errors.
+Native37 identity4 observe-only trial then reports IMEI format/Luhn valid and
+nondefault, while every fragment remains redacted; journal has no14..16-digit
+subscriber/device value. Original identity/NV never altered. Exact BOOT/model/
+backup guards, source hashes and private-copy lease checks preceded each test.
+Both trials stopped own clients and restored sensor service; failed units0.
+This excludes the earlier parser-unknown/default-format hypothesis, not a
+carrier registration/whitelist/RF problem. LTE data remains unverified.

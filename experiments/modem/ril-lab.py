@@ -97,15 +97,29 @@ def at_log_record(chunk, command):
 
 
 def device_identity_status_only(buffer):
-    match = re.search(rb'(?:^|[\r\n])([0-9]{14,16})(?=[\r\n])', buffer)
-    if not match:
+    # This receives only the completed, bounded response to our CGSN query.
+    # Native37 has one15-digit field but it is not a bare line. Accept exactly
+    # one whole numeric field; never guess between multiple fields or take a
+    # substring of a longer number. Nothing here authorizes a radio operation.
+    matches = re.findall(rb'(?<![0-9])[0-9]{14,16}(?![0-9])', buffer)
+    if len(matches) != 1 or device_identity_reply_shape(buffer)['terminal_error']:
         return None
-    digits = match[1]
+    digits = matches[0]
     nondefault = len(set(digits)) > 1
     total = sum((d * 2 // 10 + d * 2 % 10) if i % 2 else d
                 for i, d in enumerate(c - 48 for c in digits))
     return {'imei_format_valid': len(digits) == 15 and nondefault and total % 10 == 0,
             'default_identity': not nondefault, 'device_identity_redacted': True}
+
+
+def device_identity_reply_shape(buffer):
+    """Classify an unknown reply without retaining identity digits or a hash."""
+    return {
+        'terminal_error': bool(re.search(rb'(?:^|[\r\n])(?:\+CME ERROR:|ERROR(?:[\r\n]|$))', buffer)),
+        'cgsn_prefix': bool(re.search(rb'(?:^|[\r\n])\+CGSN:', buffer)),
+        'quoted_numeric_field': bool(re.search(rb'"[0-9]{5,}"', buffer)),
+        'numeric_field_lengths': [len(m[0]) for m in list(re.finditer(rb'[0-9]{5,}', buffer))[:8]],
+    }
 
 
 def reference_define_pdp(apn, cid=1):
@@ -627,6 +641,7 @@ def main():
                                               'subscriber_identity_redacted': True}), flush=True)
                         elif at_active[0] == 'AT+CGSN':
                             print(json.dumps({'device_identity_status': device_identity_status_only(at_buffer),
+                                              'device_identity_reply_shape': device_identity_reply_shape(at_buffer),
                                               'device_identity_redacted': True}), flush=True)
                         if at_active[0] == 'AT' and b'\r\nOK\r\n' in at_buffer:
                             at_ready = True

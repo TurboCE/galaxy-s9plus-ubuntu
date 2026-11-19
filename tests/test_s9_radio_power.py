@@ -74,10 +74,26 @@ class RadioWireFacts(unittest.TestCase):
         result=ril.device_identity_status_only(response)
         self.assertEqual(result,{'imei_format_valid':True,'default_identity':False,'device_identity_redacted':True})
         self.assertNotIn('490154203237518',str(result))
+        for field in (b'IMEI: 490154203237518', b'IMEI = 490154203237518',
+                      b'+CGSN: "490154203237518"'):
+            self.assertEqual(ril.device_identity_status_only(b'AT+CGSN\r\n'+field+b'\r\nOK\r\n'),result)
+        self.assertIsNone(ril.device_identity_status_only(b'\r\n149015420323751899\r\n'))
+        self.assertIsNone(ril.device_identity_status_only(b'\r\n490154203237518 490154203237518\r\n'))
+        self.assertIsNone(ril.device_identity_status_only(b'\r\n490154203237518\r\nERROR\r\n'))
         self.assertTrue(ril.at_log_record(response,'AT+CGSN')['at_status_redacted'])
         self.assertFalse(ril.device_identity_status_only(b'\r\n490154203237519\r\n')['imei_format_valid'])
         self.assertTrue(ril.device_identity_status_only(b'\r\n000000000000000\r\n')['default_identity'])
         self.assertIsNone(ril.device_identity_status_only(b'ERROR'))
+
+    def test_unknown_identity_reply_shape_never_contains_identity(self):
+        shape = ril.device_identity_reply_shape(b'AT+CGSN\r\n+CGSN: "490154203237518"\r\nOK\r\n')
+        self.assertEqual(shape, {'terminal_error': False, 'cgsn_prefix': True,
+                                'quoted_numeric_field': True, 'numeric_field_lengths': [15]})
+        self.assertNotIn('490154203237518', str(shape))
+        for reply in (b'ERROR\r\n', b'\r\n+CME ERROR: 4\r\n'):
+            self.assertTrue(ril.device_identity_reply_shape(reply)['terminal_error'])
+        self.assertFalse(ril.device_identity_reply_shape(b'\r\nNO ERROR IN VALUE\r\n')['terminal_error'])
+        self.assertEqual(len(ril.device_identity_reply_shape((b'123456789012345 ' * 100))['numeric_field_lengths']), 8)
 
 
 if __name__=='__main__':unittest.main()
