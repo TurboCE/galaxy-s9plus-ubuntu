@@ -54,6 +54,12 @@ retry succeeded and patch completion followed 146.8 ms later. This
 was not an immediately adjacent transfer or a sampled GPIO change.
 The observations do not resolve the remote firmware's state.
 
+Another native44 boot requested SPI prescaler 7, but the controller
+register read back zero. The 36-byte zero ACK and recovery recurred.
+The changed module parameter did not verify a changed bus rate. The
+Exynos9810 CHUB clock management divider is the next candidate for
+read-only validation and is identified in the changelog.
+
 A later native44 startup profile explicitly selects one standby
 attempt. The driver still records a high MCU_RESP as an unconfirmed
 reset. The sensor service continues to require the pinned hub

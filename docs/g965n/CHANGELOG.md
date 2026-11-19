@@ -5142,3 +5142,26 @@ attempts for 36-byte writes, with no reported length or controller
 errors. On this setup the board's hardware SPI path programs prescaler
 3 independently of the advertised device speed. The timestamps above
 measure the driver's elapsed time and do not establish SCK frequency.
+
+### 2026-11-20 — Reject the local SPI divider as a verified speed control
+
+Checked the model, BOOT and backup, and saved the original sensor profile
+and unit before booting the same native #44 module with a private trial
+profile requesting prescaler 7 instead of 3. The running parameter was 7,
+but both controller clock register reads returned zero instead of the
+value written by the driver. The 36-byte zero ACK still occurred once and
+recovered on the second attempt. Patch, six IIO devices, Wi-Fi HTTPS204,
+and no-SIM cleanup passed. This experiment did not establish a different
+physical SCK frequency and cannot rule out sensitivity to clock rate.
+
+The [LineageOS Exynos9810 clock register definitions](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/drivers/soc/samsung/cal-if/exynos9810/cmucal-sfr.c)
+identify the CHUB USI00 divider and mux in the clock management unit.
+The [clock node definitions](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/drivers/soc/samsung/cal-if/exynos9810/cmucal-node.c)
+connect that divider to the same USI00 input-clock gate the board driver
+already opens. No clock management register was changed in this trial
+beyond the board driver's existing setup.
+
+Restored the saved sensor profile and verified prescaler 3 and
+diagnostics off on a distinct warm boot using the same module. One
+zero ACK recurred. Firmware startup, 80 reads from each of six IIO
+devices, Wi-Fi HTTPS204 and no-SIM cleanup passed with no failed units.
