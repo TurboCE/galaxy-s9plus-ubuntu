@@ -77,6 +77,8 @@ def main():
     parser.add_argument('--confirm-private-nv-copy', action='store_true', required=True)
     parser.add_argument('--isolated-modem-runtime', action='store_true')
     parser.add_argument('--seconds', type=int, choices=(*range(30, 121), 300), default=90)
+    parser.add_argument('--service-lifetime', action='store_true',
+                        help='Bind desktop WWAN children to the running desktop LTE supervisor')
     parser.add_argument('--activate-pdp-s9', action='store_true')
     parser.add_argument('--confirm-reviewed-s9-pdp-layout', action='store_true')
     parser.add_argument('--pdp-cid', type=int, choices=(1,), default=1)
@@ -116,8 +118,12 @@ def main():
         parser.error('IPv4 lease requires an isolated held PDP trial')
     cycle = getattr(args, 'cycle_qualified_pdp', False)
     wwan_control = getattr(args, 'wwan_bearer_control', False)
+    service_lifetime = getattr(args, 'service_lifetime', False)
     if wwan_control and (not wwan_broker or not export_lease or cycle):
         parser.error('WWAN bearer control requires the WWAN broker and IPv4 lease without the cycle marker')
+    if service_lifetime and (not wwan_control or soak or args.diagnostic_status
+                             or args.capture_private_rfs or args.serve_private_rfs_diagnostics):
+        parser.error('Service lifetime requires isolated desktop bearer control without lab diagnostics or soak')
     if cycle and (not hold or not args.isolated_modem_runtime):
         parser.error('PDP cycle requires a held cold trial in an isolated modem runtime')
     if hold and (not args.activate_pdp_s9 or args.attach_online or not args.quiesce_radio_on_exit):
@@ -140,6 +146,9 @@ def main():
         raise SystemExit('Invalid APN')
     if os.geteuid() != 0 or b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):
         raise SystemExit('Expected root on star2lte')
+    supervisor = 'g965n-desktop-lte.service'
+    if service_lifetime and subprocess.run(['systemctl', 'is-active', '--quiet', supervisor]).returncode:
+        raise SystemExit('A running desktop LTE supervisor is required')
     for name in ('ril-lab.py', 'rfs-copy.py'):
         if not (args.lab_directory / name).is_file():
             raise SystemExit('Missing reviewed lab source: ' + name)
@@ -161,6 +170,8 @@ def main():
                    '--seconds', str(args.seconds), '--apn', args.apn,
                    '--runtime-helper', str(args.runtime_helper.resolve()),
                    '--expected-receipt-sha256', runtime.launch_receipt_digest(), '--notify-ready']
+        if service_lifetime:
+            command.append('--service-lifetime')
         if isolated:
             command += ['--isolated-modem-runtime']
         if getattr(args, 'observe_only', False):
@@ -205,11 +216,15 @@ def main():
             ('DeviceAllow', GLib.Variant('a(ss)', [('/dev/' + p, 'rw') for p in ('umts_ipc0', 'umts_rfs0', 'umts_router')])),
             ('UMask', GLib.Variant('u', 0o077)),
             ('NoNewPrivileges', GLib.Variant('b', True)),
-            ('RuntimeMaxUSec', GLib.Variant('t', (args.seconds + (
-                15 if getattr(args, 'quiesce_radio_on_exit', False) else 5)) * 1000000)),
             ('Restart', GLib.Variant('s', 'no')),
             ('ExecStart', GLib.Variant('a(sasb)', [(command[0], command, False)])),
         ]
+        if service_lifetime:
+            properties.append(('BindsTo', GLib.Variant('as', [supervisor])))
+            properties.append(('TimeoutStopUSec', GLib.Variant('t', 30 * 1000000)))
+        else:
+            grace = 15 if getattr(args, 'quiesce_radio_on_exit', False) else 5
+            properties.append(('RuntimeMaxUSec', GLib.Variant('t', (args.seconds + grace) * 1000000)))
         bus = Gio.DBusProxy.new_for_bus_sync(Gio.BusType.SYSTEM, 0, None,
             'org.freedesktop.systemd1', '/org/freedesktop/systemd1', 'org.freedesktop.systemd1.Manager', None)
         bus.call_sync('StartTransientUnit', GLib.Variant('(ssa(sv)a(sa(sv)))', (
@@ -230,6 +245,8 @@ def main():
                '--seconds', '315' if soak else '120']
         if isolated:
             cbd.append('--isolated-modem-runtime')
+        if service_lifetime:
+            cbd.append('--service-lifetime')
         subprocess.run(cbd, check=True)
         print('Bounded RIL/RFS and cbd tests started; read private journal, not a success claim.')
 

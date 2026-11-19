@@ -874,6 +874,8 @@ def require_qualified_s9_pdp():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--seconds', type=int, choices=(*range(10, 181), 300), default=90)
+    parser.add_argument('--service-lifetime', action='store_true',
+                        help='Keep the isolated desktop bearer broker alive until the supervisor stops it')
     parser.add_argument('--apn')
     parser.add_argument('--configure-radio', action='store_true')
     parser.add_argument('--isolated-modem-runtime', action='store_true')
@@ -931,6 +933,10 @@ def main():
         parser.error('WWAN bearer control requires the WWAN broker and IPv4 lease without the cycle marker')
     if args.seconds == 300 and not args.export_ipv4_lease:
         parser.error('300-second soak requires the qualified IPv4 lease and cold cleanup')
+    if args.service_lifetime and (not args.wwan_bearer_control or args.seconds == 300
+                                  or args.diagnostic_status or args.private_rfs_capture
+                                  or args.private_rfs_diagnostics):
+        parser.error('Service lifetime requires isolated desktop bearer control without lab diagnostics or soak')
     if b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):
         raise SystemExit('Expected star2lte')
     os.umask(0o077)
@@ -1138,7 +1144,7 @@ def main():
             notify_channels_ready()
             print(json.dumps({'ipc_rfs_ready': True}), flush=True)
 
-        while not stop_requested and time.monotonic() - started < args.seconds:
+        while not stop_requested and (args.service_lifetime or time.monotonic() - started < args.seconds):
             now = time.monotonic()
             if scan_pending and now >= scan_deadline:
                 print(json.dumps({'s9_network_scan_timeout': True}), flush=True)

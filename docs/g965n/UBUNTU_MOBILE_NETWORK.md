@@ -83,3 +83,19 @@ The service restored the original ModemManager and WWAN switch setting
 and removed the temporary profile. This verifies the NetworkManager
 switch path and one-shot boot startup. Direct GNOME interaction and
 continuous mobile service across ordinary boots remain pending.
+
+## Supervisor-owned lifetime
+
+The launcher accepts `--service-lifetime` for the isolated,
+lease-backed desktop bearer path when `g965n-desktop-lte.service`
+is active. The RIL and CBD children bind to that unit instead of
+using the lab duration. This mode rejects lab tracing, diagnostic
+capture and the 300-second soak mode.
+
+In a guarded native44 trial, the same RIL invocation, CBD and
+NetworkManager bearer passed LTE-bound DNS and HTTPS204 at 0.7,
+90.6 and 306.5 seconds after connection. The test supervisor
+disconnects the temporary profile and restores the stock manager.
+This verifies over five minutes without the child deadline. It does
+not establish unattended service installation, shutdown recovery or
+multi-boot operation.

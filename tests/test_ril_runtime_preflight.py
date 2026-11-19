@@ -22,6 +22,21 @@ cbd = importlib.util.module_from_spec(spec); spec.loader.exec_module(cbd)
 
 
 class StartupPreflightTests(unittest.TestCase):
+    def test_service_lifetime_requires_active_desktop_supervisor(self):
+        argv = ['run-ril-test.py', '--service-lifetime', '--lab-directory', '/fixture',
+                '--apn', 'fixture.apn', '--confirm-private-nv-copy', '--isolated-modem-runtime',
+                '--activate-pdp-s9', '--confirm-reviewed-s9-pdp-layout',
+                '--hold-qualified-pdp', '--quiesce-radio-on-exit', '--export-ipv4-lease',
+                '--wwan-query-broker', '--wwan-bearer-control']
+        with patch.object(sys, 'argv', argv), patch.object(launcher.os, 'geteuid', return_value=0), \
+                patch.object(Path, 'read_bytes', return_value=b'samsung,star2lte\0'), \
+                patch.object(launcher, 'load_runtime') as load, \
+                patch.object(launcher.subprocess, 'run', return_value=SimpleNamespace(returncode=3)) as run:
+            with self.assertRaisesRegex(SystemExit, 'running desktop LTE supervisor'):
+                launcher.main()
+            run.assert_called_once_with(['systemctl', 'is-active', '--quiet', 'g965n-desktop-lte.service'])
+            load.assert_not_called()
+
     def test_network_scan_refuses_configuration_and_short_window_before_io(self):
         for observe, online, pdp, seconds in ((False,True,False,120), (True,False,False,120),
                                                (True,True,True,120), (True,True,False,109)):

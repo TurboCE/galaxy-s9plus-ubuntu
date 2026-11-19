@@ -9,6 +9,7 @@ import argparse
 import os
 from pathlib import Path
 import stat
+import subprocess
 import importlib.util
 import sys
 import tempfile
@@ -31,6 +32,7 @@ def main():
     parser.add_argument('--confirm-private-nv-copy', action='store_true', required=True)
     parser.add_argument('--isolated-modem-runtime', action='store_true')
     parser.add_argument('--seconds', type=int, choices=(*range(10, 121), 315), default=60)
+    parser.add_argument('--service-lifetime', action='store_true')
     parser.add_argument('--runtime-helper', type=Path, default=Path(__file__).with_name('vendor-runtime.py'))
     parser.add_argument('--child', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--expected-receipt-sha256', help=argparse.SUPPRESS)
@@ -38,6 +40,9 @@ def main():
     args = parser.parse_args()
     if getattr(args, 'seconds', 60) == 315 and not args.isolated_modem_runtime:
         parser.error('Extended CBD lifetime requires the dedicated isolated modem view')
+    if getattr(args, 'service_lifetime', False) and (
+            not args.isolated_modem_runtime or args.seconds == 315 or args.trace):
+        parser.error('Service lifetime requires the isolated modem view without lab tracing or a soak')
     if os.geteuid() != 0:
         raise SystemExit('Expected root and the prepared private vendor runtime')
     if b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):
@@ -91,6 +96,10 @@ def cbd_command(args, runtime):
 
 def launch(args, runtime):
     from gi.repository import Gio, GLib
+    supervisor = 'g965n-desktop-lte.service'
+    service_lifetime = getattr(args, 'service_lifetime', False)
+    if service_lifetime and subprocess.run(['systemctl', 'is-active', '--quiet', supervisor]).returncode:
+        raise RuntimeError('A running desktop LTE supervisor is required')
     allow = []
     for path in Path('/dev').glob('umts_*'):
         if not stat.S_ISCHR(path.stat().st_mode):
@@ -107,9 +116,12 @@ def launch(args, runtime):
         ('DeviceAllow', GLib.Variant('a(ss)', allow)),
         ('NoNewPrivileges', GLib.Variant('b', True)),
         ('UMask', GLib.Variant('u', 0o077)),
-        ('RuntimeMaxUSec', GLib.Variant('t', args.seconds * 1000000)),
         ('Restart', GLib.Variant('s', 'no')),
     ]
+    if service_lifetime:
+        properties.append(('BindsTo', GLib.Variant('as', [supervisor])))
+    else:
+        properties.append(('RuntimeMaxUSec', GLib.Variant('t', args.seconds * 1000000)))
     # Use the already prepared mounts directly. A systemd RootDirectory launch
     # also reconfigures API filesystems; this runtime deliberately stages /dev.
     command = cbd_command(args, runtime)

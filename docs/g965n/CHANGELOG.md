@@ -4619,3 +4619,20 @@ Restored the original sensor profile and module on a separate boot.
 Acceleration and light remained readable, Wi-Fi held the preferred
 route and no unit failed. The diagnostic option was absent from the
 loaded module. The kernel had 63 warnings and one SSP retry.
+
+### 2026-11-20 — Keep desktop LTE alive beyond the bounded modem trial
+
+Added an explicitly selected lifetime mode for the isolated WWAN
+launch path. It requires the desktop LTE supervisor to be active.
+Both RIL and CBD bind to the same supervisor and run without the
+old child deadline. The new mode excludes lab trace capture and
+retains the exact-model and private runtime checks.
+
+On native44 the system NetworkManager connected a temporary profile
+using the ARM64 adapter. The same bearer and RIL invocation passed
+real LTE DNS and certificate-verified HTTPS204 at 0.7, 90.6 and
+306.5 seconds. CBD was still active at every sample. Wi-Fi kept its
+preferred default, and the test released the bearer, removed the
+profile and restored stock ModemManager. The test supervisor itself
+was bounded. A persistent boot installation and unexpected-stop
+recovery still require separate verification.
