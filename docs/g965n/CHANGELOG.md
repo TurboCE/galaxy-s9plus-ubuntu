@@ -4088,3 +4088,33 @@ retained: error-priority1 (initial SSP zero-write retry), warning63, CallTrace0,
 SError0. Strict ACK isY, supply-cut/bitbangN; accelerometer values vary and ALS
 is readable. This is restored sensor feed/service evidence, not a clean-kernel
 claim, ambient-light-change test or physical wireless/audio retest.
+
+
+## 2026-11-20 — LTE data with the sensor service running
+
+Split the opt-in modem mount tree and scratch data from the sensor view.
+The modem launchers propagate the selected root through RIL and CBD, and
+the CBD monitor holds both the existing NV lease and the modem mount lease.
+Setup and teardown take the modem mount lease exclusively while sharing
+the NV lease. Legacy NV maintenance keeps its existing exclusion.
+
+Native43 hardware: the same running sensor service remained active from
+before the cold trial through LTE DNS and certificate-verified HTTPS204
+and through trial teardown. Accelerometer and light feeds were readable.
+Both mount views were checked live: the sensor root had no modem nodes or
+private EFS mount, and the modem root had no BBD/ttyBCM sensor nodes.
+EPS1 and active CID1 were reached. Modem interface counters advanced
+RX10/TX9 with zero errors, and temporary network state was restored.
+PDP deactivation was requested, the RF low-power response arrived, and
+the drain reported no failure. The modem mount tree was removed while the
+sensor mount tree stayed active. A guarded normal reboot was requested
+after verifying the model, BOOT, backup and working NV provenance.
+
+This verifies coexistence during a bounded session. The shared NV lease
+still prevents an independent sensor stop/start transition while a modem
+client is live. Persistent service recovery and automatic LTE routing
+remain open.
+
+The distinct cleanup boot restored the normal modem-off state and all
+three driver services, with zero failed units. The retained early ring
+had 63 warnings and two error-priority SSP zero-write retry messages.

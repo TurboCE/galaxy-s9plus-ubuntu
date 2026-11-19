@@ -128,7 +128,7 @@ class PrivateRuntimeTests(unittest.TestCase):
     def test_shared_lock_blocks_exclusive_and_never_truncates(self):
         lock = self.base / 'runtime.lock'
         lock.write_bytes(b'preserved'); lock.chmod(0o600)
-        with patch.object(vr, 'RUNTIME_LOCK', lock):
+        with patch.object(vr, 'STATE_LOCK', lock), patch.object(vr, 'RUNTIME_LOCK', lock):
             with vr.shared_runtime_lock():
                 other = os.open(lock, os.O_RDWR)
                 try:
@@ -140,6 +140,20 @@ class PrivateRuntimeTests(unittest.TestCase):
             lock.chmod(0o644)
             with self.assertRaisesRegex(RuntimeError, 'lock file'):
                 with vr.shared_runtime_lock(): self.fail('Public lock must fail')
+
+    def test_isolated_setup_coexists_with_sensors_and_serializes_modem_clients(self):
+        state_lock = self.base / 'state.lock'
+        modem_lock = self.base / 'modem.lock'
+        with patch.object(vr, 'STATE_LOCK', state_lock), patch.object(vr, 'RUNTIME_LOCK', modem_lock):
+            with vr.checked_lock(state_lock, vr.fcntl.LOCK_SH):
+                with vr.modem_runtime_setup_lock():
+                    with self.assertRaises(BlockingIOError), vr.shared_runtime_lock():
+                        self.fail('Client opened the runtime during setup')
+                    with self.assertRaises(BlockingIOError), vr.checked_lock(state_lock, vr.fcntl.LOCK_EX):
+                        self.fail('Legacy NV writer acquired the lease')
+                with vr.shared_runtime_lock():
+                    with self.assertRaises(BlockingIOError), vr.modem_runtime_setup_lock():
+                        self.fail('Setup raced with a modem client')
 
     def test_runtime_binds_require_same_private_inode_and_readonly(self):
         radio = self.runtime / 'dev/block/platform/11120000.ufs/by-name/RADIO'

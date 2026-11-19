@@ -547,3 +547,24 @@ A distinct native cold run repeats actual DNS/TLS204 and live query parsing;
 that run had a successful SET ACK, so the no-ACK alternative still needs a
 matching hardware scenario. No automatic reset loop or persistent service is
 introduced by this change.
+
+
+### Bounded LTE with the sensor service running
+
+The guarded test harness can select the fixed modem view with
+`select_modem_runtime()` before using the runtime helper. Prepare the view
+and resume the verified private modem copies under
+`modem_runtime_setup_lock()`, using the normal model, BOOT, backup and
+module checks. Pass `--isolated-modem-runtime` to `run-ril-test.py` with
+the same reviewed runtime helper. Both launchers and their child
+processes select the corresponding view. Stop the bounded clients
+before taking the setup lease for teardown of the modem view.
+
+The modem view uses a separate mount tree and scratch data directory.
+It shares the original private NV state and the lease that excludes
+legacy NV maintenance. The sensor view retains its existing mount tree
+and does not expose modem nodes or NV. The modem process device policy
+remains closed. The existing shared lease means the sensor service
+should stay running throughout the bounded test; its startup and
+teardown still require that lease exclusively. Restarting the sensor
+service independently while LTE stays active is unqualified.

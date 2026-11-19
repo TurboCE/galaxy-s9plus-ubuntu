@@ -687,6 +687,7 @@ def main():
     parser.add_argument('--seconds', type=int, choices=range(10, 181), default=90)
     parser.add_argument('--apn')
     parser.add_argument('--configure-radio', action='store_true')
+    parser.add_argument('--isolated-modem-runtime', action='store_true')
     parser.add_argument('--runtime-helper', type=Path, required=True)
     parser.add_argument('--expected-receipt-sha256', required=True)
     parser.add_argument('--activate-pdp-s9', action='store_true')
@@ -727,6 +728,8 @@ def main():
         runtime_spec = importlib.util.spec_from_file_location('ril_child_runtime', helper)
         runtime = importlib.util.module_from_spec(runtime_spec)
         runtime_spec.loader.exec_module(runtime)
+        if args.isolated_modem_runtime:
+            runtime.select_modem_runtime()
         stack.enter_context(runtime.shared_runtime_lock())
         runtime.validate_launch_state(args.expected_receipt_sha256)
         capture = None

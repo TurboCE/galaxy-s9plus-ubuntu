@@ -40,20 +40,54 @@ PARTITION_SPECS = {
 }
 
 
-RUNTIME_LOCK = Path('/run/g965n-vendor-runtime.lock')
+STATE_LOCK = Path('/run/g965n-vendor-runtime.lock')
+RUNTIME_LOCK = STATE_LOCK
+
+
+def select_modem_runtime():
+    """Select the fixed modem view before opening any leases or mounts."""
+    global BASE, ROOT, DATA, RUNTIME_LOCK
+    BASE = Path('/run/g965n-modem-runtime')
+    ROOT = BASE / 'root'
+    DATA = STATE / 'modem-data'
+    RUNTIME_LOCK = Path('/run/g965n-modem-runtime.lock')
+
+
+def runtime_lock_paths():
+    return (STATE_LOCK,) if RUNTIME_LOCK == STATE_LOCK else (STATE_LOCK, RUNTIME_LOCK)
 
 
 @contextmanager
-def shared_runtime_lock():
-    """Lab client lifetime lease; migration takes the same inode exclusively."""
-    fd = os.open(RUNTIME_LOCK, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+def checked_lock(path, mode):
+    fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
     with open(fd, 'rb', closefd=True):
         info = os.fstat(fd)
         if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or
                 info.st_uid != ROOT_UID or stat.S_IMODE(info.st_mode) & 0o077):
             raise RuntimeError('Unexpected runtime lock file')
-        fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        fcntl.flock(fd, mode | fcntl.LOCK_NB)
         yield fd
+
+
+@contextmanager
+def shared_runtime_lock():
+    """Keep the private NV and selected runtime view stable through I/O."""
+    with checked_lock(STATE_LOCK, fcntl.LOCK_SH) as state_fd:
+        if RUNTIME_LOCK == STATE_LOCK:
+            yield state_fd
+        else:
+            with checked_lock(RUNTIME_LOCK, fcntl.LOCK_SH) as runtime_fd:
+                yield runtime_fd
+
+
+@contextmanager
+def modem_runtime_setup_lock():
+    """Allow sensor readers while changing only the isolated modem view."""
+    if RUNTIME_LOCK == STATE_LOCK:
+        raise RuntimeError('Select the isolated modem runtime first')
+    with checked_lock(STATE_LOCK, fcntl.LOCK_SH):
+        with checked_lock(RUNTIME_LOCK, fcntl.LOCK_EX):
+            yield
 
 
 def verify_private_bindings():
@@ -638,7 +672,9 @@ def device_nodes(include_modem=True):
     safe_components(ROOT / 'dev')
     if not os.path.ismount(ROOT):
         raise RuntimeError('Runtime not mounted')
-    selected = ['null', 'zero', 'random', 'urandom', 'ttyBCM', 'bbd_control', 'bbd_sensor', 'bbd_patch']
+    selected = ['null', 'zero', 'random', 'urandom']
+    if RUNTIME_LOCK == STATE_LOCK:
+        selected += ['ttyBCM', 'bbd_control', 'bbd_sensor', 'bbd_patch']
     if include_modem:
         selected += [p.name for p in Path('/dev').glob('umts_*')]
     for name in selected:

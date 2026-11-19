@@ -75,6 +75,22 @@ class StartupPreflightTests(unittest.TestCase):
             else:
                 self.assertNotIn('/usr/bin/strace', vendor)
 
+    def test_isolated_cbd_keeps_both_leases_and_chroots_into_modem_view(self):
+        state = Path('/run/g965n-vendor-runtime.lock')
+        modem = Path('/run/g965n-modem-runtime.lock')
+        root = Path('/run/g965n-modem-runtime/root')
+        runtime = SimpleNamespace(runtime_lock_paths=lambda: (state, modem),
+                                  launch_receipt_digest=lambda: 'a' * 64)
+        args = SimpleNamespace(trace=False, seconds=30, isolated_modem_runtime=True,
+                               runtime_helper=ROOT/'scripts/g965n/vendor-runtime.py')
+        command = cbd.cbd_command(args, runtime)
+        self.assertEqual(command[:8], [
+            '/usr/bin/flock', '--shared', '--nonblock', str(state),
+            '/usr/bin/flock', '--shared', '--nonblock', str(modem)])
+        self.assertIn('--isolated-modem-runtime', command)
+        self.assertEqual(cbd.vendor_command(args, root)[:3],
+                         ['/usr/sbin/chroot', str(root), '/vendor/bin/cbd'])
+
     def test_each_trace_preserves_earlier_evidence(self):
         with tempfile.TemporaryDirectory() as name:
             directory=Path(name);directory.chmod(0o700)

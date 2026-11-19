@@ -29,13 +29,14 @@ def new_trace_path():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--confirm-private-nv-copy', action='store_true', required=True)
+    parser.add_argument('--isolated-modem-runtime', action='store_true')
     parser.add_argument('--seconds', type=int, choices=range(10, 121), default=60)
     parser.add_argument('--runtime-helper', type=Path, default=Path(__file__).with_name('vendor-runtime.py'))
     parser.add_argument('--child', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--expected-receipt-sha256', help=argparse.SUPPRESS)
     parser.add_argument('--trace', action='store_true', help='Private host strace around chroot/exec')
     args = parser.parse_args()
-    if os.geteuid() != 0 or not os.path.ismount(ROOT):
+    if os.geteuid() != 0:
         raise SystemExit('Expected root and the prepared private vendor runtime')
     if b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):
         raise SystemExit('Expected star2lte')
@@ -44,10 +45,12 @@ def main():
         raise RuntimeError('Missing reviewed vendor-runtime helper')
     spec = importlib.util.spec_from_file_location('cbd_runtime_preflight', helper)
     runtime = importlib.util.module_from_spec(spec); spec.loader.exec_module(runtime)
+    if getattr(args, 'isolated_modem_runtime', False):
+        runtime.select_modem_runtime()
     with runtime.shared_runtime_lock():
         if args.child:
             runtime.validate_launch_state(args.expected_receipt_sha256)
-            command = vendor_command(args)
+            command = vendor_command(args, runtime.ROOT)
             os.execv(command[0], command)
             raise RuntimeError('Vendor exec unexpectedly returned')
         runtime.assert_board()
@@ -56,8 +59,8 @@ def main():
         launch(args, runtime)
 
 
-def vendor_command(args):
-    command = ['/usr/sbin/chroot', str(ROOT), '/vendor/bin/cbd', '-d',
+def vendor_command(args, root=ROOT):
+    command = ['/usr/sbin/chroot', str(root), '/vendor/bin/cbd', '-d',
                '-tss310', '-bm', '-mm', '-P',
                'platform/11120000.ufs/by-name/RADIO', '-n', '/mnt/vendor/efs']
     if args.trace:
@@ -69,13 +72,18 @@ def vendor_command(args):
 def cbd_command(args, runtime):
     # A separate flock monitor retains the lease even if vendor code closes all
     # inherited descriptors. Child rechecks state after acquiring its own lease.
-    command = ['/usr/bin/flock', '--shared', '--nonblock', str(runtime.RUNTIME_LOCK),
-               '/usr/bin/python3', str(Path(__file__).resolve()), '--child',
+    command = ['/usr/bin/python3', str(Path(__file__).resolve()), '--child',
                '--confirm-private-nv-copy', '--runtime-helper', str(args.runtime_helper.resolve()),
                '--expected-receipt-sha256', runtime.launch_receipt_digest(),
                '--seconds', str(args.seconds)]
+    isolated = getattr(args, 'isolated_modem_runtime', False)
+    if isolated:
+        command.append('--isolated-modem-runtime')
     if args.trace:
         command.append('--trace')
+    paths = runtime.runtime_lock_paths() if isolated else (runtime.RUNTIME_LOCK,)
+    for path in reversed(paths):
+        command = ['/usr/bin/flock', '--shared', '--nonblock', str(path), *command]
     return command
 
 

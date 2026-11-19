@@ -75,6 +75,7 @@ def main():
     parser.add_argument('--apn', required=True)
     parser.add_argument('--runtime-helper', type=Path, default=Path(__file__).with_name('vendor-runtime.py'))
     parser.add_argument('--confirm-private-nv-copy', action='store_true', required=True)
+    parser.add_argument('--isolated-modem-runtime', action='store_true')
     parser.add_argument('--seconds', type=int, choices=range(30, 121), default=90)
     parser.add_argument('--activate-pdp-s9', action='store_true')
     parser.add_argument('--confirm-reviewed-s9-pdp-layout', action='store_true')
@@ -122,6 +123,9 @@ def main():
     if subprocess.run(['systemctl', 'is-active', '--quiet', 'g965n-ril-lab-test']).returncode == 0:
         raise SystemExit('Stop the previous bounded RIL test first')
     runtime = load_runtime(args.runtime_helper)
+    isolated = getattr(args, 'isolated_modem_runtime', False)
+    if isolated:
+        runtime.select_modem_runtime()
     with runtime.shared_runtime_lock():
         verify_private_runtime(args.runtime_helper, runtime)
         if getattr(args, 'attach_online', False):
@@ -132,6 +136,8 @@ def main():
                    '--seconds', str(args.seconds), '--apn', args.apn,
                    '--runtime-helper', str(args.runtime_helper.resolve()),
                    '--expected-receipt-sha256', runtime.launch_receipt_digest(), '--notify-ready']
+        if isolated:
+            command += ['--isolated-modem-runtime']
         if getattr(args, 'observe_only', False):
             command += ['--diagnostic-status']
         else:
@@ -184,8 +190,11 @@ def main():
             return
         if subprocess.run(['systemctl', 'is-failed', '--quiet', 'g965n-cbd-test']).returncode == 0:
             subprocess.run(['systemctl', 'reset-failed', 'g965n-cbd-test'], check=True)
-        subprocess.run([sys.executable, str(Path(__file__).with_name('run-cbd-test.py')),
-                        '--confirm-private-nv-copy', '--runtime-helper', str(args.runtime_helper), '--seconds', '120'], check=True)
+        cbd = [sys.executable, str(Path(__file__).with_name('run-cbd-test.py')),
+               '--confirm-private-nv-copy', '--runtime-helper', str(args.runtime_helper), '--seconds', '120']
+        if isolated:
+            cbd.append('--isolated-modem-runtime')
+        subprocess.run(cbd, check=True)
         print('Bounded RIL/RFS and cbd tests started; read private journal, not a success claim.')
 
 
