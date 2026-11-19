@@ -63,6 +63,49 @@ def checked_children(boot):
             raise RuntimeError('Desktop modem child exited: ' + unit)
 
 
+def read_sim_state(endpoint):
+    if not endpoint.is_socket():
+        return 'unknown'
+    with socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET) as sock:
+        sock.settimeout(4)
+        sock.connect(str(endpoint))
+        sock.sendall(b'sim-readiness')
+        reply = json.loads(sock.recv(1024))
+    if not isinstance(reply, dict):
+        return 'unknown'
+    if reply.keys() == {'sim_ready'} and reply['sim_ready'] is True:
+        return 'ready'
+    if (reply.keys() == {'sim_ready', 'sim_absent'}
+            and reply['sim_ready'] is False and reply['sim_absent'] is True):
+        return 'absent'
+    return 'unknown'
+
+
+def wait_for_sim(boot, endpoint, stopping):
+    deadline = time.monotonic() + 40
+    absent_since = last_absent = None
+    while not stopping() and time.monotonic() < deadline:
+        checked_children(boot)
+        state = read_sim_state(endpoint)
+        now = time.monotonic()
+        if state == 'ready':
+            return 'ready'
+        if state == 'absent':
+            if last_absent is None or now - last_absent > 2:
+                absent_since = now
+            last_absent = now
+        else:
+            absent_since = last_absent = None
+        time.sleep(.5)
+    if stopping():
+        return 'stopped'
+    checked_children(boot)
+    if (last_absent is not None and last_absent - absent_since >= 5
+            and time.monotonic() - last_absent <= 2):
+        return 'absent'
+    raise RuntimeError('Modem did not report a ready SIM')
+
+
 def restore_desktop():
     if not WORK.is_dir():
         return
@@ -273,26 +316,16 @@ def main():
         if stop:
             return
         checked_children(boot)
-        started = time.monotonic()
         invocation = value('systemctl', 'show', boot.RIL, '-p', 'InvocationID', '--value')
         if not re.fullmatch(r'[a-f0-9]{32}', invocation):
             raise RuntimeError('Unexpected RIL invocation')
         (WORK / 'ril-invocation').write_text(invocation + '\n')
-        while not stop and time.monotonic() - started < 40:
-            checked_children(boot)
-            endpoint = Path('/run') / f'g965n-wwan-{invocation}.sock'
-            if endpoint.is_socket():
-                with socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET) as sock:
-                    sock.settimeout(4)
-                    sock.connect(str(endpoint))
-                    sock.sendall(b'sim-readiness')
-                    if json.loads(sock.recv(1024)) == {'sim_ready': True}:
-                        break
-            time.sleep(.5)
-        else:
-            if stop:
-                return
-            raise RuntimeError('Modem did not report a ready SIM')
+        endpoint = Path('/run') / f'g965n-wwan-{invocation}.sock'
+        state = wait_for_sim(boot, endpoint, lambda: stop)
+        if state == 'absent':
+            print('Modem reports no SIM; desktop LTE left inactive', flush=True)
+        if state != 'ready' or stop:
+            return
         start_desktop(root, cfg)
         while not stop:
             checked_children(boot)

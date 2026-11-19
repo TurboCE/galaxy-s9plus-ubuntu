@@ -128,6 +128,14 @@ desktop LTE on that boot. With `auto_profile=true`, the service
 supplies a temporary GSM profile with an IPv4 route metric of 20000.
 NetworkManager owns the routes and honors the saved WWAN setting.
 
+When the modem consistently reports card-not-present through the
+startup window, the service leaves mobile data inactive and finishes
+cleanup successfully. The [Lineage SIPC header](https://raw.githubusercontent.com/LineageOS/android_external_libsamsung-ipc/master/include/sec.h)
+defines this status as 0x80. An unknown SIM state and modem
+communication failures still produce a failure. The service uses one
+modem attempt per boot. After reinserting a SIM, use the next normal
+Ubuntu boot to start a fresh session.
+
 On normal service stop, the temporary profile and service override
 are removed and the installed ModemManager returns. If the modem
 module is still resident, the next clean boot starts the service

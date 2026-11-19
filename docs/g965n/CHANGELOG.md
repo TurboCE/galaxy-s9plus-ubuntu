@@ -4767,3 +4767,33 @@ SIM on this boot. ModemManager was active and the pressure trial left
 the modem untouched. Pressure accuracy against a reference, Android
 per-device compensation, and pressure startup after a distinct boot
 remain unverified.
+
+### 2026-11-20 — Clean desktop LTE exit without a SIM
+
+The enabled desktop service previously reported a startup failure
+after its ready-SIM deadline, even though the modem had twice
+reported SIPC card-not-present (0x80). The RIL now reports that
+explicit state to the supervisor. The supervisor gives the SIM the
+same startup window to become ready, then exits successfully only
+if recent polls consistently report absence. An unknown or stale
+state, a socket failure, and a child failure retain their error paths.
+
+Verified the exact native #44 BOOT and nine-partition backup before
+staging the two scripts and preserving the previous service and pins.
+On a distinct normal boot without a SIM, two hardware indications
+reported 0x80. The desktop service exited successfully after 44
+seconds. The modem children stopped, the private mount and invocation
+files were removed, the stock ModemManager stayed active, and
+Wi-Fi-bound HTTPS returned 204. There was no LTE default route or
+failed systemd unit. The RIL reported that it had not requested the
+radio; it did not send a low-power request in this case. The service
+remains enabled for a subsequent boot with a SIM.
+
+The same boot automatically restored the pressure IIO device. An
+ordinary Ubuntu user read 60 samples over 15 seconds, with 41
+distinct counts corresponding to 101.4132–101.4166 kPa. Acceleration
+and light remained readable. The kernel ring still held 108
+error-priority entries and 67 warnings, including a hub reset-line
+warning, two early transmit retries and the Bluetooth capability
+notice. SIM-present reconnection on this changed build, hot
+reinsertion, and pressure accuracy against a reference remain pending.

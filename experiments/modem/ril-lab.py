@@ -335,6 +335,13 @@ def sim_ready_after_status(previous, status):
     return status in (0, 0x82)
 
 
+def sim_readiness_reply(ready, status):
+    # Lineage libsamsung-ipc include/sec.h: CARD_NOT_PRESENT is 0x80.
+    if not ready and status == 0x80:
+        return {'sim_ready': False, 'sim_absent': True}
+    return {'sim_ready': ready}
+
+
 def s9_ps_attach():
     """Own stock IpcTxPsAttach: SET0d03, attach=true, no detach flags/reason."""
     return (0x0D03, b'\x01\x00\x00', 3)
@@ -988,6 +995,7 @@ def main():
         configured = False
         saw_boot = False
         sim_ready = False
+        sim_status = None
         acknowledged = set()
         radio_asked = False
         radio_at = 0
@@ -1244,7 +1252,7 @@ def main():
             broker_command = broker.take(now, at_ready and not at_failed and not at_active
                                          and not at_queue) if broker else None
             if broker_command == b'sim-readiness':
-                broker.finish(sim_ready=sim_ready)
+                broker.finish(**sim_readiness_reply(sim_ready, sim_status))
                 broker_command = None
             elif broker_command == b'radio-state':
                 broker.finish(radio_state='on' if phone_normal else 'unknown')
@@ -1400,6 +1408,7 @@ def main():
                             at_queue.clear()
                             at_buffer.clear()
                             sim_ready = False
+                            sim_status = None
                             boot_at = time.monotonic()
                         if code == 0x0804 and kind == 2 and args.scan_networks_s9:
                             try:
@@ -1432,8 +1441,9 @@ def main():
                                 except ValueError:
                                     event['pdp_status_validation_failed'] = True
                         elif code == 0x0501 and length > 7:
-                            event['sim_status_code'] = message[7]
-                            sim_ready = sim_ready_after_status(sim_ready, message[7])
+                            sim_status = message[7]
+                            event['sim_status_code'] = sim_status
+                            sim_ready = sim_ready_after_status(sim_ready, sim_status)
                             event['sim_ready_for_initial_pdp'] = sim_ready
                         elif code == 0x0107 and length > 7:
                             event['phone_state_code'] = message[7]

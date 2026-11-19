@@ -11,6 +11,13 @@ ril=importlib.util.module_from_spec(spec);spec.loader.exec_module(ril)
 
 
 class RadioWireFacts(unittest.TestCase):
+    def test_sim_reply_only_identifies_explicit_absence(self):
+        self.assertEqual(ril.sim_readiness_reply(False, 0x80),
+                         {'sim_ready': False, 'sim_absent': True})
+        for status in (None, 0x03, 0x81, 0x83, 0xff):
+            self.assertEqual(ril.sim_readiness_reply(False, status), {'sim_ready': False})
+        self.assertEqual(ril.sim_readiness_reply(True, 0x82), {'sim_ready': True})
+
     def test_phonebook_completion_preserves_only_existing_sim_readiness(self):
         ready = False
         for status in (0, 130, 0, 130, 131):
