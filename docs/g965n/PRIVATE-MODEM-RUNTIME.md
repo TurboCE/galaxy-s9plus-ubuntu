@@ -492,3 +492,16 @@ Native43 verifies this ordering. It does not qualify continued daemon liveness
 or repair LTE. The initial `shmem_init_comm` peer-wait message is emitted before
 the paired descriptor opens and returns0; it is distinct from dropped incoming
 packets in `rx_demux`. Do not diagnose packet loss from that message alone.
+
+### Shared-link boot completion ordering
+
+The modem candidate defers open-side INIT_END while the link is OFFLINE.
+CP_START resets shared memory first, sets IPC state under the state lock, writes
+the existing clock-table header, then acknowledges if both userspace endpoints
+are ready. A pair opened later completes under the same lock. Boot-on clears
+link state/completion together. This does not provide missing ECT frequencies
+or bus QoS; no invented table is used. Existing CP_START acknowledgement
+retransmission is retained. Native43 module-only early-open trial validates the
+CP_START -> clock header -> INIT_END sequence; late-open permutations have C
+harness proof, not yet separate native evidence. Baseline immutable startup
+package remains preserved with modem default off; trial candidate stays private.

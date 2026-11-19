@@ -618,10 +618,12 @@ static void cmd_phone_start_handler(struct mem_link_device *mld)
 		even though it has already been in ONLINE state.
 		*/
 		if (rild_ready(ld)) {
+			write_clk_table_to_shmem(mld);
 			mif_err("%s: INIT_END -> %s\n", ld->name, mc->name);
 			mcu_ipc_reg_dump(0);
 			send_ipc_irq(mld, cmd2int(CMD_INIT_END));
 			mcu_ipc_reg_dump(0);
+			atomic_set(&mld->cp_boot_done, 1);
 		}
 		goto exit;
 	}
@@ -632,7 +634,12 @@ static void cmd_phone_start_handler(struct mem_link_device *mld)
 		goto exit;
 	}
 
+	/* The reset shared link is now ready. Serialise this state with paired
+	 * userspace opens: neither an early open nor a late open may publish an
+	 * INIT_END before the reset link and its clock-table header exist. */
+	mld->state = LINK_STATE_IPC;
 	if (rild_ready(ld)) {
+		write_clk_table_to_shmem(mld);
 		mif_err("%s: INIT_END -> %s\n", ld->name, mc->name);
 		mcu_ipc_reg_dump(0);
 		send_ipc_irq(mld, cmd2int(CMD_INIT_END));
@@ -642,7 +649,6 @@ static void cmd_phone_start_handler(struct mem_link_device *mld)
 
 	mcu_ipc_reg_dump(0);
 
-	mld->state = LINK_STATE_IPC;
 	complete_all(&mc->init_cmpl);
 	modem_notify_event(MODEM_EVENT_ONLINE);
 
@@ -2018,6 +2024,7 @@ static int shmem_init_comm(struct link_device *ld, struct io_device *iod)
 	struct mem_link_device *mld = to_mem_link_device(ld);
 	struct modem_ctl *mc = ld->mc;
 	struct io_device *check_iod;
+	unsigned long flags;
 	int id = iod->id;
 	int fmt2rfs = (SIPC5_CH_ID_RFS_0 - SIPC5_CH_ID_FMT_0);
 	int rfs2fmt = (SIPC5_CH_ID_FMT_0 - SIPC5_CH_ID_RFS_0);
@@ -2039,6 +2046,12 @@ static int shmem_init_comm(struct link_device *ld, struct io_device *iod)
 		}
 	}
 #endif
+	/* Opening a device is not CP readiness. CBD resets the link afterwards;
+	 * the CP_START handler completes early-open pairs after that reset. Late
+	 * pairs complete here only once the shared link is actually in IPC mode. */
+	spin_lock_irqsave(&mld->state_lock, flags);
+	if (mld->state != LINK_STATE_IPC || atomic_read(&mld->cp_boot_done))
+		goto out;
 
 	switch (id) {
 	case SIPC5_CH_ID_FMT_0 ... SIPC5_CH_ID_FMT_9:
@@ -2073,6 +2086,8 @@ static int shmem_init_comm(struct link_device *ld, struct io_device *iod)
 		break;
 	}
 
+out:
+	spin_unlock_irqrestore(&mld->state_lock, flags);
 	return 0;
 }
 
@@ -2145,9 +2160,8 @@ static void shmem_boot_on(struct link_device *ld, struct io_device *iod)
 	struct sbd_link_device *sl = &mld->sbd_link_dev;
 	unsigned long flags;
 
-	atomic_set(&mld->cp_boot_done, 0);
-
 	spin_lock_irqsave(&mld->state_lock, flags);
+	atomic_set(&mld->cp_boot_done, 0);
 	mld->state = LINK_STATE_OFFLINE;
 	spin_unlock_irqrestore(&mld->state_lock, flags);
 

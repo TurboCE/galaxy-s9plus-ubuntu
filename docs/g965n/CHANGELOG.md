@@ -3855,3 +3855,42 @@ active/failedunits0, strictACKY/faultN, accel -602->-596, Wi-Fi HTTPS204 and
 accepted private Mesa persists. Systemd metadata reloaded, no unit source edit.
 All49 focused RFS/readiness/startup/quiesce/CEREG/PDP host tests pass. Original
 partitions, bootloader, identity and private evidence untouched/unpublished.
+
+Prepared source-only shared-link handshake correction: opens while OFFLINE do
+not publish a clock table/INIT_END before CBD resets shared memory. CP_START
+publishes link IPC only after successful reset, writes the existing clock-table
+header before INIT_END, and later-open pairs complete under the same state lock.
+Boot-on clears completion and link state together under lock. Existing CP_START
+ack retransmission and IOSM completed-open fast path retained. No frequency
+values, security reset, IRQ configuration or log severity changed. Actual-driver
+C harness passes early/late/reversed/partial endpoints, duplicate references,
+new boot, existing retransmit and reset-failure cases. Native module/CP startup
+still pending; no LTE or handshake hardware-success claim yet.
+
+Patched modem module builds against retained native43 kernel output/vermagic.
+Existing shmem_send implicit-fallthrough build warning remains, not attributed
+to this change. Prior committed driver fails the same early-handshake C harness
+instrumentation; patched version passes. Preparing module-only guarded native43
+trial with exact candidate SHA/vermagic, current model/BOOT/backups/provenance
+checks. Baseline package/module preserved; no BOOT/partition write required.
+
+Native43 candidate60b65b06 module-only cold trial passes early-open handshake:
+CP_START once -> existing CT0 header once -> INIT_END once; no pre-boot INIT_END,
+no paired-endpoint wait, no rx_demux/not-open message in the final bounded ring.
+Full ring retains boot header,123error-priority/67warnings (vendor diagnostics,
+ECT/QoS gaps still present),0CallTrace/SError. SIM0/130/131 readiness true, RIL
+exits0, LPM/two-second tail confirms with7frames. Nine EPS queries0/2 only;
+PDP/data unresolved. Verified private NV checksum and unchanged-source provenance.
+Candidate SHA/vermagic and matching native43 BOOT/current backup checked before
+load, baseline package/module retained. Normal guarded cleanup reboot requested;
+SSH disconnect during reboot is not interpreted as failed device boot. No BOOT,
+original EFS/CPEFS/RADIO, recovery or bootloader write. Separate native late-open
+trial and full new image qualification remain pending despite C harness coverage.
+
+Cleanup boot confirmed distinct and modem absent: full ring header present,
+error0/warning63; three drivers active/failedunits0, strictACKY/faultN and
+Wi-Fi HTTPS204. First two X-axis samples matched; eight follow-up full triples
+were all distinct, confirming current updates. Accepted private Mesa persists.
+Systemd metadata reload only. Actual-function C and two IRQ migration tests pass.
+Baseline startup profile remains unchanged; candidate is not yet an always-on
+LTE service, a native late-open pass or a rebuilt-image installation pass.
