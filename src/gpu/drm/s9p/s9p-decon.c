@@ -44,6 +44,9 @@
 #include <linux/ktime.h>
 #include <linux/spinlock.h>
 #include <linux/platform_device.h>
+#include <linux/backlight.h>
+#include <linux/mutex.h>
+#include <linux/of.h>
 
 #include <drm/clients/drm_client_setup.h>
 #include <drm/drm_atomic.h>
@@ -65,6 +68,7 @@
 #include <drm/drm_simple_kms_helper.h>
 #include <drm/drm_vblank.h>
 #include <linux/iopoll.h>
+#include "panel-aor.h"
 
 #define DRIVER_NAME "exynos"
 
@@ -131,6 +135,12 @@
 #define DSIM_INTSRC			0x0050
 #define  DSIM_INTSRC_PH_FIFO_EMPTY	BIT(28)
 #define DSIM_PKTHDR			0x0058
+#define DSIM_PAYLOAD                     0x005c
+#define DSIM_FIFOCTRL                    0x0068
+#define DSIM_EMPTY_PH                    BIT(10)
+#define DSIM_EMPTY_PL                    BIT(8)
+#define DSIM_CMD_CONFIG                  0x0080
+#define DSIM_PKT_GO_EN                   BIT(16)
 #define  DSIM_PKTHDR_ID(x)		((x) << 0)
 #define  DSIM_PKTHDR_DATA0(x)		((x) << 8)
 #define  DSIM_PKTHDR_DATA1(x)		((x) << 16)
@@ -159,6 +169,10 @@
 static bool s9p_panel_dcs = true;
 module_param_named(panel_dcs, s9p_panel_dcs, bool, 0644);
 MODULE_PARM_DESC(panel_dcs, "send the panel DCS display off/on when blanking");
+
+static bool s9p_panel_aor;
+module_param_named(panel_aor, s9p_panel_aor, bool, 0444);
+MODULE_PARM_DESC(panel_aor, "opt-in star2lte inherited-gamma duty-only backlight trial");
 
 /*
  * set_display_off alone stops the emission but leaves the panel controller,
@@ -225,6 +239,11 @@ struct s9p_decon {
 	bool flip_pending;
 	/* one all-black frame, for display-off (see s9p_decon_blank) */
 	void __iomem *dsim;		/* DSIM0, for DCS display off/on */
+	struct mutex panel_lock;
+	struct backlight_device *backlight;
+	bool panel_awake;
+	bool aor_valid;
+	int aor_applied;
 	void *black_cpu;
 	dma_addr_t black_dma;
 };
@@ -515,6 +534,101 @@ static void s9p_decon_dcs(struct s9p_decon *priv, u8 command)
 			      command, v);
 }
 
+/* Only reviewed 1..3 byte DCS writes. The pixel engine/host configuration
+ * remains inherited. Refuse packet-go mode instead of modifying its state.
+ * Register facts/packet packing follow Samsung's GPLv2 dpu_9810 DSIM driver.
+ * panel_lock covers this and the existing DPMS command path together.
+ */
+static int s9p_panel_packet(void *context, const unsigned char *data,
+			    unsigned int length)
+{
+	struct s9p_decon *priv = context;
+	u32 v, header;
+	int ret;
+
+	if (!priv->dsim || !s9p_panel_dcs || !length || length > 3)
+		return -EINVAL;
+	if (readl(priv->dsim + DSIM_CMD_CONFIG) & DSIM_PKT_GO_EN)
+		return -EBUSY;
+	ret = readl_poll_timeout(priv->dsim + DSIM_FIFOCTRL, v,
+		(v & (DSIM_EMPTY_PH | DSIM_EMPTY_PL)) ==
+		(DSIM_EMPTY_PH | DSIM_EMPTY_PL), 10, 20000);
+	if (ret)
+		return ret;
+	writel(DSIM_INTSRC_PH_FIFO_EMPTY, priv->dsim + DSIM_INTSRC);
+	if (length == 3) {
+		writel(data[0] | data[1] << 8 | data[2] << 16,
+		       priv->dsim + DSIM_PAYLOAD);
+		header = DSIM_PKTHDR_ID(0x39) | DSIM_PKTHDR_DATA0(length);
+	} else {
+		header = DSIM_PKTHDR_ID(length == 1 ? 0x05 : 0x15) |
+			 DSIM_PKTHDR_DATA0(data[0]) |
+			 DSIM_PKTHDR_DATA1(length == 2 ? data[1] : 0);
+	}
+	writel(header, priv->dsim + DSIM_PKTHDR);
+	ret = readl_poll_timeout(priv->dsim + DSIM_INTSRC, v,
+				v & DSIM_INTSRC_PH_FIFO_EMPTY, 10, 20000);
+	if (ret)
+		return ret;
+	return readl_poll_timeout(priv->dsim + DSIM_FIFOCTRL, v,
+		(v & (DSIM_EMPTY_PH | DSIM_EMPTY_PL)) ==
+		(DSIM_EMPTY_PH | DSIM_EMPTY_PL), 10, 20000);
+}
+
+static int s9p_brightness_locked(struct s9p_decon *priv, int level)
+{
+	unsigned char command;
+	int ret;
+
+	if (!priv->panel_awake)
+		return 0; /* Cache request; never send commands while asleep. */
+	if (!level) {
+		command = MIPI_DCS_SET_DISPLAY_OFF;
+		ret = s9p_panel_packet(priv, &command, 1);
+	} else {
+		ret = s9p_aor_apply(priv, level, s9p_panel_packet);
+		if (!ret) {
+			command = MIPI_DCS_SET_DISPLAY_ON;
+			ret = s9p_panel_packet(priv, &command, 1);
+		}
+	}
+	priv->aor_valid = !ret;
+	if (!ret)
+		priv->aor_applied = level;
+	else
+		dev_warn_ratelimited(priv->drm.dev,
+			"duty-only brightness transaction failed: %d\n", ret);
+	return ret;
+}
+
+static int s9p_backlight_update(struct backlight_device *backlight)
+{
+	struct s9p_decon *priv = bl_get_data(backlight);
+	int ret;
+
+	mutex_lock(&priv->panel_lock);
+	ret = s9p_brightness_locked(priv, backlight_get_brightness(backlight));
+	mutex_unlock(&priv->panel_lock);
+	return ret;
+}
+
+static int s9p_backlight_get(struct backlight_device *backlight)
+{
+	struct s9p_decon *priv = bl_get_data(backlight);
+	int ret;
+
+	mutex_lock(&priv->panel_lock);
+	ret = !priv->panel_awake ? 0 :
+		priv->aor_valid ? priv->aor_applied : -ENODATA;
+	mutex_unlock(&priv->panel_lock);
+	return ret;
+}
+
+static const struct backlight_ops s9p_backlight_ops = {
+	.update_status = s9p_backlight_update,
+	.get_brightness = s9p_backlight_get,
+};
+
 /*
  * Panel down: stop the emission, then power the controller down. The order
  * is the one the MIPI DCS specification gives -- set_display_off first, so
@@ -522,22 +636,32 @@ static void s9p_decon_dcs(struct s9p_decon *priv, u8 command)
  */
 static void s9p_panel_down(struct s9p_decon *priv)
 {
+	mutex_lock(&priv->panel_lock);
+	priv->panel_awake = false;
+	priv->aor_valid = false;
 	s9p_decon_dcs(priv, MIPI_DCS_SET_DISPLAY_OFF);
 	if (!s9p_panel_sleep)
-		return;
+		goto out;
 	msleep(PANEL_FRAME_DELAY_MS);
 	s9p_decon_dcs(priv, MIPI_DCS_ENTER_SLEEP_MODE);
 	msleep(PANEL_SLEEP_DELAY_MS);
+out:
+	mutex_unlock(&priv->panel_lock);
 }
 
 /* Panel up: the reverse, with the boost converter's settling time. */
 static void s9p_panel_up(struct s9p_decon *priv)
 {
+	mutex_lock(&priv->panel_lock);
 	if (s9p_panel_sleep) {
 		s9p_decon_dcs(priv, MIPI_DCS_EXIT_SLEEP_MODE);
 		msleep(PANEL_SLEEP_DELAY_MS);
 	}
 	s9p_decon_dcs(priv, MIPI_DCS_SET_DISPLAY_ON);
+	priv->panel_awake = true;
+	if (priv->backlight)
+		s9p_brightness_locked(priv, backlight_get_brightness(priv->backlight));
+	mutex_unlock(&priv->panel_lock);
 }
 
 /* ----------------------------------------------------------------- pipe */
@@ -809,6 +933,8 @@ static int s9p_decon_probe(struct platform_device *pdev)
 	if (IS_ERR(priv))
 		return PTR_ERR(priv);
 	drm = &priv->drm;
+	mutex_init(&priv->panel_lock);
+	priv->panel_awake = true; /* sboot left the panel running. */
 	init_waitqueue_head(&priv->frame_wait);
 	spin_lock_init(&priv->flip_lock);
 
@@ -957,6 +1083,21 @@ static int s9p_decon_probe(struct platform_device *pdev)
 	 * the next flip.
 	 */
 	priv->dsim = devm_ioremap(&pdev->dev, DSIM_PHYS, 0x100);
+	if (s9p_panel_aor) {
+		struct backlight_properties properties = {
+			.type = BACKLIGHT_RAW,
+			.max_brightness = S9P_AOR_MAX,
+			.brightness = S9P_AOR_MAX,
+		};
+
+		if (!of_machine_is_compatible("samsung,star2lte") || !priv->dsim)
+			return -ENODEV;
+		priv->backlight = devm_backlight_device_register(&pdev->dev,
+			"g965n-panel-aor", &pdev->dev, priv,
+			&s9p_backlight_ops, &properties);
+		if (IS_ERR(priv->backlight))
+			return PTR_ERR(priv->backlight);
+	}
 
 	priv->black_cpu = dma_alloc_wc(&pdev->dev, PANEL_W * PANEL_H * 4,
 				       &priv->black_dma, GFP_KERNEL);

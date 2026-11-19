@@ -2345,3 +2345,19 @@ one runtime mock initially lacked the optional broker validator, fixed by
 loading it only when the diagnostic option is present. Native sampling and
 heading qualification are pending. Automatic brightness still lacks the
 actual takeover driver's DSIM brightness command path, not merely a frontend.
+
+## 2026-11-19 — Duty-only backlight source candidate (not qualified)
+
+The active display path is the custom inherited-state DECON takeover, not the
+unused mainline S6E3HA8 panel driver. Added an opt-in panel_aor backlight there:
+16 stock star2_a3_s0 AOR duty values, inherited gamma/voltages preserved, no
+HBM or speculative DCS51 command. Zero uses display-off. DSIM packets are
+limited to1..3bytes, FIFO waits bounded, batching mode refused, vendor key
+closure attempted after every failed transaction. One mutex serializes DPMS
+and backlight updates; asleep requests are cached and restored on wake.
+Native model gating still relies on the guarded G965N install workflow; the
+shared DT reports star2lte/SM-G965F and is not independent proof of G965N.
+S9_EXPERIMENTAL_PANEL_AOR=1 explicitly opts the build into the trial; default
+remains off. Actual C failure-injection/sequence tests and shell syntax pass.
+No successful build, boot, visible dimming or automatic brightness claimed.
+Original Samsung GPL register/table attribution retained in panel-aor.h.

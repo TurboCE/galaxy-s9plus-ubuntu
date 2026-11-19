@@ -13,6 +13,9 @@ export INIT=boot UFS=1 GPU=1 DECON=1 WLAN=1 GADGET=configfs
 #    probe phase where the warm-reboot hang lives is covered end to end;
 #    systemd's RuntimeWatchdogSec takes over once userspace is up
 export BOOT_CMDLINE="console=tty0 console=ramoops-1 loglevel=7 panic=5 earlycon=s9pram keep_bootcon maxcpus=8 s9p_late_ramlog s9p_vendor_m3_defaults plymouth.enable=0 s3c2410_wdt.tmr_atboot=1 s3c2410_wdt.tmr_margin=60"
+if [[ "${S9_EXPERIMENTAL_PANEL_AOR:-0}" = 1 ]]; then
+  BOOT_CMDLINE+=" s9p_decon.panel_aor=1"
+fi
 PROJ=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 bash "$PROJ/scripts/build/build71.sh" > "$BUILD/stable-build.log" 2>&1
 rc=$?
