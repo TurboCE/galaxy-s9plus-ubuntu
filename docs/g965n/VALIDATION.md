@@ -23,7 +23,8 @@ A build or a driver node is not sufficient evidence of a working function.
 | LTE / voice / SMS | Private-copy RFS replies; active KT phone SIM; combined CS/PS profile; repeated CEREG0,1 | Historical home LTE/EPS registration verified; #19 cold-boot/security trial panicked before any PDP command. Modem default remains opt-in; cold bring-up, PDP/IP/Internet, voice and SMS pending |
 | Speakers / microphone / headset | Owner heard speaker tones and short recorded playback; #11 MICBIAS1 readback8065 confirms bypass cleared; GNOME input/output nodes persist | Initial speech replay failed with robotic/crackling sound. ABOX timing rule removed repeated resyncs; subsequent cue-assisted10s spoken recording/replay confirmed clear without crackling by owner. Short acoustic and owner-confirmed voice recognition/response tests pass; long quality pending. Full audio quality, headset/call paths, multi-mic and processing parity unverified |
 | Bluetooth | hci0 firmware loaded at 3Mbaud; discovery found 12 peer addresses; missing AES supplied and controller power cycle passed | Discovery verified; exact-BOOT startup and hci0 persisted on#13; pairing/audio pending |
-| Accelerometer / gyroscope | Native#23 owner movement:140 accel and140 gyro samples/25s, all axes varied,0 malformed frames | Raw motion response verified; physical axes/units/calibration, automatic rotation and persistence pending |
+| Accelerometer / gyroscope | Raw motion response verified; #25 actual8G and six-pose signed-axis qualification; #27 real IIO accel/scale/matrix | Acceleration system integration verified; gyroscope remains raw-only and accuracy/endurance unqualified |
+| Automatic screen rotation / sensor service | #27 SensorProxy sees real accel/ALS; GNOME normal→transform0, left-up→transform1; owner confirms rotation and correct touch before and after reboot; service auto-starts | Normal/photo-landscape rotation and reboot persistence verified. Other poses/endurance/power pending; automatic brightness lacks panel dimming driver |
 | Light / proximity / compass / pressure | #23 owner light cover/uncover:204 samples/60s,68..391lux. Proximity detect0/1 with ADC118..1105. Isolated compass:200 vectors/40s,accuracy0→2. Pressure84 samples/15s. No malformed frames | Physical light/proximity/motion response verified. Heading/absolute pressure/calibration and IIO/automatic brightness/rotation remain pending. Combined raw/calibrated compass trial had frozen calibrated vectors; default diagnostic corrected to isolated calibrated mode |
 | Korean text | Noto CJK/emoji installed; ko fallback selects KR; Pango Korean sample has 0 missing glyphs | Font coverage verified; live app refresh may be needed |
 | Vibration / notification RGB | Source audit found missing DT/config connections and upstream object/mask/bias errors; reviewed source fixes pass host C tests only | Not enabled or hardware-qualified; PWM clocks/supply/current limits and stock behavior parity pending |
@@ -110,3 +111,10 @@ Standard sensor integration candidate: actual#25 E1 reports8G, but owner could
 not perform mounting-pose checks. Acceleration/rotation stays disabled. New
 real IIO feed module is ALS-only by default and source-tested; IIO core/module
 not yet built or booted. No new system integration success claimed.
+
+
+Latest native#27 integration supersedes the earlier source-only checkpoints:
+real IIO acceleration and illuminance feed stock SensorProxy and Qt light.
+GNOME automatic rotation/touch plus reboot auto-start are owner-confirmed.
+Ordered stop removes devices/children/mounts and restart succeeds. Auto
+brightness, compass heading and remaining sensor system paths are pending.

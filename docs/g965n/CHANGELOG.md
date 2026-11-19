@@ -2286,3 +2286,35 @@ raw service qualification runs; independent240s original-display restore
 timer armed for the next real GNOME rotation trial. No backlight device
 exists: current panel implements only fixed gamma/dimming setup, so auto
 brightness is not claimed merely from ALS success.
+
+
+Native#27 GNOME integration qualification: SensorProxy normal state maps to
+actual logical display transform0; owner photo-landscape produces left-up and
+actual transform1. PanelOrientationManaged=true. Owner explicitly confirmed
+landscape desktop and correct touch alignment. Independent restore timer was
+then cancelled and original ambient setting restored. This is evidence for
+normal/left-up transition, not every display pose or all sensor features.
+
+Ordered production stop invalidated/unregistered both IIO devices,closed lhd
+and removed owned mounts with serviceResultsuccess. Broker published4144frames
+in that window,processCPU6.337s and service peak90.5MB. A subsequent start
+succeeded. Sanitized NOTIFY_SOCKET inheritance fixed the rejected child helper
+notification; primary READY remains intact. Bounded unselected sample arrays
+prevent unrelated known records accumulating;9 broker regressions pass.
+
+Enabled guarded service and performed a real reboot of the same#27 BOOT.
+Sensor service auto-started successfully in the fresh boot, both real IIO
+devices reappeared,HasAccelerometer/HasAmbientLight remainedtrue and GNOME
+PanelOrientationManaged=true. Audio/Bluetooth startup active and no matching
+new fatal/GPU/BUG/WARNING signatures observed. Owner again confirmed automatic
+rotation and touch after reboot. No verification subagents used after the
+owner's instruction. Qt LightSensor in the ordinary user manager received
+actual272/271/270lux; its initial cache0 was not counted as physical evidence.
+
+Panel backlight interface remains absent and no brightness setter is invented;
+ALS integration does not establish automatic screen brightness. Compass still
+needs qualified heading integration; prox/gyro/barometer/thermal system paths
+and full LTE/GPU/suspend parity remain separate. Sensor runtime currently owns
+the shared vendor-runtime lease; do not start modem migration tools concurrently.
+The exact service has Restart=no: a failure stops/invalidates readings rather
+than repeatedly resetting hardware. Long endurance/power remains unqualified.

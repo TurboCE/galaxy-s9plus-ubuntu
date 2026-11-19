@@ -132,6 +132,10 @@ def publish_actual(probe, selected, feed, seen, last_accel, now):
             raise ValueError('Unreviewed sensor in broker')
         probe.samples[sensor] = []
         seen.add(sensor)
+    # The firmware may emit other known record types; do not retain them forever.
+    for sensor in probe.samples:
+        if sensor not in selected:
+            probe.samples[sensor] = []
     return last_accel
 
 

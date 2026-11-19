@@ -137,3 +137,23 @@ measured lux, or actual proxy/desktop integration. Those require the reviewed
 new kernel, real broker and ordinary boot observations, recorded privately and
 summarized honestly in the project changelog/validation matrix. Never publish
 owner logs, identifiers, firmware or sensor recordings with this source.
+
+
+## Build and actual hardware checkpoint
+
+Include `S9_EXPERIMENTAL_IIO_BRIDGE=1` with the existing AUDIO/BLUETOOTH/
+SENSORS build flags when running `scripts/g965n/build.sh kernel`. This selects
+IIO core and direct mode only and packages `iio-bridge/g965n-iio-bridge.ko` in
+the exact BOOT receipt. Build never loads/flashes a device. Keep the guarded
+BOOT-only install and fresh verified nine-partition backup workflow. A new
+module package needs its own root-owned runtime profile, never an old module
+with merely matching uname release.
+
+Kernel#26 bridge compilation exposed removed no_llseek API and was not
+installed. Corrected stream_open/nonseekable code built and booted as#27.
+Native#27 real acceleration/light devices, stock SensorProxy, ordinary-user
+Qt light readings, GNOME rotation/touch and reboot auto-start passed.
+The default module remains ALS-only until explicit qualified acceleration
+settings are supplied. Per-device six-pose evidence and hardware full-scale
+verification remain mandatory; do not generalize one observed matrix to
+unknown firmware/mounting configurations. See SENSOR_RUNTIME/VALIDATION docs.

@@ -53,6 +53,12 @@ class BrokerTests(unittest.TestCase):
         b.publish_actual(q,[9],feed,seen,None,2)
         feed.publish.assert_called_once_with(2,(0,0,0));self.assertEqual(seen,{9})
 
+    def test_unselected_records_do_not_accumulate(self):
+        q=types.SimpleNamespace(samples={9:[],1:[(1,2,3)]*1000})
+        feed=types.SimpleNamespace(publish=unittest.mock.Mock())
+        b.publish_actual(q,[9],feed,set(),None,1)
+        self.assertEqual(q.samples[1],[]);feed.publish.assert_not_called()
+
     def run_fixture(self,light=True,accel=False,cleanup_error=False):
         now=[0.0];commands=[];disabled=[];frames=[];closed=[]
         rready,wready=os.pipe();rstop,wstop=os.pipe();os.set_blocking(rready,False)

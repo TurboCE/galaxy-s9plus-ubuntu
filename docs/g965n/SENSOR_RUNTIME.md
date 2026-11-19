@@ -1,8 +1,8 @@
-# Gated sensor-only runtime supervisor (source candidate)
+# Gated sensor-only runtime supervisor
 
-This is source-only until the complete private profile, modules, units and
-startup/stop behavior receive separate hardware review. It does not install or
-enable a service. It never starts CP/CBD/RIL, resumes modem state, mounts EFS,
+Native#27 qualifies the reviewed acceleration/ALS profile, real IIO consumers,
+ordered stop/restart and actual reboot auto-start on one G965N. The source
+helper itself does not install or enable a service. It never starts CP/CBD/RIL, resumes modem state, mounts EFS,
 CPEFS or RADIO, changes protected partitions, reloads/unloads a module, or
 restarts an application/portal. Initial policy is `Restart=no`.
 
@@ -186,3 +186,29 @@ The per-path permission update used for the `rwm` → `rw` transition is support
 by [systemd v255's device-allow update implementation](https://github.com/systemd/systemd/blob/v255/src/core/cgroup.c#L726): an existing path's permissions are
 replaced. A successful mock or source review is not proof that the live unit's
 BPF/device policy has been applied; the native trial must verify that separately.
+
+
+## Native#27 results and remaining scope
+
+Real exact-BOOT transport/bridge loading, phase-specific rwm→rw policy and
+child privilege restrictions passed native startup. First startup uncovered a
+transport-ready race; the broker now waits read-only/bounded before identity.
+Live IIO files expose actual acceleration scale/mounting and processed lux.
+Normal user-manager SensorProxy claims and Qt LightSensor readings work; an
+SSH-session claim is denied by the normal active-session policy. That policy
+was preserved. Only the parent retains NOTIFY_SOCKET for systemd readiness.
+
+A source-pinned six-pose profile enabled acceleration; GNOME reported panel
+orientation management and normal/left-up transforms0/1. Owner confirmed
+landscape and touch, including after a real reboot. Ordered stop removed
+IIO/children/mounts; restart and enabled-at-boot startup passed. No automatic
+hardware restart is configured. Service failure invalidates/unregisters readings.
+This runtime holds the canonical vendor-runtime lease: stop it before modem
+maintenance/migration tools, and do not claim simultaneous modem integration.
+
+ALS is available to standard consumers but the panel has no ported brightness
+control; no automatic dimming claim follows. Magnetometer/heading, proximity,
+pressure/temperature and gyro system consumers remain separate. The next
+maintainer must preserve firmware privacy, per-BOOT package/backup/profile
+pins and actual pose evidence rather than copying an unqualified identity
+matrix. Long endurance and power are still unverified.

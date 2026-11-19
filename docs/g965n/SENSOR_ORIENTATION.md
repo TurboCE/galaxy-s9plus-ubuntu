@@ -113,3 +113,32 @@ a best-effort matrix. Consistently incorrect physical pose labels cannot be
 proved false by geometry alone: operator verification of labels and reference
 provenance remains necessary. No measured handset input is stored in this
 repository; accepted/rejected regression fixtures are entirely synthetic.
+
+
+## Repeating the actual capture
+
+`experiments/sensors/capture-pose.py` records the same bounded eight-second,
+last20-real-sample window used during qualification. It requires the already
+verified native transport/own lhd runtime, actual8G range and canonical sole-
+reader lock. Do not run it alongside the production broker: stop that service
+and prepare the isolated manual runtime first. It labels but does not infer
+physical posture, refuses overwriting private output, and sends matching
+200ms add/remove payloads. No calibration/matrix/threshold write is made.
+
+With a root-only output directory and the phone already held in the requested
+pose, run on the handset from the sensor source directory:
+
+```sh
+python3 capture-pose.py --model SM-G965N --pose top-up --output /private/poses/top-up.json
+```
+
+Identity settling plus capture takes roughly15s; keep the pose until completion.
+Repeat with new output paths for all six labels. For photo-landscape poses,
+rotate within the screen plane while keeping the screen toward the observer;
+yawing left/right with the phone top still pointing up does not provide an
+independent gravity axis. Review unstable captures and explicitly recapture;
+never replace them with generated/reference vectors. Combine only `frames`
+from one unchanged hardware/range/firmware session into the private observations
+object above, preserving all raw files. Native#25 qualification used the
+explicit handheld15deg mode and source-pinned reference; native#27 later
+verified actual normal/landscape desktop orientation and touch.

@@ -30,6 +30,7 @@ NODE_NAMES=('null','zero','random','urandom','ttyBCM','bbd_control','bbd_sensor'
 LHD='/vendor/bin/hw/lhd'
 LHD_CONFIG='/vendor/etc/sensor/lhd.conf'
 STOP=False
+NOTIFY_ADDRESS=None
 UNIT='g965n-sensors.service'
 
 
@@ -325,7 +326,7 @@ def apply_device_policy(setup=False):
 
 
 def notify_ready():
-    address=os.environ.get('NOTIFY_SOCKET')
+    address=NOTIFY_ADDRESS
     if address:
         if address.startswith('@'):address='\0'+address[1:]
         with socket.socket(socket.AF_UNIX,socket.SOCK_DGRAM) as stream:
@@ -433,6 +434,8 @@ def main():
     p.add_argument('--confirm-backup-verified',action='store_true')
     p.add_argument('--consent-start-sensors',action='store_true')
     args=p.parse_args()
+    global NOTIFY_ADDRESS
+    NOTIFY_ADDRESS=os.environ.pop('NOTIFY_SOCKET',None)
     if os.geteuid()!=0:raise SystemExit('Run under root with a private validated profile')
     raw=trusted_bytes(args.profile,1024*1024,private=True)
     if digest(raw)!=args.profile_sha256:raise SystemExit('Explicit profile fingerprint mismatch')
