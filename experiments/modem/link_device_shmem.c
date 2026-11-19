@@ -2161,6 +2161,8 @@ static void shmem_boot_on(struct link_device *ld, struct io_device *iod)
 	unsigned long flags;
 
 	spin_lock_irqsave(&mld->state_lock, flags);
+	/* Reset for the new boot before CP_START can complete this link. */
+	reinit_completion(&ld->mc->init_cmpl);
 	atomic_set(&mld->cp_boot_done, 0);
 	mld->state = LINK_STATE_OFFLINE;
 	spin_unlock_irqrestore(&mld->state_lock, flags);

@@ -37,6 +37,8 @@ HARNESS=r'''
 #define MODEM_EVENT_ONLINE 1
 #define CMD_RGN_OFFSET 0
 #define CMD_RGN_SIZE 16
+#define MIF_INIT_TIMEOUT 1500
+#define STATE_ONLINE 2
 #define mif_err(...) ((void)0)
 #define mif_info(...) ((void)0)
 #define cmd2int(x) (x)
@@ -44,10 +46,16 @@ HARNESS=r'''
 #define atomic_read(x) (*(x))
 #define atomic_set(x,v) do { assert(lock_depth==1);*(x)=(v); } while(0)
 static int lock_depth, writes, sends, resets, reset_error, memory_ready, completed;
+static int cp_watchdog, cp_failure;
 #define spin_lock_irqsave(p,f) do { assert(lock_depth==0);lock_depth=1;(f)=0; } while(0)
 #define spin_unlock_irqrestore(p,f) do { assert(lock_depth==1);lock_depth=0;(void)(f); } while(0)
-struct io_device { int id,opened; const char *name; };
-struct modem_ctl { const char *name; int init_cmpl; };
+#define list_for_each_entry(iod, head, member) for ((iod) = *(head); (iod); (iod) = 0)
+struct io_device { int id,opened; const char *name; void (*modem_state_changed)(struct io_device *, int); };
+struct modem_ctl {
+    const char *name;
+    int init_cmpl, irq_cp_wdt, irq_cp_fail;
+    struct io_device *modem_state_notify_list;
+};
 struct mem_link_device;
 struct link_device { struct modem_ctl *mc; const char *name; struct mem_link_device *mld; int sbd_ipc; };
 struct sbd_link_device { int unused; };
@@ -60,7 +68,12 @@ static void send_ipc_irq(struct mem_link_device *m,int command){(void)m;assert(l
 static int shmem_reset_ipc_link(struct mem_link_device *m){(void)m;assert(lock_depth==1);resets++;if(reset_error)return reset_error;memory_ready=1;return 0;}
 static void mcu_ipc_reg_dump(int n){(void)n;}
 static void shmem_forced_cp_crash(struct mem_link_device *m,int why,const char *text){(void)m;(void)why;(void)text;assert(0);}
-static void complete_all(int *p){(void)p;completed++;}
+static void reinit_completion(int *p){assert(lock_depth==1);*p=0;}
+static void complete_all(int *p){assert(lock_depth==1);*p=1;completed++;}
+static unsigned long wait_for_completion_timeout(int *p, unsigned long timeout)
+{assert(lock_depth==0 && timeout==MIF_INIT_TIMEOUT);return *p;}
+static void mif_enable_irq(int *irq){assert(!*irq);*irq=1;cp_watchdog++;}
+static void mif_disable_irq(int *irq){assert(*irq);*irq=0;cp_failure++;}
 static void modem_notify_event(int n){(void)n;}
 static void cancel_tx_timer(struct mem_link_device *m,int *t){(void)m;(void)t;}
 static void cancel_datalloc_timer(struct mem_link_device *m){(void)m;}
@@ -102,6 +115,20 @@ int main(void){
    user_open(&m,&fmt);user_open(&m,&rfs);reset_error=-EIO;
    cmd_phone_start_handler(&m);assert(m.state==0&&sends==0&&writes==0&&m.cp_boot_done==0&&lock_depth==0);
  }
+ { struct mem_link_device m=fresh(&mc);m.link_dev.mld=&m;
+   mc.init_cmpl=1;mc.irq_cp_fail=1;
+   shmem_boot_on(&m.link_dev,&fmt);
+   assert(!mc.init_cmpl);
+   assert(ss310ap_boot_off(&mc)==-EAGAIN && !cp_watchdog && cp_failure==1);
+   mc.irq_cp_fail=1;
+   shmem_boot_on(&m.link_dev,&fmt);
+   cmd_phone_start_handler(&m);
+   assert(mc.init_cmpl && completed==1);
+   assert(ss310ap_boot_off(&mc)==0 && cp_watchdog==1 && cp_failure==2);
+   assert(mc.init_cmpl && mc.irq_cp_wdt && !mc.irq_cp_fail);
+   shmem_boot_on(&m.link_dev,&fmt);
+   assert(!mc.init_cmpl);
+ }
  return 0;
 }
 '''
@@ -113,6 +140,8 @@ class BootHandshakeTests(unittest.TestCase):
         self.assertIsNotNone(compiler,'C compiler required for actual driver-function test')
         source=(ROOT/'experiments/modem/link_device_shmem.c').read_text()
         functions='\n'.join(function(source,n) for n in ('rild_ready','cmd_phone_start_handler','shmem_init_comm','shmem_boot_on'))
+        controller=(ROOT/'experiments/modem/modem_ctrl_ss310ap.c').read_text()
+        functions += '\n' + function(controller, 'ss310ap_boot_off')
         with tempfile.TemporaryDirectory() as name:
             c=Path(name)/'handshake.c';exe=Path(name)/'handshake';c.write_text(HARNESS+functions+MAIN)
             subprocess.run([compiler,'-std=gnu11','-Werror','-Wno-unused-function','-Wno-unused-variable',str(c),'-o',str(exe)],check=True,capture_output=True,text=True)

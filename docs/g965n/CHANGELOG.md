@@ -5036,3 +5036,23 @@ service stopped successfully and stock ModemManager was active. Six
 IIO devices were readable, Wi-Fi HTTPS204 passed, a P2P interface was
 present and no units failed. SIM-present traffic and P2P transfer were
 not exercised on this boot.
+
+### 2026-11-20 — Preserve an early cellular boot completion
+
+The BOOT_OFF wait previously reinitialized the CP completion even if
+the shared-memory CP_START handler had already completed the handshake.
+BOOT_ON now clears the completion while resetting the link state under
+the same lock used by the completion producer. BOOT_OFF only waits.
+The driver harness verifies that a new boot clears the previous signal,
+an early CP_START satisfies the later wait, and no signal still returns
+the original timeout error without enabling the watchdog.
+
+Built for native #44, checked BOOT and backup provenance, preserved the
+previous module and service configuration, and booted the exact new
+module. The handset followed the normal order: BOOT_OFF preceded
+CP_START, INIT_END was sent once, the modem reached ONLINE, and the
+watchdog IRQ was enabled. There was no boot-completion timeout.
+No-SIM shutdown, stock ModemManager restoration, six IIO devices and
+Wi-Fi HTTPS204 passed, with a P2P interface present and no failed units.
+The early signal and missing signal were qualified on the host only.
+This boot did not exercise SIM-present data or P2P file transfer.

@@ -588,7 +588,6 @@ static int ss310ap_boot_off(struct modem_ctl *mc)
 #ifdef CONFIG_CP_PMUCAL
 	cal_cp_disable_dump_pc_no_pg();
 #endif
-	reinit_completion(&mc->init_cmpl);
 	remain = wait_for_completion_timeout(&mc->init_cmpl, MIF_INIT_TIMEOUT);
 	if (remain == 0) {
 		mif_err("T-I-M-E-O-U-T\n");
