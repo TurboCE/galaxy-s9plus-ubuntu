@@ -128,7 +128,7 @@ def validate_profile(profile):
             raise RuntimeError('Orientation evidence does not qualify selected matrix')
     elif 'mount_matrix' in accel or 'orientation_evidence' in profile:
         raise RuntimeError('ALS-only profile must not invent orientation evidence or matrix')
-    optional_sensors=('pressure','proximity','gyro')
+    optional_sensors=('pressure','proximity','gyro','thermistor')
     if any(key in profile for key in ('magnetic_capture','magnetic_initialization',*optional_sensors)):
         program=load_program(profile,'broker')
         program.magnetic_capture_policy(profile)
@@ -258,7 +258,7 @@ def bridge_policy(profile):
     if enabled:
         matrix=','.join(str(v) for v in profile['accel']['mount_matrix'])
         params.append('accel_mount_matrix='+matrix);expected['accel_mount_matrix']=matrix
-    for name in ('pressure','proximity','gyro'):
+    for name in ('pressure','proximity','gyro','thermistor'):
         if name in profile:
             parameter='enable_'+name
             enabled=profile[name]['enabled']

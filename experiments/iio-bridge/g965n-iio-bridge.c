@@ -26,6 +26,9 @@ MODULE_PARM_DESC(enable_proximity, "Opt-in TMD4906 proximity on the qualified SS
 static bool enable_gyro;
 module_param(enable_gyro, bool, 0444);
 MODULE_PARM_DESC(enable_gyro, "Opt-in raw LSM6DSL gyro samples on the qualified SSP profile");
+static bool enable_thermistor;
+module_param(enable_thermistor, bool, 0444);
+MODULE_PARM_DESC(enable_thermistor, "Opt-in read-only board thermistor values");
 static int accel_matrix[9], accel_matrix_count;
 module_param_array_named(accel_mount_matrix, accel_matrix, int, &accel_matrix_count, 0444);
 MODULE_PARM_DESC(accel_mount_matrix, "Required explicit9-entry signed permutation, sensor to display axes");
@@ -33,6 +36,7 @@ static DEFINE_MUTEX(lifecycle_lock);
 static DEFINE_MUTEX(sample_lock);
 static struct bridge_cache cache;
 static struct iio_dev *accel_dev, *light_dev, *pressure_dev, *proximity_dev, *gyro_dev;
+static struct iio_dev *thermistor_dev;
 static bool writer_open;
 static struct iio_mount_matrix mount;
 static struct miscdevice bridge_misc;
@@ -73,18 +77,25 @@ static const struct iio_chan_spec proximity_channels[] = {
 static const struct iio_chan_spec gyro_channels[] = {
  GYRO_CHANNEL(X), GYRO_CHANNEL(Y), GYRO_CHANNEL(Z)
 };
+#define THERMISTOR_CHANNEL(number) { .type=IIO_TEMP, .indexed=1, .channel=(number), \
+ .info_mask_separate=BIT(IIO_CHAN_INFO_PROCESSED) }
+static const struct iio_chan_spec thermistor_channels[] = {
+ THERMISTOR_CHANNEL(0), THERMISTOR_CHANNEL(1)
+};
 static int read_sample(struct iio_dev *dev,const struct iio_chan_spec *chan,
                        int *val,int *val2,long mask)
 {
  unsigned int axis=0;
  u32 type;
  s32 sample;int ret;
+ bool processed=chan->type==IIO_LIGHT || chan->type==IIO_TEMP;
  switch (chan->type) {
  case IIO_ACCEL: type=G965N_IIO_ACCEL;axis=chan->channel2-IIO_MOD_X;break;
  case IIO_LIGHT: type=G965N_IIO_LIGHT;break;
  case IIO_PRESSURE: type=G965N_IIO_PRESSURE;break;
  case IIO_PROXIMITY: type=G965N_IIO_PROXIMITY;break;
  case IIO_ANGL_VEL: type=G965N_IIO_GYRO;axis=chan->channel2-IIO_MOD_X;break;
+ case IIO_TEMP: type=G965N_IIO_THERMISTOR;axis=chan->channel;break;
  default: return -EINVAL;
  }
  mutex_lock(&sample_lock);
@@ -96,8 +107,7 @@ static int read_sample(struct iio_dev *dev,const struct iio_chan_spec *chan,
   /* The LPS22H yields 4096 counts/hPa. IIO reports kPa. */
   ret=cache.connected && cache.pressure.valid?IIO_VAL_FRACTIONAL:-ENODATA;
   if (ret>=0) {*val=1;*val2=40960;}
- } else if ((mask==IIO_CHAN_INFO_RAW && type!=G965N_IIO_LIGHT) ||
-            (mask==IIO_CHAN_INFO_PROCESSED && type==G965N_IIO_LIGHT)) {
+ } else if (mask==(processed?IIO_CHAN_INFO_PROCESSED:IIO_CHAN_INFO_RAW)) {
   ret=bridge_read(&cache,type,axis,ktime_get_boottime_ns(),&sample);
   /* Bracket the integer nearlevel and the proxy's hysteresis without
    * applying a second threshold to the hardware's raw ADC.
@@ -135,6 +145,10 @@ static int register_sensor(u32 type)
  case G965N_IIO_GYRO:
   if (!enable_gyro) return -EACCES;
   target=&gyro_dev;name="g965n-ssp-gyro";channels=gyro_channels;count=ARRAY_SIZE(gyro_channels);
+  break;
+ case G965N_IIO_THERMISTOR:
+  if (!enable_thermistor) return -EACCES;
+  target=&thermistor_dev;name="g965n-ssp-thermistor";channels=thermistor_channels;count=ARRAY_SIZE(thermistor_channels);
   break;
  default: return -EINVAL;
  }
@@ -195,6 +209,7 @@ static int bridge_close(struct inode *inode,struct file *file)
  if (pressure_dev) {iio_device_unregister(pressure_dev);iio_device_free(pressure_dev);pressure_dev=NULL;}
  if (proximity_dev) {iio_device_unregister(proximity_dev);iio_device_free(proximity_dev);proximity_dev=NULL;}
  if (gyro_dev) {iio_device_unregister(gyro_dev);iio_device_free(gyro_dev);gyro_dev=NULL;}
+ if (thermistor_dev) {iio_device_unregister(thermistor_dev);iio_device_free(thermistor_dev);thermistor_dev=NULL;}
  writer_open=false;
  mutex_unlock(&lifecycle_lock);return 0;
 }

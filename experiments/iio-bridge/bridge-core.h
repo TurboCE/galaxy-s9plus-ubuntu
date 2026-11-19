@@ -20,9 +20,10 @@ typedef uint32_t u32; typedef uint64_t u64; typedef int32_t s32;
 #endif
 #endif
 #define G965N_FRESH_NS 2000000000ULL
+#define G965N_THERMISTOR_FRESH_NS 12000000000ULL
 struct bridge_sample { bool valid; s32 value[3]; u64 when; };
 struct bridge_cache {
- struct bridge_sample accel, light, pressure, proximity, gyro;
+ struct bridge_sample accel, light, pressure, proximity, gyro, thermistor;
  u64 heartbeat, seq;
  bool connected;
 };
@@ -61,6 +62,11 @@ static inline int bridge_decode(const struct g965n_iio_frame *p, unsigned int by
  case G965N_IIO_GYRO:
   if (flags) return -EINVAL;
   break;
+ case G965N_IIO_THERMISTOR:
+  if (flags || out->value[2]) return -EINVAL;
+  for (i=0;i<2;i++)
+   if (out->value[i]<-20000 || out->value[i]>90000) return -ERANGE;
+  break;
  default:return -EINVAL;
  }
  return 0;
@@ -91,6 +97,7 @@ static inline void bridge_update(struct bridge_cache *c,const struct bridge_deco
  case G965N_IIO_PRESSURE: s=&c->pressure; break;
  case G965N_IIO_PROXIMITY: s=&c->proximity; break;
  case G965N_IIO_GYRO: s=&c->gyro; break;
+ case G965N_IIO_THERMISTOR: s=&c->thermistor; break;
  default: s=NULL; break;
  }
  if (s) {
@@ -102,18 +109,21 @@ static inline void bridge_update(struct bridge_cache *c,const struct bridge_deco
 static inline int bridge_read(const struct bridge_cache *c,u32 type,unsigned int axis,u64 now,s32 *value)
 {
  const struct bridge_sample *s;
- if (axis>2 || (type!=G965N_IIO_ACCEL && type!=G965N_IIO_GYRO && axis)) return -EINVAL;
+ if (axis>2) return -EINVAL;
  switch (type) {
  case G965N_IIO_ACCEL: s=&c->accel; break;
- case G965N_IIO_LIGHT: s=&c->light; break;
- case G965N_IIO_PRESSURE: s=&c->pressure; break;
- case G965N_IIO_PROXIMITY: s=&c->proximity; break;
+ case G965N_IIO_LIGHT: if (axis) return -EINVAL; s=&c->light; break;
+ case G965N_IIO_PRESSURE: if (axis) return -EINVAL; s=&c->pressure; break;
+ case G965N_IIO_PROXIMITY: if (axis) return -EINVAL; s=&c->proximity; break;
  case G965N_IIO_GYRO: s=&c->gyro; break;
+ case G965N_IIO_THERMISTOR: if (axis>1) return -EINVAL; s=&c->thermistor; break;
  default: return -EINVAL;
  }
  if (!c->connected || !bridge_fresh(c->heartbeat,now) || !s->valid) return -ENODATA;
  if ((type==G965N_IIO_ACCEL || type==G965N_IIO_PRESSURE || type==G965N_IIO_GYRO) &&
      !bridge_fresh(s->when,now)) return -ENODATA;
+ if (type==G965N_IIO_THERMISTOR && (now<s->when || now-s->when>G965N_THERMISTOR_FRESH_NS))
+  return -ENODATA;
  *value=s->value[axis];return 0;
 }
 #endif

@@ -511,7 +511,7 @@ class ThermalADCReadTests(unittest.TestCase):
                 return b'\xff\xff' if command == 0xA9 else b'\x34\x12'
         p = Probe()
         self.assertEqual(ssp.read_thermal_adc(p, 1<<34), {'0':65535, '1':4660})
-        self.assertEqual(p.calls, [(0xA9, {'length':2}), (0xAA, {'length':2})])
+        self.assertEqual(p.calls, [(0xA9, {'length':2,'timeout':2}), (0xAA, {'length':2,'timeout':2})])
 
     def test_bad_length_timeout_and_mask_fail_without_fallback(self):
         for reply in (b'', b'\0', b'\0'*3, RuntimeError('timeout')):
@@ -551,7 +551,7 @@ class ThermalADCReadTests(unittest.TestCase):
              patch('sys.argv', ['ssp-probe', '--read-thermal-adc']), \
              patch('sys.stdout', new_callable=io.StringIO) as output:
             ssp.main()
-        self.assertEqual(calls, ['identity',(0xA9,{'length':2}),(0xAA,{'length':2})])
+        self.assertEqual(calls, ['identity',(0xA9,{'length':2,'timeout':2}),(0xAA,{'length':2,'timeout':2})])
         self.assertEqual(json.loads(output.getvalue())['thermal_adc_raw'], {'0':4660,'1':4660})
         close.assert_called_once_with(123)
 

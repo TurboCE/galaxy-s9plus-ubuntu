@@ -259,6 +259,25 @@ This interface publishes unscaled hub data. An application requiring
 radians per second, screen-relative angular velocity, or synchronized
 high-rate sampling needs additional scale, mounting and buffering work.
 
+## Opt-in board thermistors on native #44
+
+Set `"thermistor": {"enabled": true}` in the root-owned profile for
+the matching SM-G965N revision 26. Pin the updated broker, supervisor,
+SSP probe and bridge. The broker checks the live hardware revision and
+requires the hub to advertise thermistor ID 34. It polls the two direct
+read-only ADC commands every five seconds once the normal streams are
+ready. The public
+[revision 26 device tree](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/arch/arm64/boot/dts/exynos/exynos9810-star2lte_eur_open_26.dts)
+provides the two calibration tables. Both matched the verified stock
+board's tables.
+
+Read `in_temp0_input` and `in_temp1_input` on `g965n-ssp-thermistor`.
+The files report millicelsius. An out-of-table value or a failed read
+skips the pair. The last valid pair expires after 12 seconds and
+always requires a live broker. This interface provides observation
+of the two thermistors. Charging and overheat policy have their own
+qualification requirements.
+
 ## Native rotation lock
 
 Use GNOME's existing **Auto Rotate** tile in the top-right quick settings.

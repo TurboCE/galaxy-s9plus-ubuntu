@@ -16,6 +16,16 @@ spec=importlib.util.spec_from_file_location('broker',ROOT/'scripts/g965n/ssp-iio
 b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
 
 class BrokerTests(unittest.TestCase):
+    def test_thermistor_uses_paired_board_tables_and_rejects_out_of_range_adc(self):
+        for number, table in enumerate(b.THERMISTOR_TABLES):
+            for index, value in enumerate(table):
+                self.assertEqual(b.thermistor_millicelsius(number, value), -20000+5000*index)
+            for value in (table[0]+1, table[-1]-1):
+                with self.assertRaisesRegex(ValueError, 'outside calibration'):
+                    b.thermistor_millicelsius(number, value)
+        self.assertEqual(b.thermistor_millicelsius(0, 2154), 31633)
+        self.assertEqual(b.thermistor_millicelsius(1, 2220), 29217)
+
     def test_magnetic_initialization_checks_actual_private_payload_and_provenance(self):
         value={'schema':1,'model':'SM-G965N','revision':26,'mag_type':1,
                'stock_mag_position':5,'position_command_sent':False,
@@ -114,7 +124,8 @@ class BrokerTests(unittest.TestCase):
             for kind,values in [(2,(-1,0,0)),(2,(1,False,0)),(1,(32768,0,0)),
                                 (9,(0,0,0)),(3,(1,0,0)),(4,(0,0,0)),(4,(0x800000,0,0)),
                                 (4,(4161524,2934,0)),(5,(2,0,0)),(5,(1,1105,0)),
-                                (6,(-2147483649,0,0)),(6,(0,0,2147483648))]:
+                                (6,(-2147483649,0,0)),(6,(0,0,2147483648)),
+                                (7,(-20001,0,0)),(7,(0,90001,0)),(7,(0,0,1))]:
                 with self.assertRaises(ValueError):f.publish(kind,values)
             write.assert_not_called();self.assertEqual(f.seq,0)
         with patch.object(b.os,'write',return_value=47):

@@ -18,6 +18,27 @@ import time
 FRAME = struct.Struct('<IIQIIiiiIII')
 DEVICE = '/dev/g965n-iio-bridge'
 OPTIONAL_SENSORS = {'pressure': 5, 'proximity': 7, 'gyro': 1}
+THERMISTOR_PERIOD = 5.0
+# Samsung Electronics. GPL-2.0-only table data from the public
+# LineageOS Exynos9810 6a9461f9460ca51d1217e5069a5d5556fcc79e63
+# exynos9810-star2lte_eur_open_26.dts, ssp-thermi-up and ssp-thermi-sub.
+# Points are -20 to 90 Celsius in 5 degree increments.
+THERMISTOR_TABLES = (
+    (3010, 2981, 2937, 2899, 2840, 2771, 2682, 2582, 2470, 2348, 2203, 2053,
+     1909, 1740, 1583, 1420, 1277, 1129, 1003, 902, 804, 678, 601),
+    (3012, 2982, 2942, 2902, 2840, 2768, 2680, 2580, 2467, 2344, 2197, 2045,
+     1905, 1740, 1582, 1421, 1278, 1130, 1004, 901, 803, 672, 612),
+)
+
+
+def thermistor_millicelsius(channel, raw):
+    table = THERMISTOR_TABLES[channel]
+    if not table[-1] <= raw <= table[0]:
+        raise ValueError('Thermistor ADC outside calibration table')
+    for index, (upper, lower) in enumerate(zip(table, table[1:])):
+        if lower <= raw <= upper:
+            return -20000 + 5000 * index + (upper - raw) * 5000 // (upper - lower)
+    raise ValueError('Thermistor ADC missing a calibration interval')
 
 
 def magnetic_capture_policy(profile):
@@ -190,7 +211,7 @@ def verify_profile(path):
             raise ValueError('Acceleration mounting evidence does not match')
     magnetic_capture_policy(profile)
     magnetic_initialization(profile)
-    for name in OPTIONAL_SENSORS:
+    for name in (*OPTIONAL_SENSORS, 'thermistor'):
         optional_sensor_enabled(profile, name)
     return profile
 
@@ -219,6 +240,9 @@ class Feed:
         elif kind == 6:
             if any(not -0x80000000 <= value <= 0x7fffffff for value in values):
                 raise ValueError('Invalid actual LSM6DSL gyro tuple')
+        elif kind == 7:
+            if values[2] or any(not -20000 <= value <= 90000 for value in values[:2]):
+                raise ValueError('Invalid thermistor temperature pair')
         elif kind != 3 or values != (0, 0, 0):
             raise ValueError('Invalid heartbeat')
         if self.seq == 0xffffffffffffffff:
@@ -329,6 +353,12 @@ def run(profile, ssp, ready_fd, stop_fd):
             if capture_policy is not None:
                 selected.append(4)  # Calibrated only; never enable conflicting raw2/3.
             ssp.require_advertised(selected, identity['sensor_mask'])
+            thermistor = optional_sensor_enabled(profile, 'thermistor')
+            if thermistor:
+                hw_rev = Path('/sys/firmware/devicetree/base/model_info-hw_rev').read_bytes()
+                if hw_rev != b'\x00\x00\x00\x1a':
+                    raise ValueError('Thermistor table requires board revision 26')
+                ssp.require_advertised([34], identity['sensor_mask'])
             if 0 in selected and probe.transaction(0xE1, length=1) != b'\x08':
                 raise ValueError('Live acceleration range is not 8G; no sensor enabled')
             magnetic_init = magnetic_initialization(profile)
@@ -350,6 +380,8 @@ def run(profile, ssp, ready_fd, stop_fd):
             ready = False
             last_accel = None
             next_heartbeat = started
+            next_thermal = started
+            thermal_failed = False
             while not stopping:
                 if channel.requested():
                     break
@@ -378,6 +410,20 @@ def run(profile, ssp, ready_fd, stop_fd):
                     raise RuntimeError('No actual first sensor reading within startup bound')
                 if 0 in selected and last_accel is not None and now - last_accel > 1.5:
                     raise RuntimeError('Continuous acceleration stream became stale')
+                if ready and thermistor and now >= next_thermal:
+                    next_thermal = now + THERMISTOR_PERIOD
+                    try:
+                        raw = ssp.read_thermal_adc(probe, identity['sensor_mask'], timeout=.25)
+                        temperatures = tuple(thermistor_millicelsius(i, raw[str(i)]) for i in (0, 1))
+                    except (RuntimeError, ValueError):
+                        if not thermal_failed:
+                            print('Thermistor read unavailable; keeping other sensor streams', flush=True)
+                        thermal_failed = True
+                    else:
+                        feed.publish(7, (*temperatures, 0))
+                        if thermal_failed:
+                            print('Thermistor read recovered', flush=True)
+                        thermal_failed = False
             print(json.dumps({'broker_stopped': True, 'published': feed.seq,
                               'unparsed_frames': probe.unparsed}), flush=True)
         finally:

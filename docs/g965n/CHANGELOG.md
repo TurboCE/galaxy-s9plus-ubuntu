@@ -4887,3 +4887,24 @@ IIO devices returned readings, and systemd reported no failed units.
 Host fault-injection covered missing resources and failed interrupt
 registrations. Actual fail/watchdog interrupt delivery and SIM-present
 LTE traffic with the changed module remain pending.
+
+### 2026-11-20 — Board thermistor readings through Linux IIO
+
+Compared the public Exynos9810 revision 26 UP/SUB calibration
+tables with the verified stock device tree. Both 23-point tables
+matched. The optional broker path checks the live revision and
+hub advertisement, then reads ADC channels 0 and 1 every five
+seconds. It uses the matched tables to interpolate valid values
+and makes the pair available as standard IIO millicelsius
+readings. A failed reading skips the pair, and the bridge expires
+old values even while other sensor data remains fresh.
+
+Verified the #44 BOOT and backup and saved the original sensor
+profile before hot-loading the matching bridge. An ordinary Ubuntu
+user read 180 pairs over 45 seconds. Nine pairs were distinct.
+Channel 0 reported 32.2–32.4 °C and channel 1 reported 28.7–29.1 °C.
+Acceleration, gyro, lux, proximity and pressure remained readable
+throughout. Wi-Fi HTTPS204 passed and there were no thermistor retry
+messages or new sensor kernel warnings following readiness in
+this window. Absolute accuracy, a distinct restart and thermal
+or charging policy behavior remain separate verification items.

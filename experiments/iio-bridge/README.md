@@ -53,7 +53,7 @@ callback. The file's module reference prevents normal unload while a writer is o
 | --- | --- |
 | version / size | 1 / 48 |
 | seq | First accepted frame1, then strictly increasing unsigned64; no wrap |
-| type | 1 acceleration, 2 illuminance, 3 heartbeat, 4 pressure, 5 proximity, 6 gyroscope |
+| type | 1 acceleration, 2 illuminance, 3 heartbeat, 4 pressure, 5 proximity, 6 gyroscope, 7 thermistor pair |
 | flags | Acceleration exactly1, otherwise0 |
 | value[3] | Signed32 encoding, constrained by sensor type |
 | reserved[3] | All zero |
@@ -100,6 +100,11 @@ specifies sensitivity at the chip register for each full-scale setting.
 The relationship between those register counts and the live hub output
 and the mapping from hub to display axes still require verification.
 
+The board thermistors are opt-in with `enable_thermistor=1`. The broker
+converts the two direct ADC readings using the verified revision 26
+tables and sends one pair in channel order. Only temperatures in the
+table range `-20000..90000` millicelsius are accepted.
+
 ## Real IIO semantics and freshness
 
 No IIO device is registered until that sensor's first valid real frame. This
@@ -113,6 +118,8 @@ verified. Registration exposes:
 - `g965n-ssp-proximity`: `in_proximity_raw` and `in_proximity_nearlevel`.
 - `g965n-ssp-gyro`: `in_anglvel_x_raw`, `in_anglvel_y_raw` and
   `in_anglvel_z_raw`, without a scale or mount matrix.
+- `g965n-ssp-thermistor`: `in_temp0_input` and `in_temp1_input`, in
+  millicelsius. The pair expires after 12 seconds even with current heartbeats.
 
 Before the first reading, cache reads return `ENODATA` rather than a fabricated
 sample. Acceleration, pressure and angular velocity each require both their own sample age and

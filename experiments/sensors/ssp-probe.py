@@ -64,13 +64,13 @@ SENSOR_GROUPS = {'motion': [0, 1], 'light': [9], 'all': [0, 1, 9],
                  'thermal': [34], 'rotation': [16, 17]}
 
 
-def read_thermal_adc(probe, sensor_mask):
+def read_thermal_adc(probe, sensor_mask, *, timeout=2):
     # factory/thermistor.c:show_thermistor_channel{0,1}_ADC: READ two
     # unsigned bytes each, not the separate B3 threshold-write command.
     require_advertised([34], sensor_mask)
     result = {}
     for channel, command in ((0, 0xA9), (1, 0xAA)):
-        data = probe.transaction(command, length=2)
+        data = probe.transaction(command, length=2, timeout=timeout)
         if len(data) != 2:
             raise RuntimeError('Invalid thermistor ADC reply length')
         result[str(channel)] = struct.unpack('<H', data)[0]
@@ -296,7 +296,7 @@ class Probe:
             else:
                 self.unparsed += 1
 
-    def transaction(self, command, payload=b'', length=0):
+    def transaction(self, command, payload=b'', length=0, *, timeout=2):
         self.sequence = self.sequence % 8191 + 1
         options = self.sequence << 3 | (0 if length else 1)
         self.pending = (options, payload)
@@ -304,7 +304,7 @@ class Probe:
         request = struct.pack('<BHHI', command, length or len(payload), options, 0)
         if os.write(self.fd, request) != len(request):
             raise RuntimeError('Short sensor header write')
-        deadline = time.monotonic() + 2
+        deadline = time.monotonic() + timeout
         while self.reply is None and time.monotonic() < deadline:
             self.pump(.05)
         self.pending = None

@@ -102,7 +102,12 @@ A distinct source-defined read-only path exists: channel0 command `0xA9`, then
 channel1 `0xAA`, each `AP2HUB_READ`, two-byte unsigned little-endian raw ADC.
 `ssp-probe.py --read-thermal-adc` exposes this only after identity and ID34-mask
 checks, without starting a bypass stream or writing thresholds/calibration.
-Temperature conversion requires the correct device tables and remains separate.
+For revision 26 the published LineageOS device tree supplies the same 23-point
+UP and SUB tables as the verified stock device. The optional runtime
+thermistor profile periodically issues the same two read commands and uses
+piecewise linear interpolation inside the table range. It exposes the pair
+as Linux IIO temperatures. This path is separate from the ID34 special-event
+and battery overheat policy.
 
 For IDs16/17, the final byte is named `acc_rot` in the source but passed through
 without interpretation. The observed value246 does not have a proven ordinary
