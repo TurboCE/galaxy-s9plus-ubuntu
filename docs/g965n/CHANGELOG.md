@@ -2156,3 +2156,25 @@ charger statusCharging while battery reportsDischarging; that baseline is not
 a claim of increasing net battery charge under this load. No current limit
 or supply register is changed by this source correction. Native verification
 of phantom warning removal and real binding awaits #25.
+
+
+Kernel#25 built fromaf1524f,exact module hashes verified and matching audio/
+Bluetooth startup staged. Fresh complete nine-partition backup and guarded
+model/identity preflight passed. BOOT-only write and byte/hash readback passed
+before reboot; no RECOVERY/EFS/CPEFS/RADIO write. Native verification follows.
+
+
+#25 hardware verification: actual kernel and BOOT receipt matched, fresh USB
+SSH returned and system failed units0. WBTEXT policy5 still reads successfully
+and neither command55 BADOPTION diagnostic nor roam-trigger setup error now
+appears. This verifies the scoped initialization correction, not handover
+between access points. HTTPS explicitly bound to wlp1s0 returns204.
+
+The phantom max77705-charger child-node warning is absent. Real I2C1-0069
+remains bound to max77705-charger with online1,statusCharging,input500000uA.
+No charging-limit adjustment. Audio/Bluetooth exact-package startup active.
+Former initramfs/pinctrl/CLKOUT errors stay absent; no matching new fatal/GPU/
+BUG/WARNING signatures in this boot observation. Sensors/modem not started
+in #25. RGB/haptic missing child nodes and P2P IF_ADD timeout remain; CPU/cache
+limitations and desktop sensor integration remain documented. No all-feature,
+roaming,endurance,heading,absolute-temperature or suspend success claimed.

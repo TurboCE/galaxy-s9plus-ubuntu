@@ -33,3 +33,10 @@ Evidence: pinned Linux source `8cd9520d35a6c38db6567e97dd93b1f11f185dc6`,
 `drivers/leds/leds-max77705.c`, `drivers/input/misc/max77693-haptic.c`,
 `Documentation/devicetree/bindings/mfd/maxim,max77705.yaml`, and the tracked
 `src/mainline-dts/exynos9810-star2lte.dts`. Private boot logs remain outside Git.
+
+
+Native #25 follow-up: removed only the unused charger platform cell after
+exact-source/actual-C regression review. Its former warning is absent, while
+real I2C1-0069 binding/online1/statusCharging/input500000uA persist. RGB/haptic
+cells and warnings remain; no empty node, supply change or diagnostic filter
+was added. This resolves the charger architectural mismatch only.

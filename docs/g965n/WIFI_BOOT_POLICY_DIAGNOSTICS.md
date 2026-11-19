@@ -94,3 +94,9 @@ A passing host test or build is not a successful device boot, restored roaming,
 or proof of radio behavior. Actual boot observations and later corrections
 belong in the changelog and validation matrix. No manual firmware commands or
 separate feature tests are needed to collect ordinary boot records.
+
+
+Native #25 follow-up: policy5 remains observed; legacy trigger BADOPTION and
+setup failure are absent. HTTPS bound to the Wi-Fi interface returns204.
+This qualifies the scoped initialization correction/basic data path only.
+P2P still times out waiting for IF_ADD; real AP handover is not tested.
