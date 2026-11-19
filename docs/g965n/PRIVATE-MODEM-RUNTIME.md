@@ -607,3 +607,17 @@ release before considering a new activation. Reuse requires the tested success
 and same-CID state, as well as new CEREG and CGATT replies after release. Use
 `--pdp-generation 1` and `--pdp-generation 2` for the two network probes. The
 marker is processed at most once. This test does not trigger on unplanned loss.
+
+
+### Ordinary-app IPv4 fallback trial
+
+With the running, qualified held cold trial, use the existing guarded
+network helper with `--wifi-fallback-usb-peer` set to the direct USB
+management peer. This explicitly interrupts the active Wi-Fi connection
+for the trial and requires the original Wi-Fi default and profile. The
+probe uses a higher-metric modem default and restores the original state.
+During Wi-Fi absence it uses the interface's supplied DNS configuration and
+checks an uncached system query plus a nonroot curl request without interface
+binding. The native44 result was Wi-Fi → LTE → Wi-Fi, with verified
+HTTPS204 and no modem interface errors. This manual trial does not install
+a network manager or an automatic connection service.

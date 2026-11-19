@@ -10,6 +10,7 @@ import importlib.util
 import ipaddress
 import json
 import os
+import re
 import signal
 from pathlib import Path
 import socket
@@ -193,6 +194,133 @@ def network_trial(config, policy_route=False):
     return result
 
 
+def wifi_fallback_trial(config, usb_peer, require_live):
+    """Exercise ordinary app traffic through an owned standby IPv4 default."""
+    modem, wifi = 'rmnet0', 'wlp1s0'
+    host = 'connectivitycheck.gstatic.com'
+    address = config['ipv4']
+    env = {**os.environ, 'LC_ALL': 'C'}
+
+    def run(*cmd, timeout=6, check=True):
+        return subprocess.run(cmd, capture_output=True, text=True, env=env,
+                              timeout=timeout, check=check)
+
+    def query(*cmd):
+        return json.loads(run(*cmd).stdout)
+
+    def defaults():
+        return query('ip', '-4', '-j', 'route', 'show', 'default')
+
+    def active_wifi():
+        for line in run('nmcli', '-t', '-f', 'UUID,DEVICE', 'connection', 'show',
+                        '--active').stdout.splitlines():
+            uuid, _, device = line.partition(':')
+            if device == wifi and re.fullmatch(r'[a-fA-F0-9-]{36}', uuid):
+                return uuid
+        return None
+
+    def app_request(device):
+        require_live()
+        result = run('runuser', '-u', 'nobody', '--', 'curl', '-q', '-4', '--noproxy', '*',
+                     '--max-time', '10', '-fsS', '-o', '/dev/null',
+                     '-w', '%{http_code} %{local_ip} %{remote_ip}',
+                     f'https://{host}/generate_204', timeout=12)
+        code, local, remote = result.stdout.split()
+        route, = query('ip', '-4', '-j', 'route', 'get', remote)
+        if code != '204' or route['dev'] != device or (local == address) != (device == modem):
+            raise RuntimeError('Unbound application used an unexpected route')
+
+    def traffic():
+        base = Path('/sys/class/net') / modem / 'statistics'
+        return {key: int((base / key).read_text()) for key in
+                ('rx_packets', 'tx_packets', 'rx_errors', 'tx_errors')}
+
+    proved = {'wifi_preferred': False, 'unbound_lte_https204': False,
+              'uncached_dns_over_lte': False, 'wifi_recovered': False,
+              'temporary_state_restored': False}
+    wifi_uuid = active_wifi()
+    incumbent, = defaults()
+    if incumbent['dev'] != wifi or incumbent.get('metric', 0) >= 20000 or not wifi_uuid:
+        raise ValueError('Expected one existing preferred Wi-Fi default')
+    peer_route, = query('ip', '-4', '-j', 'route', 'get', str(ipaddress.IPv4Address(usb_peer)))
+    if peer_route['dev'] != 'usb0' or peer_route.get('gateway'):
+        raise ValueError('Expected a direct USB management route')
+    link, = query('ip', '-j', 'link', 'show', 'dev', modem)
+    def addresses():
+        return query('ip', '-j', 'address', 'show', 'dev', modem)[0]['addr_info']
+    if 'UP' in link['flags'] or link['link_type'] != 'ppp' or addresses():
+        raise ValueError('Expected an unused modem data interface')
+
+    route = ('default', 'dev', modem, 'src', address, 'metric', '20000')
+    up_wifi = ('nmcli', '-w', '25', 'connection', 'up', 'uuid', wifi_uuid, 'ifname', wifi)
+    timer_unit = 'g965n-fallback-wifi-restore'
+    for suffix in ('.timer', '.service'):
+        state = run('systemctl', 'show', timer_unit + suffix, '-p', 'LoadState',
+                    '--value', check=False).stdout.strip()
+        if state != 'not-found':
+            raise RuntimeError('Wi-Fi restoration unit name is already in use')
+    link_changed = address_added = route_added = dns_changed = wifi_changed = timer_added = False
+    try:
+        require_live()
+        run('ip', 'link', 'set', 'dev', modem, 'mtu', str(config['mtu']), 'up')
+        link_changed = True
+        run('ip', 'address', 'add', address + '/32', 'dev', modem)
+        address_added = True
+        run('ip', '-4', 'route', 'add', *route)
+        route_added = True
+        app_request(wifi)
+        proved['wifi_preferred'] = True
+        run('systemd-run', '--collect', '--unit=' + timer_unit, '--on-active=70s',
+            '--timer-property=AccuracySec=1s', '/usr/bin/' + up_wifi[0], *up_wifi[1:])
+        timer_added = True
+        wifi_changed = True
+        run('nmcli', '-w', '8', 'device', 'disconnect', wifi, timeout=10)
+        selected, = defaults()
+        if selected['dev'] != modem:
+            raise RuntimeError('LTE did not replace the unavailable Wi-Fi default')
+        require_live()
+        dns_changed = True
+        run('resolvectl', 'dns', modem, *config['dns4'])
+        run('resolvectl', 'domain', modem, '~.')
+        run('resolvectl', 'default-route', modem, 'yes')
+        before = traffic()
+        dns = run('resolvectl', '-4', '--cache=no', 'query', host, timeout=8).stdout
+        if f'-- link: {modem}' not in dns:
+            raise RuntimeError('Uncached system lookup did not use modem DNS')
+        proved['uncached_dns_over_lte'] = True
+        app_request(modem)
+        proved['unbound_lte_https204'] = True
+        proved['counter_delta'] = {key: value - before[key] for key, value in traffic().items()}
+    except (subprocess.SubprocessError, OSError, RuntimeError, ValueError) as error:
+        proved['failure_type'] = type(error).__name__
+    finally:
+        def restore(*cmd, timeout=6):
+            try:
+                return run(*cmd, timeout=timeout, check=False).returncode == 0
+            except (subprocess.SubprocessError, OSError):
+                return False
+
+        dns_restored = True
+        if dns_changed:
+            dns_restored = restore('resolvectl', 'revert', modem)
+        if route_added:
+            restore('ip', '-4', 'route', 'del', *route)
+        if address_added:
+            restore('ip', 'address', 'del', address + '/32', 'dev', modem)
+        if link_changed:
+            restore('ip', 'link', 'set', 'dev', modem, 'mtu', str(link['mtu']), 'down')
+        if wifi_changed:
+            restore(*up_wifi, timeout=30)
+        restored, = query('ip', '-j', 'link', 'show', 'dev', modem)
+        proved['wifi_recovered'] = active_wifi() == wifi_uuid and defaults() == [incumbent]
+        if timer_added and proved['wifi_recovered']:
+            restore('systemctl', 'stop', timer_unit + '.timer')
+        proved['temporary_state_restored'] = (
+            dns_restored and proved['wifi_recovered'] and not addresses() and 'UP' not in restored['flags']
+            and restored['mtu'] == link['mtu'])
+    return proved
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--model',choices=['SM-G965N'],required=True)
@@ -205,7 +333,11 @@ def main():
     p.add_argument('--policy-route', action='store_true',
                    help='Verify a temporary source rule and separate modem routing table')
     p.add_argument('--pdp-generation', type=int, choices=(1, 2))
+    p.add_argument('--wifi-fallback-usb-peer', type=ipaddress.IPv4Address,
+                   help='Explicit Wi-Fi interruption trial; requires a direct USB management peer')
     args=p.parse_args();os.umask(0o077)
+    if args.wifi_fallback_usb_peer and args.policy_route:
+        p.error('Choose a policy probe or the bounded ordinary-app fallback trial')
     if os.geteuid()!=0 or not args.confirm_backup_verified or not args.consent_pdp_network_test:
         raise ValueError('Root, verified backup and network-test consent required')
     guard_path=args.profile/'package/p2p-control-trial.py';data=guard_path.read_bytes()
@@ -216,15 +348,24 @@ def main():
     if not Path('/sys/module/g965n_modem').exists():raise ValueError('Expected reviewed loaded modem')
     unit='g965n-ril-lab-test.service'
     invocation=(args.trial/'invocation-private.txt').read_text().strip()
-    if invocation!=subprocess.check_output(['systemctl','show',unit,'-p','InvocationID','--value'],text=True).strip():raise ValueError('Changed RIL invocation')
-    if subprocess.check_output(['systemctl','show',unit,'-p','ActiveState','--value'],text=True).strip()!='active':raise ValueError('RIL must remain active')
-    events=[]
-    for line in subprocess.check_output(['journalctl','-b','_SYSTEMD_INVOCATION_ID='+invocation,'-o','cat','--no-pager'],text=True).splitlines():
-        try:events.append(json.loads(line))
-        except ValueError:pass
+    def live_candidate():
+        if invocation!=subprocess.check_output(['systemctl','show',unit,'-p','InvocationID','--value'],text=True).strip():raise ValueError('Changed RIL invocation')
+        if subprocess.check_output(['systemctl','show',unit,'-p','ActiveState','--value'],text=True).strip()!='active':raise ValueError('RIL must remain active')
+        events=[]
+        for line in subprocess.check_output(['journalctl','-b','_SYSTEMD_INVOCATION_ID='+invocation,'-o','cat','--no-pager'],text=True).splitlines():
+            try:events.append(json.loads(line))
+            except ValueError:pass
+        return candidate_from(events, args.pdp_generation)
     def interrupted(number,frame):raise InterruptedError('Bounded network trial interrupted')
     signal.signal(signal.SIGTERM,interrupted)
-    result=network_trial(candidate_from(events, args.pdp_generation), policy_route=args.policy_route)
+    config = live_candidate()
+    if args.wifi_fallback_usb_peer:
+        def require_live():
+            if live_candidate() != config:
+                raise RuntimeError('Modem address configuration changed')
+        result = wifi_fallback_trial(config, args.wifi_fallback_usb_peer, require_live)
+    else:
+        result=network_trial(config, policy_route=args.policy_route)
     if args.pdp_generation is not None:
         result['pdp_generation'] = args.pdp_generation
     out=args.trial/'network-test-private.json'

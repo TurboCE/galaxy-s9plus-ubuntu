@@ -4249,3 +4249,29 @@ application fallback are still unqualified.
 The distinct cleanup boot returned to modem off with all three driver
 services active and both sensor feeds readable. Zero failed units or error
 lines, 63 warnings and zero SSP retries were observed on that boot.
+
+### 2026-11-20 — Ordinary IPv4 application failover from Wi-Fi to LTE
+
+The explicit bounded fallback probe requires an active qualified context,
+exact model and backup checks, a verified direct USB management path and
+the current Wi-Fi profile. It installs a temporary higher-metric rmnet0
+default and validates that an ordinary, unbound curl process still uses
+Wi-Fi. It then disconnects Wi-Fi and verifies that LTE becomes the default.
+The probe configures modem DNS on the LTE link for that phase and sets a
+temporary systemd recovery timer for the existing Wi-Fi profile.
+
+Native44 verified HTTPS204 while Wi-Fi was preferred. With Wi-Fi
+disconnected, an uncached system-resolver query selected rmnet0 and an
+unprivileged, unbound curl used the modem IPv4 address and returned
+HTTPS204. Modem interface counters advanced RX9/TX12, with zero errors.
+After cleanup the old Wi-Fi profile and default were restored, and a new
+unbound HTTPS204 request used Wi-Fi again. The recovery timer and service
+were gone. The same sensor service remained active through the trial.
+The test intentionally stopped Wi-Fi and set per-link DNS during the
+fallback phase. It does not enable system-wide automatic LTE at startup,
+monitor Wi-Fi transitions continuously, or qualify IPv6 failover.
+
+A distinct normal cleanup boot restored the modem-off state, Wi-Fi default,
+and all three driver services. Accelerometer and illuminance were readable,
+with zero failed units, zero error-priority lines, 63 warnings and zero SSP
+zero-ACK retries on that boot.
