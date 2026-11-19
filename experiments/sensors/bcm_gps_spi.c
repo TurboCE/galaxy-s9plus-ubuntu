@@ -826,6 +826,10 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledge
 			return ret; /* Do not issue another register query after failure. */
 	}
 	bcm_ssi_chk_pzc(priv, rx->status, ssi_dbg_pzc || (ssi_tx_fc_retries > ssi_tx_fc_retries_copy));
+	if (tx_ack_diagnostics && strict_tx_ack && ssi_tx_fc_retries > ssi_tx_fc_retries_copy)
+		pr_info_ratelimited("[SSPBBD]: checked-ack-recovered tx=%u attempts=%d accepted=%zu stat=%02x credit=%lu mcu-ready=%d\n",
+				   tx_sequence, ssi_fc - retry_ctr + 1, *acknowledged,
+				   rx->status, g_rx_buffer_avail_bytes, gpio_get_value(priv->mcu_resp));
 
 	return ret;
 }

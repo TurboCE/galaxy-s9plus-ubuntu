@@ -147,5 +147,13 @@ configuration and cleaned the owned profile, modem runtime and
 invocation files. The children stopped, the modem confirmed release
 and radio low power, and the original ModemManager returned while
 Wi-Fi stayed usable. The enabled service starts a fresh session
-on the next clean boot. Direct GNOME interaction, unexpected radio
-loss and additional hardware remain unqualified.
+on the next clean boot.
+
+A subsequent test killed the RIL main process with an active LTE
+bearer. The supervisor removed the stale lease and socket, detached
+its private runtime, removed the temporary route and profile, and
+restored the stock manager. Wi-Fi HTTPS204 passed while LTE was down.
+The abrupt exit produced no verified modem release or low-power reply.
+LTE autoconnect and bound DNS and HTTPS204 passed on the next boot.
+Direct GNOME interaction and reconnection after a spontaneous radio
+outage remain unverified.

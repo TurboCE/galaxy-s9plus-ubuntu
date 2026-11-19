@@ -34,6 +34,13 @@ zero credit and zero acknowledged bytes. The checked retry path
 recovered. Investigate the status transition or SPI response on that
 transaction before changing retry or credit behavior.
 
+The next native44 trial paired both responses of one transaction.
+Its 36-byte first attempt returned zero status, credit and
+acknowledged bytes. About 2.1 ms later the second attempt completed
+all 36 bytes with status 0x16 and 12288 bytes of credit. MCU-ready
+was high in both snapshots. The existing checked retry recovered;
+the zero first response still requires investigation.
+
 With desktop LTE enabled, native44 additionally records legacy SIPC
 startup messages. The exact-module follow-up checks the initial memory
 mapping and mailbox IRQ before using them. Known optional ECT and

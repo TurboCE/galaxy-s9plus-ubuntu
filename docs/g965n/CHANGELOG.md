@@ -4709,3 +4709,29 @@ connected again and LTE-bound DNS and HTTPS204 passed. Wi-Fi retained
 the preferred route, acceleration and light values were readable, and
 there were no failed units. That boot logged 104 error-priority entries
 and 67 warnings, including one SSP retry. The service was left enabled.
+
+### 2026-11-20 — Abrupt RIL exit and checked sensor retry completion
+
+Killed the RIL main process while its native44 LTE bearer was active
+and Wi-Fi remained preferred. The enabled desktop supervisor detected
+the child exit. Its cleanup removed the stale invocation lease/socket,
+private mount, temporary profile and LTE route, and restored the
+installed ModemManager. Wi-Fi HTTPS204 passed. The abrupt RIL exit did
+not provide release or radio-low-power evidence. The distinct reboot
+automatically connected LTE again and passed LTE-bound DNS and HTTPS204.
+
+Added a rate-limited, opt-in sensor diagnostic on the successful
+checked-ACK completion path. On that reboot, transaction 454 requested
+36 bytes with the MCU-ready line high. The first response carried
+status 0x00, zero credit and zero acknowledged bytes. About 2.1 ms
+later the second attempt acknowledged all 36 bytes with status 0x16
+and 12288 bytes of credit. Readable acceleration and light values
+and active LTE confirmed that this retry recovered on the device.
+The observation does not establish why the first response was zero.
+
+Stopped the active desktop LTE service, verified its normal release,
+and restored the original sensor module and profile on a separate
+boot. LTE automatically reconnected and passed bound DNS and HTTPS204.
+Wi-Fi stayed preferred, acceleration and light remained readable, and
+there were no failed units. The kernel logged 104 error-priority
+messages and 67 warnings, including one sensor hub retry.
