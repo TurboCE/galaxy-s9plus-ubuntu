@@ -77,8 +77,7 @@ python3 experiments/clkout/apply.py apply --kernel-source KERNEL_SOURCE
 
 The helper verifies both inputs before edits, dry-runs both patches, uses zero
 fuzz and rejects unknown drift. Exact patched inputs are accepted on rerun.
-It does not build, flash, install, enable, load or query hardware. Root must add
-the build integration only after reviewing and committing the candidate.
+It does not build, flash, install, enable, load or query hardware. The reviewed shared build stage invokes this source-only recipe before compilation.
 
 The original Samsung copyright, author and GPL-2.0-only notices are retained in
 the driver. The SoC DTS retains its original GPL-2.0/BSD-3-Clause notice and
@@ -103,6 +102,8 @@ register bits, no probe writes in that harness, dual suspend/restore and eight
 partial-failure cleanup cases. This tests the real provider/control functions;
 it does not replace a native build or prove every clock-framework side effect.
 A separate exact-source comparison verifies unchanged old variants and the
-minimal DT additions. Both patches remain opt-in pending a reviewed build and
-boot-log comparison; no hardware clock/suspend/audio/NFC claim follows from
-host tests.
+minimal DT additions. Native #24 registers both outputs without the former parent/probe errors.
+Output1 reports a known26MHz parent and is disabled; output0 remains enabled
+with an unknown parent/rate0. Its inherited mux was deliberately preserved.
+No hardware output/suspend/audio/NFC clock qualification follows from provider
+registration or host tests; no new consumer is attached.

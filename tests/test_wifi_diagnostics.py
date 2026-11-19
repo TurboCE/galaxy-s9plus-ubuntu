@@ -166,6 +166,8 @@ int main(void) {
 '''
 
 
+LEGACY_ROAM_HELPER = '/* G965N boot-policy observation only: kind 0=preinit, 1=WBTEXT.\n * Numeric metadata only; a failed query never makes its output value valid.\n */\nstatic atomic_t brcmf_g965n_roam_diag_done = ATOMIC_INIT(0);\n\nstatic void brcmf_g965n_roam_policy_diag(struct brcmf_if *ifp)\n{\n\tstruct brcmf_pub *drvr = ifp->drvr;\n\tu32 value;\n\ts32 ret;\n\n\tif (!of_machine_is_compatible("samsung,star2lte") ||\n\t    drvr->bus_if->chip != BRCM_CC_4361_CHIP_ID || ifp->ifidx != 0 ||\n\t    atomic_cmpxchg(&brcmf_g965n_roam_diag_done, 0, 1))\n\t\treturn;\n\n\tvalue = 0;\n\tret = brcmf_fil_iovar_int_get(ifp, "preinit_status", &value);\n\tif (ret)\n\t\tvalue = 0;\n\twiphy_info(drvr->wiphy,\n\t\t   "g965n_roam_diag kind=0 ret=%d valid=%u value=%u\\n",\n\t\t   ret, (unsigned int)!ret, value);\n\tvalue = 0;\n\tret = brcmf_fil_iovar_int_get(ifp, "wnm_bsstrans_resp", &value);\n\tif (ret)\n\t\tvalue = 0;\n\twiphy_info(drvr->wiphy,\n\t\t   "g965n_roam_diag kind=1 ret=%d valid=%u value=%u\\n",\n\t\t   ret, (unsigned int)!ret, value);\n}\n\n'
+
 ROAM_STUBS = r"""
 #include <assert.h>
 #include <stdbool.h>
@@ -220,38 +222,58 @@ static int brcmf_fil_cmd_data_set(struct brcmf_if *ifp,u32 cmd,void *data,u32 le
 static void reset(void) {calls=query_count=logs=fail_at=0;query_ret[0]=query_ret[1]=0;memset(order,0,sizeof(order));memset(payload,0,sizeof(payload));}
 """
 ROAM_CASES = r"""
+static void compare_path(struct brcmf_if *ifp,bool skip,int fail) {
+ reset();fail_at=fail;int old=brcmf_dongle_roam_original(ifp);
+ int count=calls;char writes[16][40];u32 bytes[16][2];
+ memcpy(writes,order,sizeof(order));memcpy(bytes,payload,sizeof(payload));
+ reset();atomic_store(&brcmf_g965n_roam_diag_done,0);fail_at=fail;
+ int current=brcmf_dongle_roam(ifp);int prefix=board&&ifp->drvr->bus_if->chip==BRCM_CC_4361_CHIP_ID&&ifp->ifidx==0?2:0;
+ assert(current==old&&query_count==prefix);
+ int actual=prefix;
+ for(int n=0;n<count;n++) {
+  if(skip&&!strcmp(writes[n],"C55"))continue;
+  assert(actual<calls&&!strcmp(order[actual],writes[n]));
+  assert(!memcmp(payload[actual],bytes[n],8));actual++;
+ }
+ assert(actual==calls);
+}
+static bool command_seen(const char *command) {for(int n=0;n<calls;n++)if(!strcmp(order[n],command))return true;return false;}
 int main(void) {
  struct brcmf_bus bus={.chip=BRCM_CC_4361_CHIP_ID};struct settings setting={.roamoff=false};
  struct brcmf_pub d={.bus_if=&bus,.settings=&setting};struct brcmf_if ifp={.drvr=&d,.fwil_fwerr=true};
- /* Wrong board/chip/interface cannot query OR consume the one-shot marker. */
- board=false;brcmf_g965n_roam_policy_diag(&ifp);assert(calls==0);
- board=true;bus.chip=0x1234;brcmf_g965n_roam_policy_diag(&ifp);assert(calls==0);
- bus.chip=BRCM_CC_4361_CHIP_ID;ifp.ifidx=1;brcmf_g965n_roam_policy_diag(&ifp);assert(calls==0);
- ifp.ifidx=0;brcmf_g965n_roam_policy_diag(&ifp);assert(query_count==2&&calls==2&&logs==2);
- assert(strstr(messages[0],"kind=0 ret=0 valid=1 value=1"));
- assert(strstr(messages[1],"kind=1 ret=0 valid=1 value=5"));
- brcmf_g965n_roam_policy_diag(&ifp);assert(query_count==2&&calls==2&&logs==2);
- assert(ifp.fwil_fwerr); /* never toggle a shared firmware error-mode flag */
- /* Actual original and patched roaming functions: same ordered writes,
-    same bytes and same returns, including every existing failure path. */
- int failures[]={0,1,2,55,57};
- for(unsigned k=0;k<sizeof(failures)/sizeof(failures[0]);k++) {
-  reset();fail_at=failures[k];int old=brcmf_dongle_roam_original(&ifp);
-  int old_count=calls;char saved_order[16][40];u32 saved_payload[16][2];
-  memcpy(saved_order,order,sizeof(order));memcpy(saved_payload,payload,sizeof(payload));
-  reset();atomic_store(&brcmf_g965n_roam_diag_done,0);fail_at=failures[k];
-  query_ret[0]=-52;query_ret[1]=-7;query_value[0]=0xdeadbeef;query_value[1]=0xffffffff;
-  int current=brcmf_dongle_roam(&ifp);
-  assert(current==old&&query_count==2&&calls==old_count+2);
-  assert(!strcmp(order[0],"G0")&&!strcmp(order[1],"G1"));
-  for(int n=0;n<old_count;n++) {assert(!strcmp(order[n+2],saved_order[n]));assert(!memcmp(payload[n+2],saved_payload[n],8));}
-  assert(strstr(messages[0],"kind=0 ret=-52 valid=0 value=0"));
-  assert(strstr(messages[1],"kind=1 ret=-7 valid=0 value=0"));
+ /* Wrong board/chip/interface: no GET, log, one-shot consumption or skip. */
+ board=false;compare_path(&ifp,false,0);assert(!atomic_load(&brcmf_g965n_roam_diag_done));
+ board=true;bus.chip=0x1234;compare_path(&ifp,false,0);assert(!atomic_load(&brcmf_g965n_roam_diag_done));
+ bus.chip=BRCM_CC_4361_CHIP_ID;ifp.ifidx=1;compare_path(&ifp,false,0);assert(!atomic_load(&brcmf_g965n_roam_diag_done));
+ ifp.ifidx=0;
+ /* Non-product policies preserve every old write, byte and failure return. */
+ int failures[]={0,1,2,55,57};u32 policies[]={0,1,2,3,4,6,7};
+ for(unsigned p=0;p<sizeof(policies)/sizeof(policies[0]);p++) {
+  query_value[1]=policies[p];
+  for(unsigned n=0;n<sizeof(failures)/sizeof(failures[0]);n++)compare_path(&ifp,false,failures[n]);
  }
+ /* Product5 is the ONLY removed write; delta/beacon/roam-off unchanged. */
+ query_value[1]=5;
+ for(unsigned n=0;n<sizeof(failures)/sizeof(failures[0]);n++)compare_path(&ifp,true,failures[n]);
+ setting.roamoff=true;compare_path(&ifp,true,0);setting.roamoff=false;
+ /* Diagnostic preinit failure neither invalidates a valid policy nor means
+    firmware UNSUPPORTED. Policy failures never use a stale output5. */
+ reset();atomic_store(&brcmf_g965n_roam_diag_done,0);query_ret[0]=-52;query_value[0]=0xdeadbeef;
+ assert(!brcmf_dongle_roam(&ifp));assert(!command_seen("C55")&&command_seen("C57"));
+ assert(strstr(messages[0],"kind=0 ret=-52 valid=0 value=0"));
+ assert(strstr(messages[1],"kind=1 ret=0 valid=1 value=5"));
+ reset();atomic_store(&brcmf_g965n_roam_diag_done,0);query_ret[1]=-52;query_value[1]=5;
+ assert(!brcmf_dongle_roam(&ifp));assert(command_seen("C55")&&command_seen("C57"));
+ assert(strstr(messages[1],"kind=1 ret=-52 valid=0 value=0"));assert(ifp.fwil_fwerr);
+ /* New setup must re-read policy: 5 -> 0 -> 5 -> failed, without extra logs.
+    Only the first setup reads preinit; later calls issue exactly one GET. */
  reset();atomic_store(&brcmf_g965n_roam_diag_done,0);query_value[0]=1;query_value[1]=5;
- assert(brcmf_dongle_roam(&ifp)==0);assert(calls==6&&query_count==2);
- assert(!strcmp(order[4],"C55")); /* observed policy5 does NOT alter behavior */
- puts("Wi-Fi actual C boot-policy guards/once/two-GET/order/invalid values PASS");return 0;
+ assert(!brcmf_dongle_roam(&ifp));assert(query_count==2&&logs==2&&!command_seen("C55"));
+ assert(!strcmp(order[0],"G0")&&!strcmp(order[1],"G1"));
+ reset();query_value[1]=0;assert(!brcmf_dongle_roam(&ifp));assert(query_count==1&&logs==0&&command_seen("C55"));assert(!strcmp(order[0],"G1"));
+ reset();query_value[1]=5;assert(!brcmf_dongle_roam(&ifp));assert(query_count==1&&logs==0&&!command_seen("C55"));
+ reset();query_value[1]=5;query_ret[1]=-52;assert(!brcmf_dongle_roam(&ifp));assert(query_count==1&&logs==0&&command_seen("C55"));
+ puts("Wi-Fi actual C policy5 scope/fresh query/legacy fallback/write order PASS");return 0;
 }
 """
 
@@ -301,6 +323,20 @@ class WifiDiagnosticsTests(unittest.TestCase):
             self.assertEqual(D.apply(root),0)
             for name,data in before.items():self.assertEqual((root/D.REL/name).read_bytes(),data)
 
+    def test_exact_v24_cached_observer_migrates_without_other_source_changes(self):
+        old=self.original['cfg80211.c'].decode()
+        old=D.once(old,'#include <linux/kernel.h>\n','#include <linux/kernel.h>\n#include <linux/atomic.h>\n#include <linux/of.h>\n')
+        old=D.once(old,'static s32 brcmf_dongle_roam(struct brcmf_if *ifp)\n',LEGACY_ROAM_HELPER+'static s32 brcmf_dongle_roam(struct brcmf_if *ifp)\n')
+        old=D.once(old,'\t/* Configure beacon timeout value based upon roaming setting */\n','\tbrcmf_g965n_roam_policy_diag(ifp);\n\n\t/* Configure beacon timeout value based upon roaming setting */\n')
+        self.assertEqual(hashlib.sha256(old.encode()).hexdigest(),D.PREVIOUS_CFG_SHA256)
+        self.assertEqual(D.restore_previous_cfg(old.encode()),self.original['cfg80211.c'])
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);(root/D.REL).mkdir(parents=True)
+            for name,data in self.original.items():(root/D.REL/name).write_bytes(old.encode() if name=='cfg80211.c' else D.transform(name,data))
+            self.assertEqual(D.apply(root),1);self.assertEqual(D.apply(root),0)
+            self.assertEqual(hashlib.sha256((root/D.REL/'cfg80211.c').read_bytes()).hexdigest(),D.PATCHED['cfg80211.c'])
+        with self.assertRaises(ValueError):D.restore_previous_cfg(old.encode()+b'\n')
+
     def test_actual_c_with_address_and_undefined_sanitizers(self):
         fwil=D.transform('fwil.c',self.original['fwil.c']).decode()
         fweh=D.transform('fweh.c',self.original['fweh.c']).decode()
@@ -317,8 +353,12 @@ class WifiDiagnosticsTests(unittest.TestCase):
         patched=D.transform('cfg80211.c',self.original['cfg80211.c']).decode()
         function=extract(patched,'brcmf_dongle_roam')
         baseline=extract(original,'brcmf_dongle_roam').replace('brcmf_dongle_roam(', 'brcmf_dongle_roam_original(',1)
-        # The only alteration to the existing function is the leading observer.
-        self.assertEqual(function.replace('\tbrcmf_g965n_roam_policy_diag(ifp);\n\n',''),extract(original,'brcmf_dongle_roam'))
+        # Remove only the reviewed observer assignment and trigger guard to
+        # prove the rest of the actual function is byte-identical to upstream.
+        restored=function.replace('\tbool preserve_product_roam;\n','').replace('\tpreserve_product_roam = brcmf_g965n_product_roam_policy(ifp);\n\n','')
+        restored=re.sub(r'\tif \(!preserve_product_roam\) \{\n(.*?)\t\}\n',
+                        lambda match: ''.join(line[1:] for line in match[1].splitlines(keepends=True)), restored, count=1, flags=re.S)
+        self.assertEqual(restored,extract(original,'brcmf_dongle_roam'))
         with tempfile.TemporaryDirectory() as td:
             c=Path(td)/'roam.c';binary=Path(td)/'roam'
             c.write_text(ROAM_STUBS+D.ROAM_HELPER+baseline+'\n'+function+ROAM_CASES)

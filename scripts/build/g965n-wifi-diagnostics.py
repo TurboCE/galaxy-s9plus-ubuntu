@@ -74,36 +74,46 @@ brcmf_g965n_diag_if(struct brcmf_pub *drvr,
 
 # Two ordinary GET_VAR queries before roaming writes, once per driver lifetime.
 # Stock 101_16 reads these iovars in dhd_preinit_ioctls; no policy is changed.
-ROAM_HELPER = r'''/* G965N boot-policy observation only: kind 0=preinit, 1=WBTEXT.
- * Numeric metadata only; a failed query never makes its output value valid.
+ROAM_HELPER = r'''/* G965N policy5 uses the firmware's product roaming profile, matching
+ * stock wl_android_set_roam_trigger(). Do not cache policy across setups.
+ * Numeric boot diagnostics: kind 0=preinit, 1=WBTEXT; failed value invalid.
  */
 static atomic_t brcmf_g965n_roam_diag_done = ATOMIC_INIT(0);
 
-static void brcmf_g965n_roam_policy_diag(struct brcmf_if *ifp)
+static bool brcmf_g965n_product_roam_policy(struct brcmf_if *ifp)
 {
 	struct brcmf_pub *drvr = ifp->drvr;
+	bool diagnose;
 	u32 value;
 	s32 ret;
 
 	if (!of_machine_is_compatible("samsung,star2lte") ||
-	    drvr->bus_if->chip != BRCM_CC_4361_CHIP_ID || ifp->ifidx != 0 ||
-	    atomic_cmpxchg(&brcmf_g965n_roam_diag_done, 0, 1))
-		return;
+	    drvr->bus_if->chip != BRCM_CC_4361_CHIP_ID || ifp->ifidx != 0)
+		return false;
 
-	value = 0;
-	ret = brcmf_fil_iovar_int_get(ifp, "preinit_status", &value);
-	if (ret)
+	diagnose = !atomic_cmpxchg(&brcmf_g965n_roam_diag_done, 0, 1);
+	if (diagnose) {
 		value = 0;
-	wiphy_info(drvr->wiphy,
-		   "g965n_roam_diag kind=0 ret=%d valid=%u value=%u\n",
-		   ret, (unsigned int)!ret, value);
+		ret = brcmf_fil_iovar_int_get(ifp, "preinit_status", &value);
+		if (ret)
+			value = 0;
+		wiphy_info(drvr->wiphy,
+			   "g965n_roam_diag kind=0 ret=%d valid=%u value=%u\n",
+			   ret, (unsigned int)!ret, value);
+	}
+
 	value = 0;
 	ret = brcmf_fil_iovar_int_get(ifp, "wnm_bsstrans_resp", &value);
 	if (ret)
 		value = 0;
-	wiphy_info(drvr->wiphy,
-		   "g965n_roam_diag kind=1 ret=%d valid=%u value=%u\n",
-		   ret, (unsigned int)!ret, value);
+	if (diagnose)
+		wiphy_info(drvr->wiphy,
+			   "g965n_roam_diag kind=1 ret=%d valid=%u value=%u\n",
+			   ret, (unsigned int)!ret, value);
+	/* Stock policy enum: WL_BSSTRANS_POLICY_PRODUCT_WBTEXT = 5.
+	 * preinit_status failure is not an unsupported-command determination.
+	 */
+	return !ret && value == 5;
 }
 
 '''
@@ -134,8 +144,18 @@ def transform(name, original):
         text = once(text, 'static s32 brcmf_dongle_roam(struct brcmf_if *ifp)\n',
                     ROAM_HELPER + 'static s32 brcmf_dongle_roam(struct brcmf_if *ifp)\n')
         text = once(text, '\t/* Configure beacon timeout value based upon roaming setting */\n',
-                    '\tbrcmf_g965n_roam_policy_diag(ifp);\n\n' +
+                    '\tpreserve_product_roam = brcmf_g965n_product_roam_policy(ifp);\n\n' +
                     '\t/* Configure beacon timeout value based upon roaming setting */\n')
+        text = once(text, '\t__le32 roamtrigger[2];\n',
+                    '\tbool preserve_product_roam;\n\t__le32 roamtrigger[2];\n')
+        trigger = ('\troamtrigger[0] = cpu_to_le32(WL_ROAM_TRIGGER_LEVEL);\n'
+                   '\troamtrigger[1] = cpu_to_le32(BRCM_BAND_ALL);\n'
+                   '\terr = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SET_ROAM_TRIGGER,\n'
+                   '\t\t\t\t     (void *)roamtrigger, sizeof(roamtrigger));\n'
+                   '\tif (err)\n'
+                   '\t\tbphy_err(drvr, "WLC_SET_ROAM_TRIGGER error (%d)\\n", err);\n')
+        text = once(text, trigger, '\tif (!preserve_product_roam) {\n' +
+                    ''.join('\t' + line for line in trigger.splitlines(keepends=True)) + '\t}\n')
     else:
         raise ValueError('unknown source')
     return text.encode()
@@ -145,8 +165,26 @@ def transform(name, original):
 PATCHED = {
     'fwil.c': '8ce50eaa039f157a47604c81b1629a349223e6ab379816ec4cfb5e5d10afa2b7',
     'fweh.c': 'e58ecc096234b07296d8f6affb72b56bed9e91fe2a62519e081f7a5d161fdb61',
-    'cfg80211.c': 'fc3d4d3ccb275149308e7a78243ab7df098ce2ae9994ea3f70a06b646784b2a3',
+    'cfg80211.c': 'abbbc06d7dc662203b04ea4b52ed28f29b5c1573e953d261c80d97825b92aaf0',
 }
+
+
+PREVIOUS_CFG_SHA256 = 'fc3d4d3ccb275149308e7a78243ab7df098ce2ae9994ea3f70a06b646784b2a3'
+
+
+def restore_previous_cfg(content):
+    if hashlib.sha256(content).hexdigest() != PREVIOUS_CFG_SHA256:
+        raise ValueError('unreviewed previous policy source')
+    text = content.decode()
+    start = text.index('/* G965N boot-policy observation only:')
+    end = text.index('static s32 brcmf_dongle_roam(struct brcmf_if *ifp)\n', start)
+    text = text[:start] + text[end:]
+    text = once(text, '#include <linux/kernel.h>\n#include <linux/atomic.h>\n#include <linux/of.h>\n',
+                '#include <linux/kernel.h>\n')
+    text = once(text, '\tbrcmf_g965n_roam_policy_diag(ifp);\n\n', '')
+    if hashlib.sha256(text.encode()).hexdigest() != ORIGINAL['cfg80211.c']:
+        raise ValueError('previous policy source did not restore pinned original')
+    return text.encode()
 
 
 def apply(root):
@@ -157,13 +195,16 @@ def apply(root):
         digest = hashlib.sha256(content).hexdigest()
         if digest == PATCHED[name]:
             continue
+        if name == 'cfg80211.c' and digest == PREVIOUS_CFG_SHA256:
+            content = restore_previous_cfg(content)
+            digest = hashlib.sha256(content).hexdigest()
         if digest != expected:
             raise ValueError(f'{name}: unreviewed source digest; refusing changes')
         result = transform(name, content)
         if hashlib.sha256(result).hexdigest() != PATCHED[name]:
             raise ValueError(f'{name}: diagnostic helper drift; refusing changes')
         pending.append((path, result))
-    # Validate both inputs before modifying either source.
+    # Validate every input before modifying any source.
     for path, result in pending:
         path.write_bytes(result)
     return len(pending)

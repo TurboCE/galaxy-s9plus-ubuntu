@@ -89,3 +89,13 @@ All three former pinctrl IRQ topology errors absent; initramfs failure remains
 absent; zero failed system units, audio/Bluetooth startup active, no matching
 new fatal/GPU/BUG/WARNING signatures in this boot window. Physical IRQ consumer
 behavior/wakeup/suspend untested. CLKOUT/MFD/Wi-Fi errors remain open.
+
+
+#24 sensor/clock follow-up: both thermistor factory ADC reads returned values
+(2154/2220) without threshold writes, but temperature calibration/overheat
+notifications remain unverified. Rotation16/17 raw packets received84each/15s;
+last byte246,scaling/orientation semantics and one unparsed frame unresolved.
+CLKOUT parent/probe errors absent with two registered providers; inherited
+output0 unknown parent/rate0 is preserved, so output qualification remains
+open. Wi-Fi policy5 read succeeded and legacy trigger still BADOPTION; fix
+under source review. No new desktop sensor integration/autostart is enabled.

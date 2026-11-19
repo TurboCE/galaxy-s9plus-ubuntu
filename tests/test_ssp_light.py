@@ -495,3 +495,57 @@ class RotationThermalTests(unittest.TestCase):
             ssp.require_advertised(selected, mask ^ (1<<34))
         ssp.disable_sensors(p, enabled)
         self.assertEqual(p.calls[-3:], [(0xA2,16),(0xA2,17),(0xA2,34)])
+
+
+class ThermalADCReadTests(unittest.TestCase):
+    def test_order_unsigned_values_and_no_payload(self):
+        class Probe:
+            calls = []
+            def transaction(self, command, **kwargs):
+                self.calls.append((command, kwargs))
+                return b'\xff\xff' if command == 0xA9 else b'\x34\x12'
+        p = Probe()
+        self.assertEqual(ssp.read_thermal_adc(p, 1<<34), {'0':65535, '1':4660})
+        self.assertEqual(p.calls, [(0xA9, {'length':2}), (0xAA, {'length':2})])
+
+    def test_bad_length_timeout_and_mask_fail_without_fallback(self):
+        for reply in (b'', b'\0', b'\0'*3, RuntimeError('timeout')):
+            class Probe:
+                calls = 0
+                def transaction(self, command, **kwargs):
+                    self.calls += 1
+                    if isinstance(reply, Exception):
+                        raise reply
+                    return reply
+            p = Probe()
+            with self.assertRaises(RuntimeError):
+                ssp.read_thermal_adc(p, 1<<34)
+            self.assertEqual(p.calls, 1)
+        with self.assertRaisesRegex(RuntimeError, 'does not advertise'):
+            ssp.read_thermal_adc(p, 0)
+        self.assertEqual(p.calls, 1)
+
+    def test_read_only_main_checks_identity_without_any_sensor_enable(self):
+        calls = []
+        class Probe:
+            fd = 123
+            unparsed = 0
+            def __init__(self, _layout):
+                pass
+            def transaction(self, command, **kwargs):
+                calls.append((command, kwargs))
+                return b'\x34\x12'
+        def identity(_probe):
+            calls.append('identity')
+            return {'chip_id':85, 'sensor_mask':1<<34}
+        with patch.object(ssp, 'Probe', Probe), patch.object(ssp, 'require_board'), \
+             patch.object(ssp.Path, 'read_text', return_value='1'), \
+             patch.object(ssp, 'acquire_hub_identity', side_effect=identity), \
+             patch('builtins.open', mock_open()), patch.object(ssp.fcntl, 'flock'), \
+             patch.object(ssp.signal, 'signal'), patch.object(ssp.os, 'close') as close, \
+             patch('sys.argv', ['ssp-probe', '--read-thermal-adc']), \
+             patch('sys.stdout', new_callable=io.StringIO) as output:
+            ssp.main()
+        self.assertEqual(calls, ['identity',(0xA9,{'length':2}),(0xAA,{'length':2})])
+        self.assertEqual(json.loads(output.getvalue())['thermal_adc_raw'], {'0':4660,'1':4660})
+        close.assert_called_once_with(123)

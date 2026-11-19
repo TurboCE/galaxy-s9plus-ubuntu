@@ -2073,3 +2073,86 @@ save/restore and pinned original definition checks. Independent source review
 found no immediate blocker. Those tests do not emulate full CCF/orphan resolution
 or cross-driver PMU concurrency. Integrated exact-hash recipe into build stage;
 no native provider registration/clock operation claimed before the next boot.
+
+
+Auxiliary sensor window used a separately bounded180s lhd after exact#23
+BOOT/module revalidation; no automatic restart. ID34 thermal special-report
+probe returned0 samples in15s and two unparsed frames; a5s repeat returned0
+samples and no rejected record metadata. No unsupported-layout conclusion
+was drawn. Source shows ID34 participates in threshold/overheat notification;
+its silence at ordinary temperature is not a failed periodic thermometer.
+No overheat threshold was written or heating test performed.
+
+Rotation IDs16/17 each returned84 samples/15.094s with one unparsed frame.
+Last raw byte246 is not interpreted as Android accuracy0..3; pinned kernel
+passes it through without semantic/scaling definition. Quaternion units and
+correct orientation are unqualified. All auxiliary probes disabled on exit,
+then lhd was deliberately stopped(ready0), runtime unmounted and transport
+unloaded. No daemon remains from these windows.
+
+SX9320 grip is outside SSP. Pinned Lineage enables its I2C node but owner's
+stock rev26 marks it disabled, so physical population/stock activation remains
+unconfirmed. Current DT/config does not enable it; mainline SX9324 has a
+different WHOAMI and cannot be used as a false compatible alias. No new
+I2C access, supply or IRQ activation attempted for grip.
+
+
+Built native candidate#24 from49b7591 with exact feature package. All hashes
+verified; audio/Bluetooth startup staged for its BOOT. Fresh nine-partition
+backup and guarded model/identity checks passed before BOOT-only update.
+Readback verified by installer before automatic reboot. Await native boot-log
+comparison for CLKOUT registration and numeric Wi-Fi policy observations.
+Source-only read-thermal-adc option passes38 regressions; no ADC hardware
+result claimed at this checkpoint. No heat/threshold test is planned.
+
+
+#24 native boot result: actual kernel/SSH returned,0 failed system services,
+audio/Bluetooth startup active and no matching new fatal/GPU/BUG/WARNING
+signatures in the boot window. Both CLKOUT providers now register and former
+parent/probe errors are absent. CCF reports output1 known26MHz/disabled;
+output0 is enabled with unknown parent/rate0. Preserved that inherited mux
+without a guessed switch; registration is not full output/audio/NFC clock
+qualification. No new consumer connection or hardware clock change was made.
+
+Wi-Fi boot observer reports preinit query ret-52/invalid, WBTEXT query success
+with policy5; legacycmd55 still returns rawBADOPTION(-3). This confirms the
+product-policy guard's live prerequisite, but preinit failure remains generic
+Linux mapping. Proposed next fix is scoped to successful policy5 and mirrors
+stock's prohibition on legacy trigger writes; other policies/failures retain
+original behavior. No policy is changed.
+
+#24 direct thermistor read: exact BOOT/module checked before bounded120s
+lhd runtime. Read-only factory channel0/1 commands returned ADC2154/2220;
+no stream enable, threshold, coefficient or heating command was sent. One
+unparsed asynchronous frame remained; no temperature conversion/absolute
+calibration or overheat-event delivery is qualified. Normal cleanup stopped
+lhd(ready0), unmounted runtime and unloaded transport.38 host regressions pass.
+
+
+## 2026-11-19 — Preserve product WBTEXT roaming policy
+
+Actual #24 policy5 result plus pinned stock set-roam-trigger guard justify a
+scoped behavior correction. Each qualified S9+/BCM4361/primary setup reads
+fresh WBTEXT policy; only successful value5 preserves firmware's existing
+product profile by omitting legacycmd55. No WBTEXT/profile is written. Other
+policies/query failures/boards/chips/interfaces retain original command55
+and error behavior. Beacon timeout,roam_off,delta write order/payload and
+returns remain unchanged. First-setup numeric diagnostics remain bounded;
+subsequent setup reads policy anew without repeated diagnostics. Exact#24
+source migration verifies old→pristine→new hashes before applying. Five
+host tests including actual-C ASan/UBSan cases pass; native fix pending.
+
+
+## 2026-11-19 — Remove phantom MAX77705 charger platform cell
+
+The MFD declared a platform charger although the real driver is I2C-only at
+charger@69; binding requires an I2C reg and the MFD child schema lists RGB and
+haptic, not a charger platform device. Removed that single unused cell line.
+The real I2C driver,board DT,IRQ domain/source masks,battery topology and
+RGB/haptic registrations remain unchanged. Actual-C original/patched arrays
+and unchanged IRQ source tests pass on Mac/Linux, plus original16 PMIC cases.
+Native #24 baseline retains charger@69 binding,online1,input limit500000uA,
+charger statusCharging while battery reportsDischarging; that baseline is not
+a claim of increasing net battery charge under this load. No current limit
+or supply register is changed by this source correction. Native verification
+of phantom warning removal and real binding awaits #25.

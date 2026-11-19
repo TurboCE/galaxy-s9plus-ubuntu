@@ -32,6 +32,19 @@ SENSOR_GROUPS = {'motion': [0, 1], 'light': [9], 'all': [0, 1, 9],
                  'thermal': [34], 'rotation': [16, 17]}
 
 
+def read_thermal_adc(probe, sensor_mask):
+    # factory/thermistor.c:show_thermistor_channel{0,1}_ADC: READ two
+    # unsigned bytes each, not the separate B3 threshold-write command.
+    require_advertised([34], sensor_mask)
+    result = {}
+    for channel, command in ((0, 0xA9), (1, 0xAA)):
+        data = probe.transaction(command, length=2)
+        if len(data) != 2:
+            raise RuntimeError('Invalid thermistor ADC reply length')
+        result[str(channel)] = struct.unpack('<H', data)[0]
+    return result
+
+
 def read_magnetic_fuse(probe, sensor_mask):
     # Pinned magnetic_common.c:get_fuserom_data: cmd01, AP2HUB_READ, 3B.
     # This reads factory sensitivity data; it neither starts self-test nor
@@ -296,6 +309,8 @@ def main():
     parser.add_argument('--sample-seconds', type=int, default=0, choices=range(0, 61))
     parser.add_argument('--sensors', choices=SENSOR_GROUPS, default='motion')
     parser.add_argument('--light-layout', choices=LIGHT_LAYOUTS, help='Must match the own-device hub configuration')
+    parser.add_argument('--read-thermal-adc', action='store_true',
+                        help='Read two raw thermistor ADC channels; no thresholds, calibration or sensor enable')
     parser.add_argument('--read-magnetic-fuse', action='store_true',
                         help='Read three AKM factory sensitivity bytes; no calibration write or self-test')
     parser.add_argument('--stream', action='store_true', help='Print numeric samples once per second')
@@ -318,6 +333,8 @@ def main():
         complete = True
         try:
             result = acquire_hub_identity(probe)
+            if args.read_thermal_adc:
+                result['thermal_adc_raw'] = read_thermal_adc(probe, result['sensor_mask'])
             if args.read_magnetic_fuse:
                 result['magnetic_fuse'] = read_magnetic_fuse(probe, result['sensor_mask'])
             if args.sample_seconds:

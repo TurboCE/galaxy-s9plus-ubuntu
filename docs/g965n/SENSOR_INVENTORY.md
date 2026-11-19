@@ -85,3 +85,26 @@ See the main validation matrix and CHANGELOG for exact trial results and
 remaining integration gaps; do not promote the other rows to working based on
 this source inventory. No new probes, sensor enables or device writes were
 performed to create this document.
+
+## Thermistor special events versus direct ADC reads
+
+Pinned `factory/thermistor.c:initialize_thermistor_table` writes only two
+threshold ADC values (upper/sub table index18) using command `0xB3`, four bytes;
+it does not upload the entire conversion tables. The source's table index rule
+is -20 + 5×index Celsius, making that index the 70°C threshold. The downstream
+`ssp_iio.c:report_thermistor_data` converts event raw values through device tables
+and sends a battery overheat notification. Thus ID34's special event path is
+not evidence of a periodic thermometer stream. No samples in the bounded trial
+without threshold initialization do not identify a format fault; that trial
+remains unqualified.
+
+A distinct source-defined read-only path exists: channel0 command `0xA9`, then
+channel1 `0xAA`, each `AP2HUB_READ`, two-byte unsigned little-endian raw ADC.
+`ssp-probe.py --read-thermal-adc` exposes this only after identity and ID34-mask
+checks, without starting a bypass stream or writing thresholds/calibration.
+Temperature conversion requires the correct device tables and remains separate.
+
+For IDs16/17, the final byte is named `acc_rot` in the source but passed through
+without interpretation. The observed value246 does not have a proven ordinary
+accuracy-grade interpretation; quaternion scale and orientation conventions
+also remain unqualified. Raw packet receipt alone is the current evidence.

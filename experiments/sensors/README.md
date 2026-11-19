@@ -105,3 +105,24 @@ frame, angle units, or Linux sensor-service integration is implied. The type
 byte is necessary to distinguish thermistor channels. All existing groups keep
 their selections. These explicit tests remain bounded and retain per-sensor
 startup/window separation, advertised-mask checks, and disable cleanup.
+
+`--read-thermal-adc` is a separate read-only path: after board/hub identity it
+requires advertised ID34, reads channel0 command `0xA9` then channel1 `0xAA`,
+exactly two little-endian unsigned bytes each, and emits `thermal_adc_raw`.
+With the default zero sample interval it enables no sensors. It follows pinned
+`factory/thermistor.c:show_thermistor_channel{0,1}_ADC`. Any timeout or malformed
+reply fails; missing channels are never replaced by zeros. No threshold,
+coefficient, notification, or persistent write is implemented. A raw ADC value
+is not a calibrated temperature.
+
+ID34 bypass events use a different path: Android initialization sends two ADC
+thresholds (table index18) through `0xB3`; reporting converts event raw values
+with device tables and notifies the battery overheat path. It is marked special,
+so no ordinary periodic stream is established by the source. Zero event samples
+without that initialization do not establish a parsing fault or a dead sensor.
+The helper does not perform that threshold initialization.
+
+For rotation, the source names the final unsigned byte `acc_rot` but forwards
+it unchanged. Observed byte246 has no established quality/radian/sentinel
+meaning in the pinned kernel. Treat it as uninterpreted raw status; no 0..3
+accuracy range or quaternion scale/normalization is asserted.

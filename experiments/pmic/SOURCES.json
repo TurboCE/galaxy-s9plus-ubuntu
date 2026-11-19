@@ -17,6 +17,20 @@
       "after_sha256": "408b0bb39310ec9707d39a61a8875607e7886249cc1644e77250d0652bcc226f",
       "patch_sha256": "0b26c9583ab83cc77a6b380f8b5497fda1b5c22c8c1e3116436ecaeea7879200",
       "upstream_license": "GPL-2.0-or-later"
+    },
+    {
+      "path": "drivers/mfd/max77705.c",
+      "patch": "0003-max77705-remove-phantom-platform-charger.patch",
+      "before_sha256": "21b44e380252b5f55f0c0c749ccb430c1ac93a5c16b0a569546c05ad7b7d7b10",
+      "after_sha256": "1c523196ed534d71fd0322e3e72fadf9183dfe5cb8d1292bc5615d22cf802ca4",
+      "patch_sha256": "0911c0faa402cefe5d244472b4c06b7fccb006597b6402566097d1cabf5cd342",
+      "upstream_license": "GPL-2.0-or-later"
     }
-  ]
+  ],
+  "topology_references": {
+    "charger_i2c_path": "drivers/power/supply/max77705_charger.c",
+    "charger_i2c_sha256": "6df1e5a1100c8835def682db3d3ef87159158f06a91d6885798b8a235f05811a",
+    "port_dts_path": "src/mainline-dts/exynos9810-star2lte.dts",
+    "port_dts_sha256": "fa9b4c11be8cf7e426f6160bf68ccada48baac72b7a4fffd5dcb663d873e1c16"
+  }
 }

@@ -2,6 +2,9 @@
 """Compile actual reviewed C functions against faultable API stubs, without hardware."""
 import argparse
 import importlib.util
+import hashlib
+import json
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -165,7 +168,7 @@ class CorrectnessTests(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory()
         cls.addClassCleanup(cls.temp.cleanup)
         cls.tree = Path(cls.temp.name) / 'kernel'; cls.tree.mkdir()
-        for relative in ['drivers/leds/leds-max77705.c', 'drivers/input/misc/max77693-haptic.c']:
+        for relative in [entry['path'] for entry in json.loads((HERE / 'SOURCES.json').read_text())['files']]:
             target = cls.tree / relative; target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(SOURCE / relative, target)
         patcher.apply(cls.tree)
@@ -185,6 +188,67 @@ class CorrectnessTests(unittest.TestCase):
                                  '-Wno-misleading-indentation', str(c), '-o', str(cls.binary)], capture_output=True, text=True)
         if result.returncode:
             raise AssertionError(result.stderr)
+
+    def test_mfd_cell_array_and_real_charger_unchanged(self):
+        manifest = json.loads((HERE / 'SOURCES.json').read_text())
+        entry = next(e for e in manifest['files'] if e['path'] == 'drivers/mfd/max77705.c')
+        after = (self.tree / entry['path']).read_text()
+        phantom = '\tMFD_CELL_OF("max77705-charger", NULL, NULL, 0, 0, "maxim,max77705-charger"),\n'
+        # Reconstruct the exact pinned preimage, including its complete IRQ/probe code.
+        anchor = '\tMFD_CELL_OF("max77705-rgb", NULL, NULL, 0, 0, "maxim,max77705-rgb"),\n'
+        self.assertEqual(after.count(anchor), 1)
+        before = after.replace(anchor, anchor + phantom, 1)
+        self.assertEqual(hashlib.sha256(before.encode()).hexdigest(), entry['before_sha256'])
+        self.assertEqual(before.replace(phantom, '', 1), after)
+        self.assertIn('domain = regmap_irq_get_domain(irq_data);', after)
+        self.assertIn('max77705_devs, ARRAY_SIZE(max77705_devs),', after)
+        self.assertIn('NULL, 0, domain);', after)
+        refs = manifest['topology_references']
+        charger = (SOURCE / refs['charger_i2c_path']).read_bytes()
+        self.assertEqual(hashlib.sha256(charger).hexdigest(), refs['charger_i2c_sha256'])
+        self.assertIn(b'module_i2c_driver(max77705_charger_driver);', charger)
+        self.assertNotIn(b'module_platform_driver', charger)
+        dts = (HERE.parents[1] / refs['port_dts_path']).read_bytes()
+        self.assertEqual(hashlib.sha256(dts).hexdigest(), refs['port_dts_sha256'])
+        block = re.search(rb'max77705_charger: charger@69\s*\{([^}]+)\}', dts).group(1)
+        for value in [b'reg = <0x69>;', b'interrupt-parent = <&max77705>;', b'interrupts = <0>;', b'monitored-battery = <&battery>;']:
+            self.assertIn(value, block)
+        def array(text, marker):
+            start = text.index(marker)
+            return text[start:text.index('\n};', start) + 3]
+        irq = array(after, 'static const struct regmap_irq max77705_irqs[]')
+        shim = r'''#include <assert.h>
+#include <string.h>
+#include <stddef.h>
+#define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
+#define BIT(n) (1U<<(n))
+#define MAX77705_SRC_IRQ_CHG BIT(0)
+#define MAX77705_SRC_IRQ_TOP BIT(1)
+#define MAX77705_SRC_IRQ_FG BIT(2)
+#define MAX77705_SRC_IRQ_USBC BIT(3)
+struct mfd_cell { const char *name; const void *resources; const void *pdata; unsigned size; int id; const char *compatible; };
+#define MFD_CELL_OF(n,r,p,s,i,c) {n,r,p,s,i,c}
+struct regmap_irq { unsigned mask; };
+'''
+        main = r'''int main(void) {
+ assert(ARRAY_SIZE(max77705_devs)==EXPECTED);
+ assert(!strcmp(max77705_devs[0].name,"max77705-rgb"));
+ assert(!strcmp(max77705_devs[0].compatible,"maxim,max77705-rgb"));
+ assert(!strcmp(max77705_devs[EXPECTED-1].name,"max77705-haptic"));
+ assert(!strcmp(max77705_devs[EXPECTED-1].compatible,"maxim,max77705-haptic"));
+ for(unsigned i=0;i<EXPECTED;i++)assert(!max77705_devs[i].resources&&!max77705_devs[i].pdata&&!max77705_devs[i].size&&!max77705_devs[i].id);
+ if(EXPECTED==2)for(unsigned i=0;i<EXPECTED;i++)assert(strcmp(max77705_devs[i].name,"max77705-charger"));
+ else assert(!strcmp(max77705_devs[1].name,"max77705-charger"));
+ assert(ARRAY_SIZE(max77705_irqs)==4);
+ for(unsigned i=0;i<4;i++)assert(max77705_irqs[i].mask==BIT(i));
+ return 0;
+}'''
+        for text, expected in [(before, 3), (after, 2)]:
+            with tempfile.TemporaryDirectory() as td:
+                c = Path(td) / 'mfd.c'; binary = Path(td) / 'mfd'
+                c.write_text(shim + '\n' + array(text, 'static struct mfd_cell max77705_devs[]') + '\n' + irq + '\n#define EXPECTED ' + str(expected) + '\n' + main)
+                subprocess.run([shutil.which('cc'), '-std=c11', '-fsanitize=address,undefined', str(c), '-o', str(binary)], check=True, capture_output=True)
+                subprocess.run([str(binary)], check=True, capture_output=True)
 
     def test_actual_production_functions(self):
         scenarios = ['multi-off-object', 'single-off-object', 'single-blink-object', 'multi-blink-object',
