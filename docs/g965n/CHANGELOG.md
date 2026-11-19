@@ -4477,3 +4477,20 @@ acceleration and light readings were available. Restored and verified the
 original module, profile and service on a distinct boot. The restored
 system had no failed units, 63 kernel warnings and one zero-byte SSP
 retry. The timing change was discarded. The retry remains open.
+
+### 2026-11-20 — Real SIM readiness and radio state for the WWAN adapter
+
+Added two read-only socket requests for SIPC SIM readiness and the
+confirmed normal radio state. This state comes from the existing modem
+owner and can be read without waiting on the AT dispatcher. Unknown
+radio state is reported explicitly. The SIM readiness result carries
+no unlock reason or SIM identity.
+
+The native44 handset reported ready SIM and normal radio state during
+two explicit LTE data connections and after both confirmed releases.
+Both data generations passed modem-bound DNS and certificate-verified
+HTTPS204. Sensor service identity and readings remained available
+through teardown. This verifies the adapter's state inputs. The native
+ModemManager plugin linked and loaded on a separate x86-64 build.
+Device enumeration and the desktop data controls still need hardware
+verification.

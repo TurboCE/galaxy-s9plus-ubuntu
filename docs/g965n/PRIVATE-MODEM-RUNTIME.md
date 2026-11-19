@@ -722,9 +722,14 @@ data from the Ubuntu mobile network path.
 Add `--wwan-query-broker` to the guarded isolated held RIL trial to bind
 `/run/g965n-wwan-<RIL InvocationID>.sock` as a root-only Unix
 `SOCK_SEQPACKET` endpoint. A connection sends one literal request and
-receives one JSON reply. The request names are `registration`,
-`packet-attachment`, and `signal-quality`. Results use the raw modem
-registration or RSSI code, or the confirmed packet-attach boolean.
+receives one JSON reply. `registration`, `packet-attachment`, and
+`signal-quality` return a modem registration code, the confirmed
+packet-attach boolean, or an RSSI code. `sim-readiness` reports the
+current SIPC SIM readiness boolean without providing a SIM identifier.
+A false value includes uninitialized or unqualified SIM state.
+`radio-state` reports `on` after the modem confirms normal radio mode
+or `unknown` when normal mode has not been confirmed. These two state
+requests remain available while the AT dispatcher is busy.
 Unsupported commands, stale requests and modem errors return an
 explicit error. The broker serializes its requests with the current
 radio owner instead of opening another physical modem channel.

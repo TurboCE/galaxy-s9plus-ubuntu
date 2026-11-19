@@ -49,6 +49,10 @@ class S9PDPTests(unittest.TestCase):
             client = MagicMock()
             listener.accept.return_value = (client, None)
             broker = ril.WWANQueryBroker('a' * 32)
+            client.recv.return_value = b'sim-readiness'
+            self.assertEqual(broker.take(0, False), b'sim-readiness')
+            broker.finish(sim_ready=False)
+            self.assertIn(b'"sim_ready": false', client.send.call_args.args[0])
             client.recv.return_value = b'connect-ipv4'
             self.assertIsNone(broker.take(0, False))
             self.assertIn(b'unsupported-query', client.send.call_args.args[0])

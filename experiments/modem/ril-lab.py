@@ -79,6 +79,7 @@ class WWANQueryBroker:
     """Serialize typed WWAN requests through the existing RIL owner."""
     commands = {b'registration': 'AT+CEREG?', b'packet-attachment': 'AT+CGATT?',
                 b'signal-quality': 'AT+CSQ'}
+    state_requests = {b'sim-readiness', b'radio-state'}
     bearer_requests = {b'bearer-status', b'connect-ipv4', b'disconnect-ipv4'}
 
     def __init__(self, invocation, bearer_control=False):
@@ -125,7 +126,7 @@ class WWANQueryBroker:
                 self.finish(error='client-disconnected')
                 return None
             self.pending = self.commands.get(request)
-            if self.bearer_control and request in self.bearer_requests:
+            if request in self.state_requests or (self.bearer_control and request in self.bearer_requests):
                 self.pending = request
             if self.pending is None:
                 self.finish(error='unsupported-query')
@@ -1219,6 +1220,12 @@ def main():
                 next_at_ping = time.monotonic() + 3
             broker_command = broker.take(now, at_ready and not at_failed and not at_active
                                          and not at_queue) if broker else None
+            if broker_command == b'sim-readiness':
+                broker.finish(sim_ready=sim_ready)
+                broker_command = None
+            elif broker_command == b'radio-state':
+                broker.finish(radio_state='on' if phone_normal else 'unknown')
+                broker_command = None
             if isinstance(broker_command, bytes):
                 status = bearer_status()
                 if broker_command == b'bearer-status':
