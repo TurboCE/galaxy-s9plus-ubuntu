@@ -5308,3 +5308,25 @@ firmware tail settle with no 36-byte ACK retry, Wi-Fi HTTPS204,
 and no failed units. No display or clock policy was changed.
 The historical 11 FPS result did not recur. GNOME overview animation
 and long playback endurance were outside these tests.
+
+### 2026-11-20 — Measure real GNOME app-list transitions on native #44
+
+Built the pinned Linux uinput source as a temporary native #44
+module and used GNOME's configured Super+A shortcut. The cross
+compiler lacked userspace headers, so the keyboard helper was
+compiled on the handset.
+The first attempt incorrectly used that shortcut to close the
+overview as well. It left the overview visible and the cleanup
+still unloaded the input module. The corrected run used Escape
+to return to the desktop, with session state verified after
+each of five opens and five closes.
+
+The built-in GNOME profiler measured paint-view p95 of 18.378 ms
+and frame-clock dispatch p95 of 24.596 ms in the 800 ms windows
+after opening. Five of 65 paint marks exceeded 16.7 ms. Closing
+had paint p95 4.280 ms and dispatch p95 6.299 ms, with a 65.466 ms
+maximum dispatch. These are compositor operation durations.
+The desktop was restored and the temporary module unloaded,
+with zero failed units and zero matching GPU/display faults
+in the surrounding three-minute log window. The capture stays
+private. The source of the slow app-list work remains open.

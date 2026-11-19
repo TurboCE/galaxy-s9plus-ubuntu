@@ -118,6 +118,15 @@ the owner's rough-animation report is therefore an open performance issue,
 not dismissed as normal or proved fixed by a high glmark score. This first trace
 does not isolate cold caches, memory pressure, scheduling and driver latency.
 
+On native #44, a temporary upstream uinput module sent the configured
+Super+A shortcut and Escape in an unlocked session. The built-in profiler
+captured five opens and five closes, and the overview state was checked
+after each transition. In the first 800 ms after opening, five of 65 paint
+marks exceeded 16.7 ms. Paint p95 was 18.378 ms and frame-clock dispatch
+p95 was 24.596 ms. Closing paint p95 was 4.280 ms. The run restored the
+desktop and unloaded the temporary driver. These durations are evidence
+of actual app-list frame-budget pressure, with scanout cadence unmeasured.
+
 Kernel#13 additionally corrects the board's ACPM-owned supply description.
 The whole-boot missing-mali-regulator error is absent. Another full33-scene/
 100-frame exact pass reports0 matching errors.50ms sampling observes260/455/
