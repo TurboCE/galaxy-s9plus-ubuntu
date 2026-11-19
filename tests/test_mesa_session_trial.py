@@ -303,4 +303,120 @@ class TrialTests(unittest.TestCase):
         self.assertNotIn('UNRELATED_SECRET',observation['actual'])
 
 
+    def test_login_plan_is_saved_and_timer_checked_before_root_write(self):
+        home=self.root/'home';home.mkdir();build=self.root/'build'
+        receipt={'outputs':{str(build/'build/src/egl/libEGL_mesa.so.0.0.0'):'a'*64},'runtime_links':{}}
+        args=types.SimpleNamespace(trial='login-order',build=build,expected_boot_sha256='b'*64,consent_login_environment_trial=True)
+        plan={'private-test-marker':True};events=[]
+        def command(argv,**kw):
+            if argv[0]=='systemd-run':events.append('timer-reserved')
+            if argv[:2]==['systemctl','is-active']:events.append('timer-checked')
+            return types.SimpleNamespace(stdout='PAN_MESA_DEBUG=nocrc\n')
+        def root_write(value):
+            self.assertEqual(value,plan)
+            self.assertIn('timer-checked',events)
+            state=json.loads((self.root/'state/login-order/state.json').read_text())
+            self.assertEqual(state['login_environment'],plan)
+            events.append('root-write')
+        with patch.object(m,'private_root',return_value=True),patch.object(m,'STATE',self.root/'state'),patch.object(m,'verify_device'),patch.object(m,'verify_shell_command'),patch.object(m,'verify_build',return_value=receipt),patch.object(m.pwd,'getpwnam',return_value=types.SimpleNamespace(pw_uid=1000,pw_dir=str(home))),patch.object(m,'run',side_effect=command),patch.object(m,'write_user_files'),patch.object(m,'login_environment_plan',return_value=plan),patch.object(m,'write_login_environment',side_effect=root_write),patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}),patch.object(m,'manager_environment_observation',return_value={'matches':True}):
+            m.apply(args)
+        self.assertLess(events.index('timer-reserved'),events.index('timer-checked'))
+        self.assertLess(events.index('timer-checked'),events.index('root-write'))
+
+
+class LoginEnvironmentTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name).resolve()
+        self.env = self.root / 'environment'
+        self.original = b'OTHER=keep-private\r\nPAN_MESA_DEBUG=nocrc\r\nLAST=unchanged\n'
+        self.env.write_bytes(self.original)
+        self.env.chmod(0o600)
+        self.addCleanup(patch.stopall)
+        patch.object(m, 'LOGIN_ENVIRONMENT', self.env).start()
+        # Exercise real replacement/fsync/metadata/CAS on a user-owned fixture;
+        # production read_login_environment separately requires root ancestry.
+        patch.object(m, 'read_login_environment', side_effect=lambda: (self.env.read_bytes(), self.env.stat())).start()
+
+    def test_opt_out_never_reads_global_configuration(self):
+        with patch.object(m, 'read_login_environment', side_effect=AssertionError('read')):
+            self.assertIsNone(m.login_environment_plan(False))
+        self.assertTrue(m.write_login_environment(None))
+
+    def test_scoped_apply_restore_preserves_bytes_modes_and_is_idempotent(self):
+        plan = m.login_environment_plan(True)
+        self.assertTrue(m.write_login_environment(plan))
+        self.assertEqual(self.env.read_bytes(), self.original.replace(b'nocrc', b'nocrc,noafbc'))
+        self.assertEqual(self.env.stat().st_mode & 0o777, 0o600)
+        self.assertTrue(m.write_login_environment(plan, restore=True))
+        self.assertEqual(self.env.read_bytes(), self.original)
+        self.assertTrue(m.write_login_environment(plan, restore=True))
+        self.assertFalse(list(self.root.glob('.g965n-mesa-env-*')))
+
+    def test_unknown_duplicate_or_quoted_baseline_requires_review(self):
+        for text in [b'', b'PAN_MESA_DEBUG=unknown\n', b'PAN_MESA_DEBUG="nocrc"\n',
+                     b'PAN_MESA_DEBUG=nocrc\nPAN_MESA_DEBUG=nocrc\n',
+                     b'PAN_MESA_DEBUG=nocrc\nexport PAN_MESA_DEBUG=nocrc\n']:
+            self.env.write_bytes(text)
+            with self.assertRaisesRegex(RuntimeError, 'baseline requires review'):
+                m.login_environment_plan(True)
+
+    def test_change_before_apply_is_preserved(self):
+        plan = m.login_environment_plan(True)
+        changed = self.original + b'NEW=keep\n'
+        self.env.write_bytes(changed)
+        with self.assertRaisesRegex(RuntimeError, 'changed before'):
+            m.write_login_environment(plan)
+        self.assertEqual(self.env.read_bytes(), changed)
+
+    def test_change_before_rollback_is_preserved_and_reported(self):
+        plan = m.login_environment_plan(True)
+        m.write_login_environment(plan)
+        changed = self.env.read_bytes() + b'NEW=keep\n'
+        self.env.write_bytes(changed)
+        self.assertFalse(m.write_login_environment(plan, restore=True))
+        self.assertEqual(self.env.read_bytes(), changed)
+
+    def test_permission_edit_is_not_overwritten_even_with_original_bytes(self):
+        plan = m.login_environment_plan(True)
+        self.env.chmod(0o640)
+        self.assertFalse(m.write_login_environment(plan, restore=True))
+        self.assertEqual(self.env.stat().st_mode & 0o777, 0o640)
+
+    def test_racing_change_rejects_replacement_and_removes_temporary(self):
+        plan = m.login_environment_plan(True)
+        count = 0
+        def read():
+            nonlocal count
+            count += 1
+            if count == 2:
+                self.env.write_bytes(b'NEW=preserve-racing-edit\n')
+            return self.env.read_bytes(), self.env.stat()
+        with patch.object(m, 'read_login_environment', side_effect=read):
+            with self.assertRaisesRegex(RuntimeError, 'during trial write'):
+                m.write_login_environment(plan)
+        self.assertEqual(self.env.read_bytes(), b'NEW=preserve-racing-edit\n')
+        self.assertFalse(list(self.root.glob('.g965n-mesa-env-*')))
+
+
+    def test_accept_refuses_intervening_login_edit_before_cancelling_timer(self):
+        plan=m.login_environment_plan(True);m.write_login_environment(plan)
+        self.env.write_bytes(self.env.read_bytes()+b'NEW=preserve\n')
+        proof=self.root/'evidence.json';proof.write_text(json.dumps({'trial':'one','boot_sha256':'b'*64,'captured_at_unix':2,'fresh_ssh':True,'shell_private_dso_maps':True,'kernel_health_reviewed':True}))
+        state={'trial':'one','boot_sha256':'b'*64,'staged_at_unix':1,'timer':'owned-timer','files':{},'login_environment':plan}
+        with patch.object(m,'load_state',return_value=state),patch.object(m,'run') as command:
+            with self.assertRaisesRegex(RuntimeError,'login environment changed'):
+                m.accept_locked(types.SimpleNamespace(state=self.root,evidence=proof))
+            command.assert_not_called()
+
+    def test_rollback_conflict_cannot_claim_complete_restoration(self):
+        state={'accepted':False,'files':{},'previous_environment':{},'login_environment':{'test':True}}
+        with patch.object(m,'load_state',return_value=state),patch.object(m,'cleanup_user_files',return_value=[]),patch.object(m,'write_login_environment',return_value=False),patch.object(m,'clean_user_manager'),patch.object(m,'restore_environment'),patch.object(m,'run'),patch.object(m,'wait_stable_shell',return_value={'desktop_recovered':True}),patch.object(m,'manager_environment_observation',return_value={'matches':True}):
+            with self.assertRaisesRegex(RuntimeError,'preserved a changed login environment'):
+                m.rollback_locked(self.root)
+        saved=json.loads((self.root/'state.json').read_text())
+        self.assertFalse(saved['rolled_back']);self.assertFalse(saved['login_environment_restored'])
+
+
 if __name__ == '__main__': unittest.main()

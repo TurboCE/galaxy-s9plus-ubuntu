@@ -6,7 +6,7 @@ browsers, video decoding or long-running desktop use work. Never activate this
 helper from a build script. Keep logs, backup manifests and evidence private.
 
 `scripts/g965n/mesa-session-trial.py` stages new files for **ubuntu UID 1000**
-only. It does not replace system libraries, change the GDM greeter, write phone
+only by default. It does not replace system libraries, write phone
 partitions, install firmware or alter personal application preferences. It
 stops GDM, restarts `user@1000.service`, restores the selected graphics
 environment, and starts GDM once. This ends **all user-manager services**, not
@@ -73,8 +73,8 @@ is released before application or rollback calls.
 
 The owned environment file is named `99-z-g965n-mesa-trial-*.conf`, after
 `99-environment.conf` in the filename order used across environment.d search
-paths. This avoids editing `/etc/environment` or the system's compatibility
-symlink. After the three stable Shell observations, apply also requires the
+paths. By default this does not edit `/etc/environment` or the system's
+compatibility symlink. After the three stable Shell observations, apply also requires the
 user manager's selected GPU whitelist to equal the whole requested profile:
 all seven profile values must match and every other whitelisted GPU variable
 must be absent. Absent and empty values are distinct, especially for the EGL
@@ -220,3 +220,32 @@ single trial can obtain the causal dictionary difference while retaining the
 same fail-closed automatic recovery. Review that evidence before any further
 environment fix or repeat trial. No new trial or automatic acceptance is
 implied by adding this instrumentation.
+
+## Login-time override found on native43
+
+A real native43 trial captured the mismatch: the manager requested
+`PAN_MESA_DEBUG=nocrc,noafbc`, but after login it held `nocrc` again. The
+root login environment contains the exact older `PAN_MESA_DEBUG=nocrc`
+assignment. The trial correctly rejected the mismatch and restored the actual
+stock Shell, original manager environment and all four owned files.
+
+For this reviewed baseline only, optional `--consent-login-environment-trial`
+also migrates that one assignment for the timed trial. It preserves all other
+bytes, ownership and mode, refuses unknown/quoted/duplicate assignments and
+requires protected root-owned ordinary input. The original bytes remain only
+in the root-private state. The300s timer is armed and checked before the root
+write. Restoration compares current bytes and metadata first, preserves
+intervening edits and reports incomplete rollback rather than overwriting
+them. Acceptance also checks that the trial login assignment is unchanged.
+This option affects login-time GPU flags, including the greeter during the
+trial; it does not replace the greeter's graphics libraries. A passing host
+test is not proof that the new native desktop works or rolls back correctly.
+
+Native43 tested this option: fresh private Shell maps and all manager flags
+match after login; fullscreen1440x2960 targeted3/3 plus FIFO61/61/61fps pass
+with no new GPU fault. Natural300s rollback exited0 and restored original
+login bytes/metadata, all four profile files, manager environment and actual
+stock Shell. Post-rollback full ring error0/warning63 and zero failed units.
+This is a bounded deployment/recovery pass, not accepted persistent Mesa,
+full desktop/browser/endurance qualification or measured app-grid animation.
+The standard ShowApplications request was denied; no unsafe API mode enabled.

@@ -14,12 +14,14 @@ import pwd
 import re
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import time
 import tempfile
 
 STATE = Path('/var/lib/g965n-mesa-trial')
+LOGIN_ENVIRONMENT = Path('/etc/environment')
 VARIABLES = ('__EGL_VENDOR_LIBRARY_FILENAMES', '__EGL_VENDOR_LIBRARY_DIRS',
              'LD_LIBRARY_PATH', 'GBM_BACKENDS_PATH', 'LIBGL_DRIVERS_PATH',
              'PAN_MESA_DEBUG', 'MESA_SHADER_CACHE_DIR', 'MESA_SHADER_CACHE_DISABLE',
@@ -217,6 +219,78 @@ def manager_environment_matches(expected):
     return manager_environment_observation(expected)['matches']
 
 
+def read_login_environment():
+    for parent in LOGIN_ENVIRONMENT.parents:
+        info = parent.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise RuntimeError('Unprotected login environment parent')
+    fd = os.open(LOGIN_ENVIRONMENT, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_nlink != 1 or
+                info.st_mode & 0o022 or info.st_size > 65536):
+            raise RuntimeError('Unsafe login environment file')
+        data = stream.read(65537)
+    if len(data) > 65536:
+        raise RuntimeError('Login environment exceeds bound')
+    return data, info
+
+
+def login_environment_plan(enabled):
+    if not enabled:
+        return None
+    before, info = read_login_environment()
+    # Only this exact known port baseline is migrated. Preserve every other byte,
+    # including any unrelated private settings; never print the file contents.
+    pattern = rb'(?m)^PAN_MESA_DEBUG=nocrc(?=\r?$)'
+    assignments = re.findall(rb'(?m)^[ \t]*(?:export[ \t]+)?PAN_MESA_DEBUG[ \t]*=', before)
+    if len(assignments) != 1 or len(re.findall(pattern, before)) != 1:
+        raise RuntimeError('Login GPU baseline requires review')
+    after = re.sub(pattern, b'PAN_MESA_DEBUG=nocrc,noafbc', before)
+    return {'before_hex': before.hex(), 'after_hex': after.hex(),
+            'mode': stat.S_IMODE(info.st_mode), 'uid': info.st_uid, 'gid': info.st_gid}
+
+
+def write_login_environment(plan, restore=False):
+    if plan is None:
+        return True
+    before, after = bytes.fromhex(plan['before_hex']), bytes.fromhex(plan['after_hex'])
+    current, info = read_login_environment()
+    expected, target = (after, before) if restore else (before, after)
+    metadata_matches = (stat.S_IMODE(info.st_mode) == plan['mode'] and
+                        info.st_uid == plan['uid'] and info.st_gid == plan['gid'])
+    if restore and current == before and metadata_matches:
+        return True  # Timer can run before the apply write or after restoration.
+    if current != expected or not metadata_matches:
+        if restore:
+            return False  # Preserve edits made since this trial; never clobber.
+        raise RuntimeError('Login environment changed before trial write')
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=LOGIN_ENVIRONMENT.parent,
+                                         prefix='.g965n-mesa-env-', delete=False) as stream:
+            temporary = Path(stream.name)
+            os.fchmod(stream.fileno(), plan['mode'])
+            os.fchown(stream.fileno(), plan['uid'], plan['gid'])
+            stream.write(target); stream.flush(); os.fsync(stream.fileno())
+        # Recheck immediately before replacement. Unrelated root-managed
+        # configuration is not an owned edit; preserve a newly observed change.
+        latest, latest_info = read_login_environment()
+        if (latest != expected or
+                (latest_info.st_dev, latest_info.st_ino, latest_info.st_mode,
+                 latest_info.st_uid, latest_info.st_gid) !=
+                (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_gid)):
+            raise RuntimeError('Login environment changed during trial write')
+        os.replace(temporary, LOGIN_ENVIRONMENT)
+        fd = os.open(LOGIN_ENVIRONMENT.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try: os.fsync(fd)
+        finally: os.close(fd)
+    finally:
+        if temporary is not None and temporary.exists():
+            temporary.unlink()
+    return True
+
+
 def shell_metadata(expected_prefix):
     text = manager('show', 'org.gnome.Shell@wayland.service', '-p', 'ActiveState',
                    '-p', 'MainPID', capture_output=True, timeout=5).stdout
@@ -285,6 +359,8 @@ def rollback_locked(directory, automatic=False):
                  environment_restored=False, desktop_recovered=False, rolled_back=False)
     write_state(directory, state)
     try:
+        state['login_environment_restored'] = write_login_environment(state.get('login_environment'), restore=True)
+        write_state(directory, state)
         clean_user_manager()
         restore_environment(state['previous_environment'])
         state['manager_environment_written'] = True
@@ -294,13 +370,15 @@ def rollback_locked(directory, automatic=False):
         observation = manager_environment_observation(state['previous_environment'])
         state['rollback_environment_observation'] = observation
         state['environment_restored'] = observation['matches']
-        state['rolled_back'] = not changed and state['environment_restored']
+        state['rolled_back'] = not changed and state['environment_restored'] and state['login_environment_restored']
         write_state(directory, state)
     except BaseException:
         write_state(directory, state)
         raise
     if changed:
         raise RuntimeError('Rollback preserved modified files; manual review required: ' + ', '.join(changed))
+    if not state['login_environment_restored']:
+        raise RuntimeError('Rollback preserved a changed login environment; manual review required')
     if not state['environment_restored']:
         raise RuntimeError('Rollback GPU manager environment differs after startup: ' + ', '.join(state['rollback_environment_observation']['differing_keys']) + '; no restart retry performed')
     if not state['desktop_recovered']:
@@ -365,6 +443,7 @@ def apply(args):
         safe_new(path)
     previous = previous_environment(manager('show-environment', capture_output=True).stdout)
     validate_previous(previous)
+    login_plan = login_environment_plan(getattr(args, 'consent_login_environment_trial', False))
     # Scan, reserve state and arm its timer under one cross-trial lock.
     with reservation_lock():
         directory = STATE / trial; safe_new(directory)
@@ -378,7 +457,8 @@ def apply(args):
         unit = 'g965n-mesa-rollback-' + trial
         state = {'files': {str(p): hashlib.sha256(text.encode()).hexdigest() for p, text in files.items()},
                  'previous_environment': previous, 'timer': unit, 'accepted': False,
-                 'trial': trial, 'staged_at_unix': time.time(), 'boot_sha256': args.expected_boot_sha256}
+                 'trial': trial, 'staged_at_unix': time.time(), 'boot_sha256': args.expected_boot_sha256,
+                 'login_environment': login_plan}
         write_state(directory, state)
         (directory / 'state.json').chmod(0o600)
         # Reserve a system timer BEFORE the first user-file/environment write.
@@ -387,6 +467,7 @@ def apply(args):
         run(['systemctl', 'is-active', '--quiet', unit + '.timer'])
     try:
         write_user_files(files)
+        write_login_environment(login_plan)
         clean_user_manager()
         restore_environment(environment)
         state['environment_applied'] = True
@@ -422,6 +503,13 @@ def accept_locked(args):
         raise RuntimeError('Actual post-restart evidence is required; source checks are insufficient')
     if state.get('rolled_back') or owned_cleanup_preview(state['files']):
         raise RuntimeError('Trial rolled back or owned files changed')
+    login_plan = state.get('login_environment')
+    if login_plan is not None:
+        current, info = read_login_environment()
+        if (current != bytes.fromhex(login_plan['after_hex']) or
+                stat.S_IMODE(info.st_mode) != login_plan['mode'] or
+                info.st_uid != login_plan['uid'] or info.st_gid != login_plan['gid']):
+            raise RuntimeError('Trial login environment changed; do not accept')
     # Explicit accept is the only path cancelling the independent root timer.
     run(['systemctl', 'stop', state['timer'] + '.timer'])
     if subprocess.run(['systemctl', 'is-active', '--quiet', state['timer'] + '.service']).returncode == 0:
@@ -445,6 +533,8 @@ def main():
     stage.add_argument('--backup-manifest', type=Path, required=True)
     stage.add_argument('--backup-manifest-sha256', required=True)
     stage.add_argument('--consent-restart-desktop-trial', action='store_true')
+    stage.add_argument('--consent-login-environment-trial', action='store_true',
+                       help='Temporarily migrate only the exact nocrc login baseline; timer restores it')
     for name in ('rollback', 'accept'):
         p = sub.add_parser(name); p.add_argument('--state', type=Path, required=True)
         if name == 'accept': p.add_argument('--evidence', type=Path, required=True)

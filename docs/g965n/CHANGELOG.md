@@ -3594,3 +3594,51 @@ driver services active, fresh accel varies, audio retry/stall/backstep/codec/
 watchdog counters0, primaryHTTPS204 and failedunits0. No physical help required.
 This qualifies measured DT cache description/persistence, not performance
 gain, remaining CPU sanity warnings, complete sensor reset or LTE data.
+
+Read-only43 review confirms the remaining52 CPU differences cover13 actual
+registers across four M3 cores; generic kernel strict feature checks retain
+unsupported-variation taint. No fabricated ID or warning masks applied. Prior
+LTE private observations still show normal phone mode and configured automatic
+selection but no actual data/confirmed current carrier-reject diagnosis; no CP
+reset trial performed43. Preparing guarded per-user patched-Mesa desktop
+trial with the independent300s rollback timer. All26 lifecycle host tests
+pass; prior trials are rolled back. Desktop apps will restart; no system Mesa,
+firmware, bootloader, original NV or personal app Git changes.
+
+The first desktop invocation used an unsupported action name and exited in
+argument parsing, with no profile change. Corrected native43 apply captured
+PAN_MESA_DEBUG expected nocrc,noafbc vs actual nocrc after login. It rejected
+the mismatch and completed rollback: stock desktop recovered, original manager
+environment restored and no changed owned files. Read-only search locates the
+exact older PAN assignment in /etc/environment. No CP startup occurred.
+
+Prepared explicit login-environment trial option: migrate only exact known
+nocrc assignment after saving original private bytes and arming/checking300s
+system timer; preserve all other bytes/mode/owner. Protected root no-follow
+input, ambiguous baseline rejection, pre-replacement content/inode/metadata
+checks, conflict-preserving rollback and acceptance ownership checks.34host
+lifecycle tests pass, including real temporary-file apply/restore, CRLF/private
+byte preservation, conflicts, racing changes and timer-before-root-write.
+Native whole-session and natural timed rollback remain to be verified.
+
+Native43 explicit login-environment trial passed whole-profile startup: private
+Shell EGL/Gallium/GBM maps verified through fresh SSH, all requested manager GPU
+variables match after login, login assignment matches trial. Independent timer
+remains active; no acceptance. Fullscreen1440x2960 targeted3/3 positive scenes
+and FIFO build/texture/ideas61/61/61fps pass with physical Mali and0new GPU faults.
+Snapshot differences are readonly presentation/power counters only, not knob
+changes; screen state restored. Attempted standard ShowApplications DBus test
+was denied by Shell, so no app-grid response/animation claim or unsafe API
+bypass.36host tests now include conflict-preserving rollback and refusal to
+accept edited login configuration. Awaiting natural timer restoration proof.
+
+Native43 natural300s timer fired without acceptance; rollback system job
+Result=success/ExecMainStatus0. Fresh SSH confirms original login bytes/mode/
+owner/group, all4 owned files removed, original manager environment and actual
+stock Shell libraries restored. Post-rollback full early ring error0/warning63,
+no GPU/AF/chanspec/SError/CallTrace, three driver services active/failedunits0.
+This verifies the optional exact login-setting migration and natural recovery;
+private Mesa is not yet accepted/persistent. Full scene/readback/browser/
+endurance and app-grid animation measurements remain pending. /dev/uinput is
+absent; no virtual-input module or unsafe Shell mode was enabled for the
+denied app-grid request. No Tailscale/ChatGPT install/preferences committed.
