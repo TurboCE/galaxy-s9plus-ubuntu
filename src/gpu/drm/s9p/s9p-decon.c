@@ -69,6 +69,7 @@
 #include <drm/drm_vblank.h>
 #include <linux/iopoll.h>
 #include "panel-aor.h"
+#include <linux/workqueue.h>
 
 #define DRIVER_NAME "exynos"
 
@@ -244,6 +245,8 @@ struct s9p_decon {
 	bool panel_awake;
 	bool aor_valid;
 	int aor_applied;
+	int aor_target;
+	struct delayed_work aor_work;
 	void *black_cpu;
 	dma_addr_t black_dma;
 };
@@ -601,13 +604,48 @@ static int s9p_brightness_locked(struct s9p_decon *priv, int level)
 	return ret;
 }
 
+static void s9p_backlight_ramp(struct work_struct *work)
+{
+	struct s9p_decon *priv = container_of(to_delayed_work(work),
+						    struct s9p_decon, aor_work);
+	int next, ret;
+
+	mutex_lock(&priv->panel_lock);
+	if (!priv->panel_awake || !priv->aor_valid || !priv->aor_target ||
+	    !priv->aor_applied || priv->aor_target == priv->aor_applied)
+		goto out;
+	next = s9p_aor_next(priv->aor_applied, priv->aor_target);
+	ret = s9p_brightness_locked(priv, next);
+	/* A failed transaction stops here; do not claim success or retry forever. */
+	if (!ret && priv->aor_applied != priv->aor_target)
+		mod_delayed_work(system_wq, &priv->aor_work,
+				 msecs_to_jiffies(S9P_AOR_RAMP_MS));
+out:
+	mutex_unlock(&priv->panel_lock);
+}
+
+static void s9p_backlight_cancel(void *data)
+{
+	struct s9p_decon *priv = data;
+
+	cancel_delayed_work_sync(&priv->aor_work);
+}
+
 static int s9p_backlight_update(struct backlight_device *backlight)
 {
 	struct s9p_decon *priv = bl_get_data(backlight);
 	int ret;
 
 	mutex_lock(&priv->panel_lock);
-	ret = s9p_brightness_locked(priv, backlight_get_brightness(backlight));
+	priv->aor_target = backlight_get_brightness(backlight);
+	if (priv->panel_awake && priv->aor_valid && priv->aor_applied > 0 &&
+	    priv->aor_target > 0) {
+		mod_delayed_work(system_wq, &priv->aor_work, 0);
+		ret = 0;
+	} else {
+		cancel_delayed_work(&priv->aor_work);
+		ret = s9p_brightness_locked(priv, priv->aor_target);
+	}
 	mutex_unlock(&priv->panel_lock);
 	return ret;
 }
@@ -636,6 +674,7 @@ static const struct backlight_ops s9p_backlight_ops = {
  */
 static void s9p_panel_down(struct s9p_decon *priv)
 {
+	cancel_delayed_work_sync(&priv->aor_work);
 	mutex_lock(&priv->panel_lock);
 	priv->panel_awake = false;
 	priv->aor_valid = false;
@@ -660,7 +699,9 @@ static void s9p_panel_up(struct s9p_decon *priv)
 	s9p_decon_dcs(priv, MIPI_DCS_SET_DISPLAY_ON);
 	priv->panel_awake = true;
 	if (priv->backlight)
-		s9p_brightness_locked(priv, backlight_get_brightness(priv->backlight));
+		priv->aor_target = backlight_get_brightness(priv->backlight);
+	if (priv->backlight)
+		s9p_brightness_locked(priv, priv->aor_target);
 	mutex_unlock(&priv->panel_lock);
 }
 
@@ -934,6 +975,7 @@ static int s9p_decon_probe(struct platform_device *pdev)
 		return PTR_ERR(priv);
 	drm = &priv->drm;
 	mutex_init(&priv->panel_lock);
+	INIT_DELAYED_WORK(&priv->aor_work, s9p_backlight_ramp);
 	priv->panel_awake = true; /* sboot left the panel running. */
 	init_waitqueue_head(&priv->frame_wait);
 	spin_lock_init(&priv->flip_lock);
@@ -1097,6 +1139,9 @@ static int s9p_decon_probe(struct platform_device *pdev)
 			&s9p_backlight_ops, &properties);
 		if (IS_ERR(priv->backlight))
 			return PTR_ERR(priv->backlight);
+		ret = devm_add_action_or_reset(&pdev->dev, s9p_backlight_cancel, priv);
+		if (ret)
+			return ret;
 	}
 
 	priv->black_cpu = dma_alloc_wc(&pdev->dev, PANEL_W * PANEL_H * 4,

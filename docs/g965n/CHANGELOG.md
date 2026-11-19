@@ -2629,3 +2629,35 @@ retry returned on this reboot, so the earlier no-retry boot is not generalized.
 P2P again readback IFbit1/len27/ret0 and timed out. Timer remains disabled;
 latest32 fresh backup/profile pins active. No pending diagnostic reboot timer,
 firmware publication or uncommitted device driver source left by this trial.
+
+## 2026-11-19 — Native ambient switch and smoother-brightness candidate
+
+Owner requested continued P2P/kernel work plus Ubuntu's native automatic-
+brightness switch, then requested less abrupt transitions. On native32,
+SensorProxy HasAmbientLight=true with actuallux. Stock Control Center46.7
+Power panel contains a visible/checked Automatic Screen Brightness checkbox.
+Actual accessibility toggle changed ambient-enabled true→false→true; finalon.
+Remote initial launch lacked XDG_CURRENT_DESKTOP and exited with an explicit
+GNOME-session requirement; setting the launch-only actual GNOME/Wayland
+session environment opened the stock panel. No panel fork or duplicate daemon.
+
+Candidate output smoothing retains native GNOME/sensor values: expand16 coarse
+AOR levels to401 unique stock PAC512 duty values, ordered monotonically for
+fixed inherited gamma. First attempt to use original PAC256 order was rejected
+because gamma-boundary duty reversals would be inappropriate without gamma
+updates. No interpolated duty/voltage/gamma/HBM or fabricated lux. Delayed work
+advances at most4 levels per40ms (~4s full traversal), retargets latest request,
+stops on transport failure, keeps actual readback distinct from target.
+Zero/DPMS off bypasses ramp; DPMS/device cleanup drains work, wake restores
+current target directly. ActualC transaction/ramp policy and worker sleep/
+retarget/error tests pass. New panel behavior is not yet hardware-qualified.
+
+P2P next bounded observation queries real p2p_dev only on the scoped discovery
+IF_ADD timeout, logging numeric return/BSS index. First unscoped transform
+anchor matched multiple timeout blocks and refused without kernel-tree writes;
+restricted the exact create_p2pdev function before replacement. No forced
+success or compatibility fallback. SPI transport adds the BCM4773 ID matching
+its existing OF compatible (SPI core expects vendor-stripped modalias), keeping
+existing ssp-spi binding. Warning disappearance and sensor data require native
+boot proof. CPU heterogeneity, GPT and unqualified RGB/haptic warnings are not
+being hidden or declared repaired by these changes.

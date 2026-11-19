@@ -163,3 +163,8 @@ Latest#32 initial+warm boot: touch reset before first access/no-110, sensor/
 audio/BT auto-start and realaccel/ALS; strictY/faultN, failedsystemunits0.
 P2P still fails with actual event-mask IFbit1; one initialSSI retry on warmboot.
 These observations do not establish all-modules-working or error-free kernel.
+
+Native32 Control Center Power Automatic Screen Brightness checkbox is visible;
+actual native toggle changed ambient-enabled true→false→true. Finalon.
+401stock-duty/asynchronous-output-ramp candidate passes hostC tests only;
+optical smoothness, newlevelhardware and DPMS regressions pending newboot.

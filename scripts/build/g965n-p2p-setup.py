@@ -12,7 +12,8 @@ from pathlib import Path
 REL=Path('drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c')
 ORIGINAL='048df2fa9593fa4bf65a3b459e9fca8ae45860bd6dc10a329d026984be6d3c3f'
 PREVIOUS='cffa5000c6b36b83542f34148c8d56f568d7c1b6af843031a2b1dd2847bdea89'
-PATCHED='d8f6ea105146113785e485be2410f0c953a5bc5a835979422e7ed76f5d1fee84'
+MASK_VERSION='d8f6ea105146113785e485be2410f0c953a5bc5a835979422e7ed76f5d1fee84'
+PATCHED='adc908e9f1aac6bf2d6b6c53989f0e0f864aaf2d1e4d19a9286ddaf7eaa07b97'
 HELPERS=r'''/* G965N: no network identifiers or command data in diagnostics. */
 static bool brcmf_g965n_checked_p2p(struct brcmf_if *ifp)
 {
@@ -97,6 +98,28 @@ def observe_transform(data):
         '\tif (checked && !ret)\n\t\tbrcmf_g965n_p2p_event_mask(ifp);\n')
     return text.encode()
 
+
+CONTEXT=r'''/* Numeric firmware discovery context only, not an invented IF event. */
+static void brcmf_g965n_p2p_context(struct brcmf_if *ifp)
+{
+	u32 bss = 0;
+	int ret = brcmf_fil_iovar_int_get(ifp, "p2p_dev", &bss);
+
+	if (net_ratelimit())
+		wiphy_info(ifp->drvr->wiphy,
+			   "g965n_p2p_context ret=%d bss=%u\n", ret, ret ? 0 : bss);
+}
+
+'''
+
+def context_transform(data):
+    text=replace_once(data.decode(),'static int brcmf_p2p_set_firmware(',CONTEXT+'static int brcmf_p2p_set_firmware(')
+    start=text.index('static struct wireless_dev *brcmf_p2p_create_p2pdev(')
+    end=text.index('static int brcmf_p2p_get_conn_idx(',start)
+    body=replace_once(text[start:end],'\tif (!err) {\n\t\tbphy_err(drvr, "timeout occurred\\n");',
+        '\tif (!err) {\n\t\tif (brcmf_g965n_checked_p2p(pri_ifp))\n\t\t\tbrcmf_g965n_p2p_context(pri_ifp);\n\t\tbphy_err(drvr, "timeout occurred\\n");')
+    return (text[:start]+body+text[end:]).encode()
+
 def transform(data):
     import re
     text=data.decode()
@@ -108,12 +131,13 @@ def transform(data):
     text=replace_once(text,'\tbrcmf_p2p_set_firmware(pri_ifp, p2p->dev_addr);\n',
         '\terr = brcmf_p2p_set_firmware(pri_ifp, p2p->dev_addr);\n'
         '\tif (err < 0 && brcmf_g965n_checked_p2p(pri_ifp))\n\t\tgoto fail;\n')
-    return observe_transform(text.encode())
+    return context_transform(observe_transform(text.encode()))
 
 def apply(root):
     p=Path(root)/REL;data=p.read_bytes();sha=hashlib.sha256(data).hexdigest()
     if sha==PATCHED:return
-    if sha==PREVIOUS:new=observe_transform(data)
+    if sha==MASK_VERSION:new=context_transform(data)
+    elif sha==PREVIOUS:new=context_transform(observe_transform(data))
     elif sha==ORIGINAL:new=transform(data)
     else:raise ValueError('Unreviewed P2P source; no change')
     if hashlib.sha256(new).hexdigest()!=PATCHED:raise ValueError('P2P transform identity differs')

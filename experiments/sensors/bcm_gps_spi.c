@@ -1458,6 +1458,7 @@ void bcm4773_debug_info(void)
 
 static const struct spi_device_id bcm_spi_id[] = {
 	{"ssp-spi", 0},
+	{"BCM4773", 0},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, bcm_spi_id);
