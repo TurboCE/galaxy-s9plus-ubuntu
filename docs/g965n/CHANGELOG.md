@@ -3477,3 +3477,22 @@ IRQ+223, new IPC retries0, pointer stalls/backsteps0; aggregate RMS1771.99/
 peak15453 are not speech/acoustic-quality proof. Historical startup errors
 remain visible. This qualifies present basic flows only; startup race/firmware
 message handling remains open.
+
+Native41 audio investigation confirms stored ALSA state includes DSM Read=0.
+An isolated private state containing only that control, restored with init/UCM
+fallback disabled, emits one real ELEM_WRITE ioctl; original mixer state file
+unchanged. It does not yield a DSM reply or a new timeout in that settled
+trial, so both startup errors are not yet causally proved to come from it.
+ALSA-utils1.2.9 state.c restores writable controls even when their current
+value is unchanged; diagnostic command persistence is nevertheless a real
+interface defect.
+
+Prepared driver correction: retain legacy DSM Read name/control position/
+range/getter as read-only so existing saved state skips it without renumbering
+other controls or editing user settings. Explicit reads move to root-write-only
+dsm_read_cmd; same four-parameter request, bounded entire range, serialized
+with stream_lock and rejected while DSP unavailable/suspending/faulted.
+Existing timeout/retry/error behavior unchanged; failure logs add length and
+a fixed alsactl-caller boolean, never payload/calibration data. Actual extracted
+C tests pass bounds, no replay put callback, DSP guards, mutex/errno paths.
+Preparing42 build; native before/after restore and boot/flow checks pending.

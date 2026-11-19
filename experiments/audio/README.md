@@ -69,3 +69,18 @@ intelligibility/no-crackling check. Long concurrent use still needs testing.
 private runtime storage and replays original and normalized versions. Keep
 recordings out of Git, obtain actual spoken-word feedback, and delete the
 private files after the comparison. A nonzero signal is not a speech pass.
+
+## Diagnostic requests are not mixer state
+
+The legacy `DSM Read` ALSA control is now read-only for saved-state compatibility.
+It retains its control position and range, so older `asound.state` files can
+restore ordinary controls without reissuing a DSP request. Explicit diagnostic
+reads use the root-only `dsm_read_cmd` module parameter; the four returned
+parameters remain available via `dsm_rx`. Indices0..366 keep the whole request
+inside the two185-parameter blocks. The command rejects a stopped/suspended/
+faulted DSP and holds the stream lock; it does not change speaker calibration.
+This source correction does not itself prove startup stability or sound quality.
+
+The restore behavior was checked against the installed ALSA-utils1.2.9 and its
+[upstream state handling](https://github.com/alsa-project/alsa-utils/blob/v1.2.9/alsactl/state.c).
+Do not make diagnostic commands writable persistent mixer settings again.

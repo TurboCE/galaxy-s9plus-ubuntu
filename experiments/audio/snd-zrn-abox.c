@@ -36,6 +36,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/gpio/machine.h>
 #include <linux/i2c.h>
+#include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/irqdomain.h>
@@ -437,7 +438,9 @@ static int ipc_send(const u32 *words, int n)
 	}
 	if (ret) {
 		WRITE_ONCE(dsp_fault, true);
-		pr_err("snd-zrn-abox: the DSP did not take message %u/%u\n", words[0], words[2]);
+		pr_err("snd-zrn-abox: the DSP did not take message %u/%u (words %d, alsactl %u)\n",
+			words[0], words[2], n,
+			(unsigned int)!strcmp(current->comm, "alsactl"));
 	}
 	return ret;
 }
@@ -2719,8 +2722,10 @@ static const struct snd_kcontrol_new dsm_control = {
 	.info = dsm_info, .get = dsm_get, .put = dsm_put,
 };
 
-/* "DSM Read": a parameter index to ask the DSP for (18: the speakers' live
- * resistance); the answer lands in the parameter dsm_rx and the log */
+/* Keep the legacy control number/name read-only so an old asound.state can
+ * still be restored without replaying this command. A diagnostic request is
+ * not persistent mixer state; use the explicit root-only parameter below.
+ */
 static int dsmr_info(struct snd_kcontrol *k, struct snd_ctl_elem_info *info)
 {
 	info->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
@@ -2736,16 +2741,37 @@ static int dsmr_get(struct snd_kcontrol *k, struct snd_ctl_elem_value *v)
 	return 0;
 }
 
-static int dsmr_put(struct snd_kcontrol *k, struct snd_ctl_elem_value *v)
+static int dsm_read_cmd_set(const char *value, const struct kernel_param *kp)
 {
-	return dsm_read(v->value.integer.value[0], 4) ? -EIO : 1;
+	unsigned int offset;
+	int ret;
+
+	ret = kstrtouint(value, 0, &offset);
+	if (ret)
+		return ret;
+	/* The command reads four parameters, not just the selected first one. */
+	if (offset > 2 * DSM_PARAMS - 4)
+		return -EINVAL;
+	mutex_lock(&stream_lock);
+	if (!booted || suspending || READ_ONCE(dsp_fault))
+		ret = -EIO;
+	else
+		ret = dsm_read(offset, 4);
+	mutex_unlock(&stream_lock);
+	return ret;
 }
+
+static const struct kernel_param_ops dsm_read_cmd_ops = {
+	.set = dsm_read_cmd_set,
+};
+module_param_cb(dsm_read_cmd, &dsm_read_cmd_ops, NULL, 0200);
+MODULE_PARM_DESC(dsm_read_cmd, "explicit DSM parameter read index (four values), result in dsm_rx");
 
 static const struct snd_kcontrol_new dsmr_control = {
 	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 	.name = "DSM Read",
-	.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
-	.info = dsmr_info, .get = dsmr_get, .put = dsmr_put,
+	.access = SNDRV_CTL_ELEM_ACCESS_READ,
+	.info = dsmr_info, .get = dsmr_get,
 };
 
 static const struct snd_kcontrol_new call_control = {
