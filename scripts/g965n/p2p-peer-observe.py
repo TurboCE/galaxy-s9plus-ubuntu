@@ -37,7 +37,6 @@ def main():
     if guard.PARAM.read_text().strip()!='Y':raise ValueError('Persistent control path must already be enabled')
     guard.protected_parent(args.log)
     if stat.S_IMODE(args.log.parent.stat().st_mode)!=0o700:raise ValueError('Log directory must be private0700')
-    fd=os.open(args.log,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
     from gi.repository import Gio,GLib
     bus=Gio.bus_get_sync(Gio.BusType.SYSTEM,None)
     dest='org.freedesktop.NetworkManager';iface=dest+'.Device.WifiP2P'
@@ -47,7 +46,8 @@ def main():
         return bus.call_sync(dest,path,interface,method,parameters,None,Gio.DBusCallFlags.NONE,5000,None)
     def peers():
         return call(path,'org.freedesktop.DBus.Properties','Get',GLib.Variant('(ss)',(iface,'Peers'))).unpack()[0]
-    baseline=set(peers());seen={};started=False;error=None
+    baseline=set(peers());seen={};started=False;error=None;stop_failure=None
+    fd=os.open(args.log,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
     try:
         call(path,iface,'StartFind',GLib.Variant('(a{sv})',({'timeout':GLib.Variant('i',args.duration)},)))
         started=True;deadline=time.monotonic()+args.duration
@@ -61,11 +61,16 @@ def main():
     finally:
         if started:
             try:call(path,iface,'StopFind')
-            except Exception as exc:error=error or type(exc).__name__
+            except Exception as exc:
+                if error is None:
+                    error=type(exc).__name__
+                    stop_failure=exc
         with os.fdopen(fd,'w') as stream:json.dump({'peers':seen,'baseline':list(baseline),'error':error},stream,default=str)
         new=[v for k,v in seen.items() if k not in baseline]
         fold=any(re.search(r'(fold\s*7|폴드\s*7)',str(v.get('Name',v.get('DeviceName',''))),re.I) for v in new)
         print(json.dumps({'peer_count':len(seen),'new_peer_count':len(new),'fold7_name_match':fold,'error':error}),flush=True)
+        if stop_failure is not None:
+            raise stop_failure
 
 
 if __name__=='__main__':main()

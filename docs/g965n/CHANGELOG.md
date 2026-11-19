@@ -5640,3 +5640,19 @@ retained the boot header. The journal had started later. The QoS
 messages describe an implementation gap: the only registered devfreq
 device on this build is the GPU, and no CP frequency-vote activity
 was logged during the observed no-SIM boot.
+
+### 2026-11-20 — Report Wi-Fi Direct observer cleanup failures
+
+The bounded discovery observer used to write a cleanup error into its
+receipt while returning a successful process status. A failed StopFind
+now propagates after the private receipt and public count summary are
+written. An earlier scan failure remains the primary error if cleanup
+also fails. The receipt file opens after read-only device discovery
+and before starting a scan.
+
+The host regression injects an error from StopFind and checks both
+the receipt and process failure path. On verified native #44, the
+updated CLI completed a six-second scan and stopped cleanly. The P2P
+device was disconnected after the trial and station-bound HTTPS204
+passed. One peer was seen without a verified Fold7 match. Pairing and
+payload transfer remain pending on this build.
