@@ -777,6 +777,12 @@ ssize_t bbd_patch_read(struct file *filp, char __user *buf, size_t size, loff_t 
 	if (copy_to_user(buf, bbd_patch + offset, rd_size))
 		return -EFAULT;
 	*ppos += rd_size;
+	if (rd_size && bcm_ssi_ack_diagnostics_enabled()) {
+		if (!offset)
+			pr_info_ratelimited("[SSPBBD]: patch file first read\n");
+		if (*ppos == hub_patch->size)
+			pr_info_ratelimited("[SSPBBD]: patch file final data read\n");
+	}
 	return rd_size;
 }
 

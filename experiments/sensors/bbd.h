@@ -145,5 +145,6 @@ extern ssize_t	bbd_pull_packet(unsigned char *buf, size_t size, unsigned int tim
 extern int	bbd_mcu_reset(bool IsNoResp);
 extern void bbd_transport_fault(void);
 extern bool bcm_ssi_tx_faulted(void);
+bool bcm_ssi_ack_diagnostics_enabled(void);
 extern int	bbd_init(struct device *dev);
 #endif /* __BBD_H__ */

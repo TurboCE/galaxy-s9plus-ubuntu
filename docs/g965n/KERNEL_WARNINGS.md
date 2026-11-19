@@ -70,6 +70,12 @@ an accepted 14-byte transaction. The longer host-side SPI call
 still needed one retry. This interval did not resolve the observed
 failure.
 
+In the firmware phase trial the zero ACK occurred 65.696 ms after
+the loader's final firmware file read. All received SPI bytes
+were zero, rather than just the status and ACK fields. The next
+attempt accepted the complete write. The final file read does
+not establish when the hub received its last firmware bytes.
+
 A later native44 startup profile explicitly selects one standby
 attempt. The driver still records a high MCU_RESP as an unconfirmed
 reset. The sensor service continues to require the pinned hub

@@ -25,6 +25,7 @@
 #include <linux/poll.h>
 #include <linux/uaccess.h>
 #include <linux/kernel.h>
+#include <linux/string.h>
 //#include <plat/gpio-cfg.h>
 #include <linux/miscdevice.h>
 #include <linux/time.h>
@@ -47,6 +48,11 @@ module_param_named(tx_ack_fault, ssi_tx_fault, bool, 0444);
 bool bcm_ssi_tx_faulted(void)
 {
 	return READ_ONCE(ssi_tx_fault);
+}
+
+bool bcm_ssi_ack_diagnostics_enabled(void)
+{
+	return tx_ack_diagnostics;
 }
 
 
@@ -715,9 +721,12 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledge
 	Mwrite = bytes_to_write;
 
 	do {
+		unsigned int transfer_length;
+
 		tx->cmd = strm->ctrl_byte;  // SSI_WRITE_HD etc.
 
 		bytes_to_write = max(Mwrite,Nread);
+		transfer_length = bytes_to_write + strm->ctrl_len;
 
 		// -- if ( (strm->ctrl_byte & SSI_FLOW_CONTROL_ENABLED) || (strm->ctrl_byte & SSI_MODE_FULL_DUPLEX)  )
 		if ( strm->pckt_len !=0 ) {
@@ -733,7 +742,7 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledge
 			mcu_resp_before = gpio_get_value(priv->mcu_resp);
 			transfer_start_ns = ktime_get_ns();
 		}
-		ret = bcm_spi_sync(priv, tx, rx, bytes_to_write + strm->ctrl_len, bits_per_word);  // ctrl_len is for tx len + fc
+		ret = bcm_spi_sync(priv, tx, rx, transfer_length, bits_per_word);
 		if (tx_ack_diagnostics)
 			transfer_end_ns = ktime_get_ns();
 
@@ -793,17 +802,18 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledge
 					transfer_start_ns - priv->tx_last_complete_ns : 0;
 				int host_req_after = gpio_get_value(priv->host_req);
 				int mcu_resp_after = gpio_get_value(priv->mcu_resp);
+				bool all_zero = !memchr_inv(rx, 0, transfer_length);
 
 				pr_info_ratelimited("[SSPBBD]: short-ack tx=%u attempt=%d request=%u ack=%u stat=%02x credit=%lu prior-credit=%lu mcu-ready=%d\n",
 						tx_sequence, ssi_fc - retry_ctr + 1,
 						Mwrite, Bwritten, rx->status, block * count,
 							g_rx_buffer_avail_bytes, mcu_resp_after);
-				pr_info_ratelimited("[SSPBBD]: short-ack timing tx=%u attempt=%d spi-ns=%llu prior-len=%u gap-ns=%llu host-req=%d/%d mcu-ready=%d/%d\n",
+				pr_info_ratelimited("[SSPBBD]: short-ack timing tx=%u attempt=%d spi-ns=%llu prior-len=%u gap-ns=%llu host-req=%d/%d mcu-ready=%d/%d all-zero=%u\n",
 							tx_sequence, ssi_fc - retry_ctr + 1,
 							transfer_end_ns - transfer_start_ns,
 							priv->tx_last_complete_len, gap_ns,
 							host_req_before, host_req_after,
-							mcu_resp_before, mcu_resp_after);
+							mcu_resp_before, mcu_resp_after, all_zero);
 			}
 
 			if ( g_bcm_debug_fc || Mwrite != Bwritten ) {

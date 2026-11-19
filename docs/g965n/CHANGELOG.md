@@ -5211,3 +5211,25 @@ Restored the saved module and diagnostic-off profile on a second
 warm boot. Verified the original build ID and absence of the trial
 setting. One zero ACK still recovered; firmware startup, six IIO
 devices, Wi-Fi HTTPS204 and no-SIM cleanup passed again.
+
+### 2026-11-20 — Correlate sensor firmware reads and the zero ACK
+
+Extended the existing opt-in diagnostics to mark successful reads
+at the beginning and end of the firmware file. The short-ACK log
+also reports whether all received SPI bytes were zero, checking
+only the length actually transferred. The new messages contain
+no firmware bytes or packet payloads.
+
+Checked model, BOOT and backups, preserved the previous sensor
+profile and booted the exact instrumented #44 module. The first
+36-byte attempt occurred 65.696 ms after the final firmware file
+read and returned an all-zero SPI response. The second attempt
+accepted all 36 bytes, and patch completion followed. All six IIO
+devices returned 80 reads each, Wi-Fi HTTPS204 and no-SIM cleanup
+passed, and no units failed. The file-read milestone measures the
+loader's read from Linux, allowing later buffered transmission
+to remain possible.
+
+On a second warm boot, the same module with diagnostics off emitted
+neither file milestone. One zero ACK recovered again. Sensors, Wi-Fi
+HTTPS204 and no-SIM cleanup passed.
