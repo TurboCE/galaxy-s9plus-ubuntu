@@ -4275,3 +4275,37 @@ A distinct normal cleanup boot restored the modem-off state, Wi-Fi default,
 and all three driver services. Accelerometer and illuminance were readable,
 with zero failed units, zero error-priority lines, 63 warnings and zero SSP
 zero-ACK retries on that boot.
+
+### 2026-11-20 — Route and resolver ownership tied to the live LTE context
+
+The bounded isolated RIL can publish an expiring IPv4 lease in /run for
+its exact systemd invocation. Route ownership stays in a separate process
+so route and resolver commands do not delay RFS. The owner installs its
+metric 20000 default only with a fresh qualified lease. It chooses the modem
+DNS only when the modem is the preferred IPv4 default and withdraws its
+route when the lease is invalidated, expires, or the RIL exits.
+
+First device trial stopped before route or Wi-Fi changes. An IPv4-filtered
+address query returned no records for the empty modem interface and the
+preflight wrongly indexed that result. The corrected test uses the
+family-neutral link address view, and accepts only an empty address list.
+A read/write clock-race tolerance was also added for atomically renewed
+leases. Unit coverage checks missing, expired and invalid leases.
+
+Native44 then passed ordinary unbound nonroot HTTPS204 on preferred Wi-Fi,
+on LTE after test-controlled Wi-Fi disconnect, and again on restored Wi-Fi.
+An uncached system lookup selected rmnet0 during LTE. The route owner
+enabled and reverted LTE DNS in response to the default route, rather than
+the harness configuring DNS. A controlled PDP cycle removed generation 1
+and installed generation 2 in the same RIL session. Both route teardowns
+reported success. Sensor invocation and feeds stayed available. The RIL
+and route worker stopped and left only the Wi-Fi default, no modem lease
+and no active modem mount tree before the guarded cleanup reboot.
+This remains a bounded opt-in test with normal service teardown. It does
+not qualify an abrupt route-worker kill, autonomous radio reconnect or an
+installed boot-time LTE service.
+
+The distinct cleanup boot returned to modem off with the Wi-Fi default, all
+three driver services active, readable accel and ALS, and no failed units.
+The ring had 63 warnings and two error-priority SSP zero-ACK retry lines.
+These intermittent startup retries remain open.

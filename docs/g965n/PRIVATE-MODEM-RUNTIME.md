@@ -621,3 +621,21 @@ checks an uncached system query plus a nonroot curl request without interface
 binding. The native44 result was Wi-Fi → LTE → Wi-Fi, with verified
 HTTPS204 and no modem interface errors. This manual trial does not install
 a network manager or an automatic connection service.
+
+
+### Lease-driven IPv4 route owner
+
+The guarded isolated held trial supports `--export-ipv4-lease`. Its RIL
+publishes the currently qualified IPv4 parameters on tmpfs with a short
+expiry, and withdraws the lease before releasing or stopping a context.
+A separate root process running `lte-route-owner.py --invocation ID
+--confirm-guarded-g965n-route` checks the exact live lab invocation and
+owns the standby default on rmnet0. Launch it after, and bind its lifetime
+to, the RIL unit. System resolver changes follow selection of the LTE
+default. This keeps packet-path setup outside the RFS event loop. Do not
+run the temporary network probes concurrently with the owner.
+
+Native44 verified default failover and DNS withdrawal, independent sensor
+operation, and route replacement and cleanup across a commanded PDP
+cycle. The bounded process does not install a boot unit. Abrupt worker
+termination, persistent operation and unattended radio loss are open.

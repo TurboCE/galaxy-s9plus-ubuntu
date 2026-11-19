@@ -82,6 +82,7 @@ def main():
     parser.add_argument('--pdp-cid', type=int, choices=(1,), default=1)
     parser.add_argument('--pdp-seconds', type=int, choices=range(10,61), default=30)
     parser.add_argument('--hold-qualified-pdp', action='store_true')
+    parser.add_argument('--export-ipv4-lease', action='store_true')
     parser.add_argument('--cycle-qualified-pdp', action='store_true',
                         help='Allow a one-shot reconnect requested by a private lab marker')
     parser.add_argument('--attach-online', action='store_true',
@@ -101,6 +102,9 @@ def main():
                         help='One stock-layout Samsung network scan; same observe-only guards')
     args = parser.parse_args()
     hold = getattr(args, 'hold_qualified_pdp', False)
+    export_lease = getattr(args, 'export_ipv4_lease', False)
+    if export_lease and (not hold or not args.isolated_modem_runtime):
+        parser.error('IPv4 lease requires an isolated held PDP trial')
     cycle = getattr(args, 'cycle_qualified_pdp', False)
     if cycle and (not hold or not args.isolated_modem_runtime):
         parser.error('PDP cycle requires a held cold trial in an isolated modem runtime')
@@ -158,6 +162,8 @@ def main():
                         '--pdp-cid', str(args.pdp_cid), '--pdp-seconds', str(args.pdp_seconds)]
             if hold:
                 command.append('--hold-qualified-pdp')
+            if export_lease:
+                command.append('--export-ipv4-lease')
             if cycle:
                 command += ['--pdp-cycle-request', str(args.lab_directory.resolve() / 'cycle-requested')]
         if getattr(args, 'attach_online', False):

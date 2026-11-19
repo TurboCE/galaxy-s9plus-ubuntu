@@ -21,6 +21,7 @@ from pathlib import Path
 import re
 import select
 import struct
+import tempfile
 import time
 from collections import deque
 
@@ -40,6 +41,38 @@ def notify_channels_ready():
         message = b'READY=1\nSTATUS=Private IPC/RFS channels ready'
         if notifier.send(message) != len(message):
             raise RuntimeError('Short readiness notification')
+
+
+class IPv4LeasePublisher:
+    """Export only the current qualified data context with a short expiry."""
+    def __init__(self, invocation):
+        if not re.fullmatch(r'[a-f0-9]{32}', invocation):
+            raise RuntimeError('Expected a systemd RIL invocation ID')
+        self.path = Path('/run') / ('g965n-lte-' + invocation + '.json')
+        if self.path.exists() or self.path.is_symlink():
+            raise RuntimeError('LTE invocation lease already exists')
+        self.last = None
+        self.next_write = 0
+
+    def publish(self, generation, config, now):
+        payload = (generation, config)
+        if payload == self.last and now < self.next_write:
+            return
+        record = {'generation': generation, 'valid_until': now + 5, 'config': config}
+        with tempfile.NamedTemporaryFile(mode='w', dir='/run', delete=False) as stream:
+            temporary = Path(stream.name)
+            try:
+                json.dump(record, stream)
+                stream.flush()
+                temporary.replace(self.path)
+            finally:
+                temporary.unlink(missing_ok=True)
+        self.last, self.next_write = payload, now + 1
+
+    def withdraw(self):
+        if self.last is not None:
+            self.path.unlink(missing_ok=True)
+            self.last = None
 
 
 # Protocol facts only: LineageOS/android_external_libsamsung-ipc,
@@ -631,11 +664,13 @@ class S9PDPPlan:
         if self.state != 'candidate-ip' or self.report_emitted:
             return None
         self.report_emitted = True
-        config = self.configuration
-        return {'pdp_candidate': {'cid': self.cid, 'ipv4': config['ipv4'],
-                                  'dns4': list(config['dns4']), 'gateway': config['gateway'],
-                                  'prefix4': config['prefix4'], 'mtu': config['mtu']},
+        return {'pdp_candidate': self.route_config(),
                 'internet_verified': False, 'private_journal_only': True}
+
+    def route_config(self):
+        config = self.configuration
+        return {'cid': self.cid, 'ipv4': config['ipv4'], 'dns4': list(config['dns4']),
+                'gateway': config['gateway'], 'prefix4': config['prefix4'], 'mtu': config['mtu']}
 
     def cp_reset(self):
         self.activation_issued = False  # never send stale cleanup to a new CP
@@ -750,6 +785,7 @@ def main():
     parser.add_argument('--pdp-seconds', type=int, choices=range(10,61), default=30)
     parser.add_argument('--hold-qualified-pdp', action='store_true',
                         help='Hold an already-qualified context until this bounded cold trial ends')
+    parser.add_argument('--export-ipv4-lease', action='store_true')
     parser.add_argument('--pdp-cycle-request', type=Path,
                         help='Explicit one-shot release and reactivation request in a private lab')
     parser.add_argument('--attach-online', action='store_true')
@@ -781,6 +817,9 @@ def main():
         parser.error('Held PDP requires a bounded cold PDP trial with radio cleanup')
     if args.pdp_cycle_request and (not args.hold_qualified_pdp or not args.isolated_modem_runtime):
         parser.error('PDP cycle requires a held cold trial in an isolated modem runtime')
+    if args.export_ipv4_lease and (not args.hold_qualified_pdp or not args.isolated_modem_runtime
+                                   or not args.notify_ready):
+        parser.error('IPv4 lease requires an isolated, held systemd trial')
     if b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):
         raise SystemExit('Expected star2lte')
     os.umask(0o077)
@@ -795,6 +834,9 @@ def main():
             runtime.select_modem_runtime()
         stack.enter_context(runtime.shared_runtime_lock())
         runtime.validate_launch_state(args.expected_receipt_sha256)
+        lease = IPv4LeasePublisher(os.environ.get('INVOCATION_ID', '')) if args.export_ipv4_lease else None
+        if lease:
+            stack.callback(lease.withdraw)
         if args.pdp_cycle_request:
             runtime.safe_components(args.pdp_cycle_request.parent)
             if args.pdp_cycle_request.exists() or args.pdp_cycle_request.is_symlink():
@@ -918,6 +960,8 @@ def main():
             stack.callback(signal.signal, number, previous)
 
         def quiesce_radio():
+            if lease:
+                lease.withdraw()
             if not radio_asked:
                 print(json.dumps({'radio_lpm_skipped': 'radio-not-requested'}), flush=True)
                 return
@@ -980,6 +1024,8 @@ def main():
                     pdp_plan.observe_link(now, registered=registered, registration_at=registration_at,
                                           sim_ready=sim_ready, at_ready=at_ready and not at_failed)
                 if pdp_plan.state == 'failed':
+                    if lease:
+                        lease.withdraw()
                     cleanup_pdp()
                 if pdp_previous_state != pdp_plan.state:
                     pdp_previous_state = pdp_plan.state
@@ -996,10 +1042,14 @@ def main():
                     cycle_used = True
                     request = pdp_plan.cleanup()
                     pdp_plan.fail('operator-requested-cycle')
+                    if lease:
+                        lease.withdraw()
                     print(json.dumps({'pdp_cleanup': 'cycle-release-requested'}), flush=True)
                     cycle_observer = PDPReleaseObservation(pdp_plan.cid)
                     cycle_deadline = time.monotonic() + 3
                     send(*request)
+                if lease and pdp_plan.state == 'candidate-ip':
+                    lease.publish(pdp_generation, pdp_plan.route_config(), now)
             if args.configure_radio and not configured and saw_boot and sim_ready:
                 send(0x0D14, s9_lte_attach_profile(args.apn))
                 send(0x080A, b'\x0b')  # LTE/WCDMA/GSM
