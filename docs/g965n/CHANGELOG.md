@@ -1818,11 +1818,6 @@ reported without an automatic retry loop.21 host tests pass; the new sequence
 still needs its own natural-timer hardware trial. This restarts all user-manager
 services; it is not a promise to preserve their background work.
 
-The user document portal also fails because /dev/fuse is unavailable. Both
-private and restored stock sessions show it. Native#21 config has FUSE_FS=m
-and exactly matches the cached21 configuration byte-for-byte; the module is
-not supplied by the current image workflow. A source-only compatibility-addon
-recipe is being prepared; no FUSE module has been loaded yet.
 
 ## 2026-11-19 — Clean-session automatic rollback verified; fix app environment priority
 
@@ -1843,9 +1838,14 @@ environment must match the whole intended whitelist exactly, including missing
 versus empty. Rollback also checks the final effective manager environment.
 25 host tests pass. This latest priority fix still needs its own device trial.
 
-Prepared the exact#21 FUSE compatibility recipe with six host tests. Initial
-read-only inspection stopped at a nonexistent legacy include/linux/fuse.h;
-the pinned source uses include/uapi/linux/fuse.h and fs/fuse's own headers.
-Corrected that input list while retaining a clean check across all tracked
-common/ARM64 headers. Actual read-only inspection then verified native config,
-compiler, source,21 vmlinux and both symbol tables. No module build/load yet.
+
+## 2026-11-19 — Defer document portal work to a separate WIP branch
+
+At the owner's request, removed the document-portal/FUSE compatibility recipe
+from this driver/system branch and moved its source and dedicated verification
+notes to codex/g965n-document-portal-wip. The host-only exact-kernel module build
+completed, but no module was loaded or installed on the handset. No kernel
+configuration, startup service or portal setting was changed. Earlier portal
+observations inside GPU session logs remain historical context, not an active
+repair task. Further work here focuses on drivers and basic hardware/system
+functions. The working tree is kept clean after the split.
