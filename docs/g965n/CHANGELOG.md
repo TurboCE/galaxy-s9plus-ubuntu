@@ -1878,3 +1878,71 @@ whitelisted apply observation privately before rollback, separately from the
 rollback observation; 26 host regressions pass. No further desktop trial or
 persistent private-Mesa acceptance is claimed. Individual trials are deferred
 under the owner's latest instruction.
+
+
+## 2026-11-19 — Kernel #22 build and guarded boot-log comparison preparation
+
+Full kernel plus audio/Bluetooth/sensors/modem package built from96ed0a3.
+Final config retains INITRAMFS_FORCE=y and the exact embedded init source.
+The package is pinned to #22; private audio/Bluetooth startup was staged for
+that exact BOOT without loading any module. Modem/sensor services remain off.
+Preserved private pre-update kernel/system warning logs, then requested TWRP
+for a fresh nine-partition backup and guarded BOOT-only update. At this
+checkpoint no new BOOT has been written. Build warnings from inherited sensor
+and modem compatibility code remain; compilation is not runtime qualification.
+
+
+Boot-warning source triage: UFS's absent vdd-hba/vccq/vccq2 and optional
+vcc-max-microamp use documented always-on/default handling; the owner's
+stock rev26 DT also lacks them. No invented rails/current limits were added.
+Bluetooth's Read Transmit Power message is the existing board-scoped broken
+command quirk explanation; core skips the unsupported LE query. Removing that
+quirk would remove protection, so it remains. Neither result qualifies full
+UFS/Bluetooth operation or tests unsupported firmware commands.
+
+
+Kernel #22 hardware result: fresh complete nine-partition backup and guarded
+model/identity checks passed. BOOT alone was written and byte/hash readback
+matched before reboot; RECOVERY/EFS/CPEFS/RADIO were not written. Native #22
+booted, fresh USB SSH and actual BOOT receipt verified, zero failed system
+units; exact audio/Bluetooth startup services active. This is startup evidence,
+not renewed acoustic/profile qualification. No initramfs unpack failure remains
+in the new boot log. No panic/Oops/SError/GPU scheduler timeout was found; an
+initial broad SError search matched the word ramoops, so it was inspected and
+not counted as a fault.
+
+Pinctrl IRQ, CLKOUT, MFD and Wi-Fi errors remain. New bounded Wi-Fi diagnostic
+records cmd55/ifidx0/fwerr-3 for roam-trigger failure; the old errno-52 alone
+could not establish its firmware cause. P2P creation still times out. No modem
+bring-up or individual peripheral trial was run. Private before/after logs
+remain on-device outside Git.
+
+
+CPU/cache source audit: cache hierarchy attributes and next-level-cache links
+are absent in both current and owner-stock DT. ARM64 CLIDR enumeration alone
+does not recover size/sharing. Treating the OF failure as success would expose
+unverified fallback sharing (all levels above L1), so no warning-only bypass
+was applied. A55/M3 SANITY differences are real ID fields; the pinned feature
+code computes lower-safe common values before reporting strict mismatches.
+System HWCAP/LSE selection uses sanitized values and mismatched CTR has its
+existing trap/emulation path. No overexposure defect was found in this audit;
+this is not complete heterogeneous-CPU qualification. Do not weaken strict
+masks, forge compatible strings or invent cache topology to clear warnings.
+
+
+## 2026-11-19 — Correct Exynos9810 pinctrl interrupt topology
+
+Boot-log root cause: ALIVE/CMGP contain wakeup/non-interrupt banks, but their
+controller data invokes the separate generic GPIO-group initializer without
+an aggregate IRQ. Remove only those two inapplicable callbacks; retain every
+bank, wakeup handler and suspend/resume hook. Separately, mainline gpa4's two
+individual parent IRQs are missing. Pinned Lineage rev26 maps pin0/1 to SPI446/447;
+restore those exact parents using the existing mainline wakeup-bank convention.
+This restores interrupt topology rather than changing diagnostics or removing
+devices. Source/patch hashes are pinned, drift rejected and reapplication exact.
+Three actual-data host tests with ASan/UBSan pass; build integration added.
+Not part of #22 and no native correction claimed until the next boot.
+
+MAX77705 topology audit is documented separately: a phantom platform charger
+cell differs from the working sibling I2C driver; RGB/haptic require real board
+connections. No empty child nodes or invented motor supplies were added.

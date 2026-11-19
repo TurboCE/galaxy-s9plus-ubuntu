@@ -1,0 +1,18 @@
+--- a/drivers/pinctrl/samsung/pinctrl-exynos-arm64.c
++++ b/drivers/pinctrl/samsung/pinctrl-exynos-arm64.c
+@@ -1175,7 +1175,6 @@
+ 		.pin_banks      = exynos9810_pin_banks0,
+ 		.nr_banks       = ARRAY_SIZE(exynos9810_pin_banks0),
+ 		.eint_wkup_init = exynos_eint_wkup_init,
+-		.eint_gpio_init = exynos_eint_gpio_init,
+ 		.suspend        = exynos_pinctrl_suspend,
+ 		.resume         = exynos_pinctrl_resume,
+ 	}, {
+@@ -1194,7 +1193,6 @@
+ 		.pin_banks      = exynos9810_pin_banks3,
+ 		.nr_banks       = ARRAY_SIZE(exynos9810_pin_banks3),
+ 		.eint_wkup_init = exynos_eint_wkup_init,
+-		.eint_gpio_init = exynos_eint_gpio_init,
+ 		.suspend        = exynos_pinctrl_suspend,
+ 		.resume         = exynos_pinctrl_resume,
+ 	}, {

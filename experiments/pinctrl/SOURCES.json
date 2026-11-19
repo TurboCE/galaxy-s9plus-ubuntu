@@ -1,0 +1,20 @@
+{
+  "upstream_commit": "8cd9520d35a6c38db6567e97dd93b1f11f185dc6",
+  "lineage_commit": "6a9461f9460ca51d1217e5069a5d5556fcc79e63",
+  "files": [
+    {
+      "path": "drivers/pinctrl/samsung/pinctrl-exynos-arm64.c",
+      "patch": "0001-exynos9810-wakeup-only-controller-init.patch",
+      "before_sha256": "12be10e970931ac04ba3a099d93475decd09ca4861034ea7a50393f545763a4c",
+      "after_sha256": "866b1d0e1e8306f70d92686968238c9b08a90239c6ec5af51e2ca952d74aff11",
+      "patch_sha256": "127408411b501ffbf7ca795c28c9f29180eadca64feb1ff02c1c022c3bf55626"
+    },
+    {
+      "path": "arch/arm64/boot/dts/exynos/exynos9810-pinctrl.dtsi",
+      "patch": "0002-exynos9810-gpa4-parent-interrupts.patch",
+      "before_sha256": "836bebcc41af7b34d5cc8ba237e3d17c75287f83fbec18a2710b4b6b4bdd1b5b",
+      "after_sha256": "ceb7ed716d5055ba99c2e5942896a356aff73e77fab6d285a7afadccbec5ce4d",
+      "patch_sha256": "da02e45b26f8a19904bcc141e8aa98358d9838baeaac333fae26c9a0ec3cb890"
+    }
+  ]
+}

@@ -72,3 +72,14 @@ nodes and Wi-Fi warnings remain under source review. The latest desktop
 profile trial failed manager-environment validation and automatically restored
 the stock desktop; the mismatch cause remains unknown. Its new private
 pre-rollback observation passes 26 host tests, with no subsequent native trial.
+
+
+Native #22 follow-up: BOOT-only guarded write/readback and actual boot passed;
+INITRAMFS_FORCE removed the external-placeholder unpack failure. Fresh USB SSH,
+zero failed system units and exact audio/Bluetooth service startup confirmed.
+Pinctrl/CLKOUT/MFD/Wi-Fi errors remain; raw roam firmware status is -3. No new
+functional, modem, suspend or GPU desktop/endurance qualification is implied.
+
+Pinctrl topology candidate: two inapplicable GPIO-group initializers removed
+with all wakeup/bank data retained; gpa4 SPI446/447 restored from pinned stock
+source. Three host sanitizer tests pass. Native boot-log verification pending.

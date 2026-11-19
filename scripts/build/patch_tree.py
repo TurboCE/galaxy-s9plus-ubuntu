@@ -1213,3 +1213,7 @@ subprocess.run([sys.executable, str(Path(__file__).with_name('g965n-wifi-diagnos
 subprocess.run([sys.executable,
                 str(Path(__file__).resolve().parents[2] / 'experiments/pmic/apply.py'),
                 'apply', '--kernel-source', str(src)], check=True)
+
+subprocess.run([sys.executable,
+                str(Path(__file__).resolve().parents[2] / 'experiments/pinctrl/apply.py'),
+                'apply', '--kernel-source', str(src)], check=True)
