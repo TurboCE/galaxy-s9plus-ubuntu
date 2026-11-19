@@ -2054,3 +2054,22 @@ Prepared source-only one-shot Wi-Fi policy observations before existing roaming
 writes. S9+/BCM4361/primary-interface guard; exactly two GET queries; numeric
 results invalidated on failure; existing settings/return paths unchanged. Four
 actual-C/sanitizer regression tests pass. No native policy result claimed yet.
+
+
+## 2026-11-19 — Add guarded Exynos9810 dual CLKOUT provider
+
+Pinned vendor definitions establish two outputs at PMU+A00/A0C,6-bit muxes,
+TCXO slots1/0,active-low gate bit0 and original AUD/NFC consumers. Added a
+9810-only dual provider plus PMU known-TCXO parent description. Unknown mux
+inputs remain orphans, never mislabeled TCXO. Existing single-output paths
+remain byte-identical outside the new branch. No audio/NFC consumer is newly
+connected;9810 CLK_IGNORE_UNUSED prevents unused-clock cleanup from gating
+bootloader outputs. That flag does not prohibit explicit future consumer
+disable or mux changes; their qualification is still required.
+
+Three host actual-C/fake-MMIO sanitizer tests pass, including probe with no
+MMIO writes,6-bit/active-low masks,8 failure unwind stages,two-register
+save/restore and pinned original definition checks. Independent source review
+found no immediate blocker. Those tests do not emulate full CCF/orphan resolution
+or cross-driver PMU concurrency. Integrated exact-hash recipe into build stage;
+no native provider registration/clock operation claimed before the next boot.

@@ -1,0 +1,200 @@
+--- a/drivers/clk/samsung/clk-exynos-clkout.c
++++ b/drivers/clk/samsung/clk-exynos-clkout.c
+@@ -110,6 +110,150 @@
+ 	return 0;
+ }
+ 
++/* BEGIN EXYNOS9810 DUAL CLKOUT
++ * Owner's pinned vendor clockout table: AUD=A00/input1, NFC=A0C/input0.
++ * Only those two TCXO inputs are known; other mux selections stay orphans.
++ */
++#define EXYNOS9810_CLKOUT_COUNT 2
++#define EXYNOS9810_CLKOUT_INPUTS 64
++
++struct exynos9810_clkout {
++	void __iomem *reg;
++	struct device_node *np;
++	spinlock_t lock;
++	struct clk *parents[2];
++	struct clk_gate gates[2];
++	struct clk_mux muxes[2];
++	const char *parent_names[2][EXYNOS9810_CLKOUT_INPUTS];
++	struct clk_hw_onecell_data *data;
++	u32 saved[2];
++};
++
++static const u32 exynos9810_clkout_offsets[] = { 0xa00, 0xa0c };
++static const u8 exynos9810_clkout_tcxo_slots[] = { 1, 0 };
++static const char * const exynos9810_clkout_names[] = {
++	"exynos9810-clkout0", "exynos9810-clkout1",
++};
++
++static bool exynos9810_clkout_device(struct device *dev)
++{
++	return dev->parent && of_device_is_compatible(dev->parent->of_node,
++						    "samsung,exynos9810-pmu");
++}
++
++static int exynos9810_clkout_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct exynos9810_clkout *out;
++	unsigned int i, j, acquired = 0, registered = 0;
++	int ret;
++
++	out = devm_kzalloc(dev, sizeof(*out), GFP_KERNEL);
++	if (!out)
++		return -ENOMEM;
++	out->data = devm_kzalloc(dev, struct_size(out->data, hws,
++					 EXYNOS9810_CLKOUT_COUNT), GFP_KERNEL);
++	if (!out->data)
++		return -ENOMEM;
++	out->np = dev->parent->of_node;
++	spin_lock_init(&out->lock);
++	for (i = 0; i < EXYNOS9810_CLKOUT_COUNT; i++) {
++		out->parents[i] = of_clk_get_by_name(out->np,
++						 i ? "clkout1" : "clkout0");
++		if (IS_ERR(out->parents[i])) {
++			ret = PTR_ERR(out->parents[i]);
++			goto put_parents;
++		}
++		acquired++;
++	}
++	out->reg = of_iomap(out->np, 0);
++	if (!out->reg) {
++		ret = -ENODEV;
++		goto put_parents;
++	}
++	out->data->num = EXYNOS9810_CLKOUT_COUNT;
++	for (i = 0; i < EXYNOS9810_CLKOUT_COUNT; i++) {
++		u8 slot = exynos9810_clkout_tcxo_slots[i];
++
++		for (j = 0; j < EXYNOS9810_CLKOUT_INPUTS; j++)
++			out->parent_names[i][j] = "exynos9810-clkout-unmapped";
++		out->parent_names[i][slot] = __clk_get_name(out->parents[slot]);
++		out->gates[i].reg = out->reg + exynos9810_clkout_offsets[i];
++		out->gates[i].bit_idx = 0;
++		out->gates[i].flags = CLK_GATE_SET_TO_DISABLE;
++		out->gates[i].lock = &out->lock;
++		out->muxes[i].reg = out->gates[i].reg;
++		out->muxes[i].mask = 0x3f;
++		out->muxes[i].shift = 8;
++		out->muxes[i].lock = &out->lock;
++		out->data->hws[i] = clk_hw_register_composite(dev,
++			exynos9810_clkout_names[i], out->parent_names[i],
++			EXYNOS9810_CLKOUT_INPUTS, &out->muxes[i].hw, &clk_mux_ops,
++			NULL, NULL, &out->gates[i].hw, &clk_gate_ops,
++			CLK_SET_RATE_PARENT | CLK_SET_RATE_NO_REPARENT |
++			CLK_IGNORE_UNUSED);
++		if (IS_ERR(out->data->hws[i])) {
++			ret = PTR_ERR(out->data->hws[i]);
++			goto unregister_clocks;
++		}
++		registered++;
++	}
++	ret = of_clk_add_hw_provider(out->np, of_clk_hw_onecell_get, out->data);
++	if (ret)
++		goto unregister_clocks;
++	platform_set_drvdata(pdev, out);
++	return 0;
++
++unregister_clocks:
++	while (registered)
++		clk_hw_unregister_composite(out->data->hws[--registered]);
++	iounmap(out->reg);
++put_parents:
++	while (acquired)
++		clk_put(out->parents[--acquired]);
++	return ret;
++}
++
++static void exynos9810_clkout_remove(struct platform_device *pdev)
++{
++	struct exynos9810_clkout *out = platform_get_drvdata(pdev);
++	unsigned int i;
++
++	of_clk_del_provider(out->np);
++	for (i = EXYNOS9810_CLKOUT_COUNT; i > 0; i--)
++		clk_hw_unregister_composite(out->data->hws[i - 1]);
++	iounmap(out->reg);
++	for (i = EXYNOS9810_CLKOUT_COUNT; i > 0; i--)
++		clk_put(out->parents[i - 1]);
++}
++
++static int exynos9810_clkout_suspend(struct device *dev)
++{
++	struct exynos9810_clkout *out = dev_get_drvdata(dev);
++	unsigned long flags;
++	unsigned int i;
++
++	spin_lock_irqsave(&out->lock, flags);
++	for (i = 0; i < EXYNOS9810_CLKOUT_COUNT; i++)
++		out->saved[i] = readl(out->reg + exynos9810_clkout_offsets[i]);
++	spin_unlock_irqrestore(&out->lock, flags);
++	return 0;
++}
++
++static int exynos9810_clkout_resume(struct device *dev)
++{
++	struct exynos9810_clkout *out = dev_get_drvdata(dev);
++	unsigned long flags;
++	unsigned int i;
++
++	spin_lock_irqsave(&out->lock, flags);
++	for (i = 0; i < EXYNOS9810_CLKOUT_COUNT; i++)
++		writel(out->saved[i], out->reg + exynos9810_clkout_offsets[i]);
++	spin_unlock_irqrestore(&out->lock, flags);
++	return 0;
++}
++/* END EXYNOS9810 DUAL CLKOUT */
++
+ static int exynos_clkout_probe(struct platform_device *pdev)
+ {
+ 	const char *parent_names[EXYNOS_CLKOUT_PARENTS];
+@@ -117,6 +261,9 @@
+ 	struct exynos_clkout *clkout;
+ 	int parent_count, ret, i;
+ 	u32 mux_mask;
++
++	if (exynos9810_clkout_device(&pdev->dev))
++		return exynos9810_clkout_probe(pdev);
+ 
+ 	clkout = devm_kzalloc(&pdev->dev,
+ 			      struct_size(clkout, data.hws, EXYNOS_CLKOUT_NR_CLKS),
+@@ -210,6 +357,12 @@
+ {
+ 	struct exynos_clkout *clkout = platform_get_drvdata(pdev);
+ 
++	if (exynos9810_clkout_device(&pdev->dev)) {
++		exynos9810_clkout_remove(pdev);
++		return;
++	}
++
++
+ 	of_clk_del_provider(clkout->np);
+ 	clk_hw_unregister(clkout->data.hws[0]);
+ 	iounmap(clkout->reg);
+@@ -219,6 +372,11 @@
+ {
+ 	struct exynos_clkout *clkout = dev_get_drvdata(dev);
+ 
++	if (exynos9810_clkout_device(dev)) {
++		return exynos9810_clkout_suspend(dev);
++	}
++
++
+ 	clkout->pmu_debug_save = readl(clkout->reg + EXYNOS_PMU_DEBUG_REG);
+ 
+ 	return 0;
+@@ -227,6 +385,11 @@
+ static int __maybe_unused exynos_clkout_resume(struct device *dev)
+ {
+ 	struct exynos_clkout *clkout = dev_get_drvdata(dev);
++
++	if (exynos9810_clkout_device(dev)) {
++		return exynos9810_clkout_resume(dev);
++	}
++
+ 
+ 	writel(clkout->pmu_debug_save, clkout->reg + EXYNOS_PMU_DEBUG_REG);
+ 

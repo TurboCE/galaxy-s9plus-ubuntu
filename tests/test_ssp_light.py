@@ -450,3 +450,48 @@ class MagneticFuseTests(unittest.TestCase):
                 raise RuntimeError('Invalid sensor reply length for command 0x1')
         with self.assertRaisesRegex(RuntimeError, 'Invalid sensor reply length'):
             ssp.read_magnetic_fuse(Probe(), 1 << 2)
+
+
+class RotationThermalTests(unittest.TestCase):
+    def test_packed_raw_formats_and_multi_record_boundaries(self):
+        p = ssp.Probe.__new__(ssp.Probe)
+        p.formats = dict(ssp.SENSOR_FORMATS)
+        p.samples = {sensor: [] for sensor in p.formats}; p.unparsed = 0
+        cases = {16: (-2147483648, 2, -3, 2147483647, 255),
+                 17: (4, -5, 6, -7, 2), 34: (255, -32768)}
+        data = b''.join(bytes([0x37, sensor]) + struct.pack(p.formats[sensor], *values)
+                        + bytes(range(8)) for sensor, values in cases.items())
+        self.assertTrue(p.records(data))
+        for sensor, values in cases.items():
+            self.assertEqual(p.samples[sensor], [values])
+        self.assertEqual(ssp.SENSOR_GROUPS['thermal'], [34])
+        self.assertEqual(ssp.SENSOR_GROUPS['rotation'], [16,17])
+
+    def test_truncation_does_not_qualify_raw_samples(self):
+        for sensor in (16, 17, 34):
+            p = ssp.Probe.__new__(ssp.Probe)
+            p.formats = dict(ssp.SENSOR_FORMATS)
+            p.samples = {sensor: []}; p.unparsed = 0
+            self.assertFalse(p.records(bytes([0x37,sensor]) + bytes(struct.calcsize(p.formats[sensor])+7)))
+            self.assertFalse(ssp.sampling_complete([sensor], 1<<sensor, p.samples))
+
+    def test_startup_clear_window_and_cleanup_for_high_sensor_ids(self):
+        class Probe:
+            def __init__(self):
+                self.samples = {s: [(999,)] for s in (16,17,34)}
+                self.calls = []
+            def transaction(self, command, payload):
+                self.calls.append((command, payload[0]))
+                if command == 0xA1:
+                    self.samples[payload[0]].append((1,))
+        p = Probe(); enabled = []
+        selected = [16,17,34]; mask = sum(1<<s for s in selected)
+        ssp.require_advertised(selected, mask)
+        counts, initial = ssp.enable_sampling_phases(p, selected, mask, enabled)
+        self.assertEqual(counts, {'16':1,'17':1,'34':1})
+        self.assertTrue(ssp.sampling_complete(selected, mask, initial))
+        self.assertFalse(ssp.sampling_complete(selected, mask, p.samples))
+        with self.assertRaises(RuntimeError):
+            ssp.require_advertised(selected, mask ^ (1<<34))
+        ssp.disable_sensors(p, enabled)
+        self.assertEqual(p.calls[-3:], [(0xA2,16),(0xA2,17),(0xA2,34)])

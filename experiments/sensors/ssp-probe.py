@@ -23,11 +23,13 @@ import time
 # G965N reference config uses REPORT_LUX with one-byte gain (lux18).
 # Exact pinned star2lte configuration: magnetic overflow enabled, TMD4906.
 SENSOR_FORMATS = {0: '<hhh', 1: '<iii', 2: '<hhhhhhB', 3: '<hhh',
-                  4: '<hhhBB', 5: '<ih', 7: '<BH', 10: '<H'}
+                  4: '<hhhBB', 5: '<ih', 7: '<BH', 10: '<H',
+                  16: '<iiiiB', 17: '<iiiiB', 34: '<Bh'}
 SENSOR_GROUPS = {'motion': [0, 1], 'light': [9], 'all': [0, 1, 9],
                  'compass': [4], 'magnetic-calibrated': [4],
                  'magnetic-uncalibrated': [2], 'magnetic-raw': [3], 'pressure': [5],
-                 'proximity': [7], 'proximity-raw': [10]}
+                 'proximity': [7], 'proximity-raw': [10],
+                 'thermal': [34], 'rotation': [16, 17]}
 
 
 def read_magnetic_fuse(probe, sensor_mask):

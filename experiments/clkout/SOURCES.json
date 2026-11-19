@@ -1,0 +1,24 @@
+{
+  "upstream_commit": "8cd9520d35a6c38db6567e97dd93b1f11f185dc6",
+  "lineage_commit": "6a9461f9460ca51d1217e5069a5d5556fcc79e63",
+  "files": [
+    {
+      "path": "drivers/clk/samsung/clk-exynos-clkout.c",
+      "patch": "0001-exynos9810-dual-clkout-provider.patch",
+      "before_sha256": "a8845b2b6e4714d057dff69dab6544b88b409b81122d1c89256c97011eaca5d4",
+      "after_sha256": "03fc2ffe025d843096d840e2491a8ba6d7fe8e1659e1eada85a1b847dcc628e9",
+      "patch_sha256": "dc2a357628d7104389abe6e51c040904ef5e3deb0c3516b4634099824baf6d86"
+    },
+    {
+      "path": "arch/arm64/boot/dts/exynos/exynos9810.dtsi",
+      "patch": "0002-exynos9810-tcxo-parent-description.patch",
+      "before_sha256": "7188ded6b3121469bf92aeb2538aa700153c02af15c161790420588c73056507",
+      "after_sha256": "aa32f28c4aa1e56c66c2e652af7a3b210e88221147182f0adbc69132e539f6b7",
+      "patch_sha256": "157bb2a06d67f82abd33120dc379afe97d223a5a554738ac363f4e10e38a0627"
+    }
+  ],
+  "test_references": {
+    "clk-gate.c": "60eb418cb5522b9713ffd294b16dda37942fda3ad8729ce33e30de5497708860",
+    "clk-mux.c": "044eebfdd1027b82b836ea3db68089bfe66875513947946c4397258111dc03b1"
+  }
+}

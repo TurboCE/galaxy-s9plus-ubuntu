@@ -1,0 +1,13 @@
+--- a/arch/arm64/boot/dts/exynos/exynos9810.dtsi
++++ b/arch/arm64/boot/dts/exynos/exynos9810.dtsi
+@@ -235,6 +235,10 @@
+ 			compatible = "samsung,exynos9810-pmu",
+ 				     "samsung,exynos7-pmu", "syscon";
+ 			reg = <0x14060000 0x10000>;
++			#clock-cells = <1>;
++			/* Known mux input 0: NFC TCXO; input 1: audio TCXO. */
++			clocks = <&oscclk>, <&oscclk>;
++			clock-names = "clkout0", "clkout1";
+ 		};
+ 
+ 		pinctrl_cmgp: pinctrl@14220000 {

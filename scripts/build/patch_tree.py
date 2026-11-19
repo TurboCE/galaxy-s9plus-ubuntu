@@ -1217,3 +1217,7 @@ subprocess.run([sys.executable,
 subprocess.run([sys.executable,
                 str(Path(__file__).resolve().parents[2] / 'experiments/pinctrl/apply.py'),
                 'apply', '--kernel-source', str(src)], check=True)
+
+subprocess.run([sys.executable,
+                str(Path(__file__).resolve().parents[2] / 'experiments/clkout/apply.py'),
+                'apply', '--kernel-source', str(src)], check=True)

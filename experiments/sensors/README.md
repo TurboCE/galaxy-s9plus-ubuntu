@@ -94,3 +94,14 @@ raw; its temperature is hundredths of a degree Celsius according to pinned
 `factory/pressure_lps22h.c:pressure_temperature_show`. The SSP source does not
 establish pressure-to-hPa scaling, so the helper does not label raw pressure as
 hPa.
+
+
+Explicit `thermal` selects ID34: packed little-endian `u8` thermistor type and
+`s16` raw ADC (3 bytes). Explicit `rotation` selects IDs16/17: four `s32`
+quaternion components followed by `u8` accuracy (17 bytes each), exactly matching
+`ssp.h:sensor_value` and `ssp_data.c:get_rot_sensordata`. Values are reported raw;
+no thermistor-to-temperature conversion, quaternion normalization, orientation
+frame, angle units, or Linux sensor-service integration is implied. The type
+byte is necessary to distinguish thermistor channels. All existing groups keep
+their selections. These explicit tests remain bounded and retain per-sensor
+startup/window separation, advertised-mask checks, and disable cleanup.
