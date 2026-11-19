@@ -47,8 +47,24 @@ and withdrew the lease. Wi-Fi's default route and the sensor service
 survived the trial.
 
 The trial used an explicitly supplied IPv4 APN matching the running RIL.
-Legacy generic AT callbacks reported unavailable serial ports. The
-Ubuntu-installed ModemManager, system-bus NetworkManager handoff and
-GNOME settings remain pending. Verify those paths before treating this
-as a desktop installation recipe. The bounded trial does not qualify
-SIM PIN, SIM hot swap, calls, SMS or other untested capabilities.
+Legacy generic AT callbacks reported unavailable serial ports.
+
+## Verified with the system NetworkManager
+
+A separate bounded native44 trial temporarily ran the reproduced
+ARM64 bundle as the system ModemManager. A runtime service override
+scoped discovery to the physical modem inside the daemon mount
+namespace and was removed after the test. The existing Ubuntu
+NetworkManager activated a temporary GSM profile through that manager.
+NetworkManager installed an IPv4 default over `rmnet0` at metric
+20000, while Wi-Fi kept its preferred route. DNS and certificate-verified
+HTTPS204 passed over sockets bound to the LTE interface and address,
+using the routes installed by NetworkManager.
+
+NetworkManager deactivated the profile and removed the LTE route,
+and the RIL confirmed release and withdrew the lease. The temporary
+profile was deleted and the stock manager restored. The original Wi-Fi
+default remained in place. This qualifies the tested system handoff.
+The GNOME settings interaction and persistent mobile service remain
+pending. The bounded trials do not qualify SIM PIN, SIM hot swap,
+calls or SMS.

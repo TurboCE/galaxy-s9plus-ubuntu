@@ -4552,3 +4552,24 @@ Wi-Fi default and unloaded trial modem. Sensors and stock ModemManager
 were active, both IIO feeds were readable and no unit failed. The
 kernel had 63 warnings and two SSP zero-byte retries. No stock services
 or partition contents were replaced.
+
+### 2026-11-20 — System NetworkManager LTE traffic through the ARM64 adapter
+
+In a separate native44 trial, the reproduced ARM64 adapter temporarily
+owned the system ModemManager name using a runtime service override.
+The built-in Ubuntu NetworkManager activated a temporary GSM profile
+and installed an IPv4 default route through rmnet0 at metric 20000.
+Wi-Fi retained the preferred default. With those routes installed by
+NetworkManager, LTE-bound DNS and certificate-verified HTTPS204 passed.
+The standalone LTE route worker and temporary policy probe were not
+used in this test.
+
+NetworkManager disconnected the profile and removed the LTE route.
+The RIL confirmed release and withdrew the IPv4 lease. Removed the
+temporary profile and runtime override, verified that the installed
+ModemManager binary was running again, and canceled the rollback
+timer. No user profile or reserved partition was modified.
+A distinct cleanup boot confirmed Wi-Fi, stock ModemManager and
+readable acceleration and light feeds with no failed units. The
+kernel had 63 warnings and one SSP transmit retry. GNOME settings
+interaction and persistent use remain unqualified.
