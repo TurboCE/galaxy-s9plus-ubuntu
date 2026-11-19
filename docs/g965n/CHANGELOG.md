@@ -4525,3 +4525,30 @@ The final cleanup boot restored the Wi-Fi default with the trial modem
 unloaded. ModemManager and the sensor service were active and both IIO
 feeds were readable. There were no failed units, 63 kernel warnings and
 two SSP zero-byte transmit retries.
+
+### 2026-11-20 — First ARM64 ModemManager LTE session on the handset
+
+Cross-built the reviewed SIPC adapter against the pinned Noble 1.23.4
+source. Tested the resulting ARM64 daemon and plugin on the exact
+native44 device in a private D-Bus session. Temporary udev metadata
+was isolated to its namespace. The plugin selected the actual physical
+rmnet0, exported a SIM based on confirmed modem readiness and enabled
+the modem. An explicit IPv4 APN request through ModemManager Simple
+Connect produced a qualified bearer on rmnet0.
+
+With that bearer active, modem-bound DNS and certificate-verified
+HTTPS204 passed. The scoped traffic probe then removed its temporary
+network state. ModemManager Bearer Disconnect obtained a confirmed
+release, and the RIL returned to idle without a data lease. Wi-Fi and
+the running sensor service survived. Stock ModemManager continued to
+report no modems. Generic inherited AT callbacks logged unavailable
+serial ports. System NetworkManager configuration and GNOME settings
+still need direct verification.
+
+Published the adapter source, narrow upstream patch and pinned build
+entry point. A fresh invocation reproduced the ARM64 executable and
+plugin from the same source contents. The cleanup boot restored the
+Wi-Fi default and unloaded trial modem. Sensors and stock ModemManager
+were active, both IIO feeds were readable and no unit failed. The
+kernel had 63 warnings and two SSP zero-byte retries. No stock services
+or partition contents were replaced.

@@ -1,0 +1,66 @@
+--- a/meson.build
++++ b/meson.build
+@@ -356,0 +357 @@
++  'samsung-sipc': {'available': true, 'shared': []},
+--- a/meson_options.txt
++++ b/meson_options.txt
+@@ -75,0 +76 @@
++option('plugin_samsung_sipc', type: 'feature', value: 'disabled', description: 'enable Galaxy S9+ SIPC plugin')
+--- a/src/mm-base-modem.c
++++ b/src/mm-base-modem.c
+@@ -1491 +1491,3 @@
+-            gboolean allow_modem_without_at_port = FALSE;
++            gboolean allow_modem_without_at_port =
++                MM_BASE_MODEM_GET_CLASS (self)->native_control_with_net &&
++                self->priv->data_net_supported && data_net;
+--- a/src/mm-base-modem.h
++++ b/src/mm-base-modem.h
+@@ -82,0 +83,3 @@
++    /* The subclass owns native modem control and only needs a net port. */
++    gboolean native_control_with_net;
++
+--- a/src/mm-iface-modem.c
++++ b/src/mm-iface-modem.c
+@@ -5607,0 +5608,2 @@
++            if (!primary && MM_BASE_MODEM_GET_CLASS (self)->native_control_with_net)
++                primary = mm_base_modem_peek_best_data_port (MM_BASE_MODEM (self), MM_PORT_TYPE_NET);
+--- a/src/mm-plugin.c
++++ b/src/mm-plugin.c
+@@ -846,0 +847,6 @@
++        if (MM_PLUGIN_GET_CLASS (self)->is_native_control_port &&
++            MM_PLUGIN_GET_CLASS (self)->is_native_control_port (self, port)) {
++            g_task_return_int (task, MM_PLUGIN_SUPPORTS_PORT_SUPPORTED);
++            g_object_unref (task);
++            return;
++        }
+--- a/src/mm-plugin.h
++++ b/src/mm-plugin.h
+@@ -103,0 +104,4 @@
++    /* A plugin may identify a native transport after the usual port
++     * filters, without starting a serial probe on the data port. */
++    gboolean (*is_native_control_port) (MMPlugin *self, MMKernelDevice *port);
++
+--- a/src/plugins/meson.build
++++ b/src/plugins/meson.build
+@@ -816,0 +817,13 @@
++# plugin: Samsung SIPC
++if plugins_options['samsung-sipc']
++  plugins += {'plugin-samsung-sipc': {
++    'plugin': true,
++    'deps': [dependency('json-glib-1.0')],
++    'module': {
++      'sources': files('samsung-sipc/mm-plugin-samsung-sipc.c', 'samsung-sipc/g965n-wwan-client.c', 'samsung-sipc/g965n-bearer.c'),
++      'include_directories': plugins_incs,
++      'c_args': '-DMM_MODULE_NAME="samsung_sipc"',
++    },
++  }}
++endif
++
+@@ -1045,0 +1059 @@
++  module_deps = plugins_deps + plugin_data.get('deps', [])
+@@ -1056 +1070 @@
+-      dependencies: plugins_deps,
++      dependencies: module_deps,
+@@ -1065 +1079 @@
+-      dependencies: plugins_deps,
++      dependencies: module_deps,
