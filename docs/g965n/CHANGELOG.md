@@ -4152,3 +4152,38 @@ with zero errors in either test. Temporary route state was restored after
 both probes. Modem teardown left the sensor view active, with zero failed
 units. This does not qualify automatic LTE startup, reconnection or
 continuous app routing.
+
+### 2026-11-20 — Native kernel with multiple routing tables
+
+Built kernel44 with the resolved IPv4/IPv6 policy-routing options and the
+matching driver modules. Fresh TWRP backup verified all nine partitions.
+Compared the protected backup partitions with the prior checkpoint and
+verified the rollback BOOT bytes. The EFS comparison permits only the four
+previously reviewed ext4 superblock fields. The BOOT-only installer
+verified the write by reading back the whole new image. Native Ubuntu
+then reported kernel44 and readable IPv4 and IPv6 rule lists. The pinned
+audio, Bluetooth and dedicated sensor service started with no failed units.
+The main IPv4 default remained the Wi-Fi interface.
+
+The first cellular test preflight correctly refused provenance revalidation
+without a mounted modem view. The corrected setup first prepares that
+separate view and takes exclusive state and runtime leases before EFS
+provenance revalidation. It does not write the EFS partition or change
+working modem NV. Test results are recorded separately.
+
+Native44 cold trial passed real modem DNS and certificate-verified
+HTTPS204. The source-bound route resolved through the separate modem
+table while the ordinary lookup selected the existing interface. The
+main default did not change. RX10/TX9 packets and zero interface errors
+were recorded. The temporary rule, table route, address, MTU and link
+state were restored. The independent sensor service stayed running and
+both IIO feeds remained readable. IPv6 rule listing works, but no IPv6
+PDP or traffic was exercised. An ordinary application still uses the
+existing Wi-Fi default. Automatic LTE routing and reconnection are open.
+
+The distinct cleanup reboot returned the modem to its opt-in off state.
+All three driver services started, accel and ALS feeds were readable,
+and no trial rule remained. The Wi-Fi default and interface-bound HTTPS204
+were verified. The full boot ring had zero error-priority lines, 63
+warnings, no Call Trace or SError and no SSP zero-ACK retries in this
+boot. Zero failed units. Earlier intermittent SSP retries remain open.
