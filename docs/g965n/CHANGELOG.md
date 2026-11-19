@@ -4866,3 +4866,24 @@ stock ModemManager stayed active, and Wi-Fi HTTPS204 and five IIO
 devices passed startup checks. The successful path was exercised on
 the handset. Out-of-bounds layouts were tested on the host.
 SIM-present data traffic with this module remains pending.
+
+### 2026-11-20 — Validate the modem controller's IRQ resources
+
+The verified Exynos9810 overlay uses the PMU for modem reset and has
+no legacy CP reset GPIO. The port's integer GPIO shim always returned
+absent, which the controller had reported as an invalid pin. The
+controller now rejects unsupported GPIO configurations explicitly and
+validates both required Linux IRQs before registering either. If a
+later IRQ registration fails, the controller releases the registrations
+it acquired. The caller propagates the original setup errno, including
+probe deferral.
+
+After verifying the running native #44 BOOT and backup, saved the old
+module pins and installed the matching candidate. A distinct S9+ boot
+confirmed the loaded build ID, registered CP_FAIL and CP_WDT handlers,
+and reached PIF_INIT_DONE without the previous invalid-GPIO error.
+The no-SIM service exited successfully, Wi-Fi HTTPS204 passed, all five
+IIO devices returned readings, and systemd reported no failed units.
+Host fault-injection covered missing resources and failed interrupt
+registrations. Actual fail/watchdog interrupt delivery and SIM-present
+LTE traffic with the changed module remain pending.

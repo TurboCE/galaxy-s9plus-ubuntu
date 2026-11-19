@@ -1,4 +1,4 @@
-# Remaining kernel warnings through native43
+# Remaining kernel warnings through native44
 
 Evidence date2026-11-19, one experimental SM-G965N rev26. The initial pair of observed native36
 boots had zero error-priority lines and zero failed units; later trial results
@@ -49,6 +49,15 @@ Normal boot and LTE/Wi-Fi HTTPS204 passed with that module. The build
 has no vendor ECT vote table, and the optional ACPM crash-dump region
 remains unavailable. The observed ring still contained 103
 error-priority messages and 67 warnings.
+
+The native44 modem controller now distinguishes the verified PMU
+reset configuration from an unsupported external reset GPIO and
+validates both required interrupt numbers before registering either.
+If a later registration fails it releases the interrupts already
+registered and returns the original probe errno. A distinct device
+boot registered both handlers, reached PIF_INIT_DONE and completed
+no-SIM cleanup without the former invalid-GPIO error. Watchdog and
+failure interrupt delivery were not induced on the handset.
 
 Wi-Fi Direct IF_ADD timeout is separately repaired by a real firmware-backed
 control context, with native boot/reboot, lifecycle/scans, existing STA HTTPS

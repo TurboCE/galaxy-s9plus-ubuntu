@@ -108,7 +108,7 @@ static struct modem_ctl *create_modemctl_device(struct platform_device *pdev,
 	if (!modemctl) {
 		mif_err("%s: modemctl devm_kzalloc fail\n", pdata->name);
 		mif_err("%s: xxx\n", pdata->name);
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 	}
 
 	modemctl->dev = dev;
@@ -132,7 +132,7 @@ static struct modem_ctl *create_modemctl_device(struct platform_device *pdev,
 			pdata->name, ret);
 		mif_err("%s: xxx\n", pdata->name);
 		devm_kfree(dev, modemctl);
-		return NULL;
+		return ERR_PTR(ret);
 	}
 
 	mif_info("%s is created!!!\n", pdata->name);
@@ -782,10 +782,11 @@ static int modem_probe(struct platform_device *pdev)
 	}
 
 	modemctl = create_modemctl_device(pdev, msd);
-	if (!modemctl) {
-		mif_err("%s: modemctl == NULL\n", pdata->name);
+	if (IS_ERR(modemctl)) {
+		err = PTR_ERR(modemctl);
+		mif_err("%s: modemctl setup failed (%d)\n", pdata->name, err);
 		devm_kfree(dev, msd);
-		return -ENOMEM;
+		return err;
 	}
 
 	/* create link device */

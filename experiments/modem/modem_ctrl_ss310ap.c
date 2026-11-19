@@ -796,27 +796,37 @@ int ss310ap_init_modemctl_device(struct modem_ctl *mc, struct modem_data *pdata)
 {
 	struct platform_device *pdev = to_platform_device(mc->dev);
 	struct device_node *np = pdev->dev.of_node;
-	int ret = 0;
-	unsigned int irq_num;
+	int ret, cp_fail_irq, cp_wdt_irq;
 #ifdef CONFIG_SOC_EXYNOS8890
 	struct resource *sysram_alive;
 #endif
 	unsigned long flags = IRQF_NO_SUSPEND | IRQF_NO_THREAD;
-	unsigned int cp_rst_n ;
+
+	if (!np)
+		return dev_err_probe(mc->dev, -ENODEV, "modem device tree node missing\n");
+
+	/* The verified Exynos9810 overlay controls CP reset through the PMU. */
+	if (of_find_property(np, "modem_ctrl,gpio_cp_rst_n", NULL))
+		return dev_err_probe(mc->dev, -EOPNOTSUPP, "CP reset GPIO unsupported by this port\n");
+
+	cp_fail_irq = platform_get_irq(pdev, 0);
+	if (cp_fail_irq < 0)
+		return cp_fail_irq;
+	cp_wdt_irq = platform_get_irq(pdev, 1);
+	if (cp_wdt_irq < 0)
+		return cp_wdt_irq;
 
 	mif_err("+++\n");
 
-	g_mc = mc;
-
 	ss310ap_get_ops(mc);
 	ss310ap_get_pdata(mc, pdata);
-	dev_set_drvdata(mc->dev, mc);
+	init_completion(&mc->init_cmpl);
+	init_completion(&mc->off_cmpl);
 
 	/*
 	** Register CP_FAIL interrupt handler
 	*/
-	irq_num = platform_get_irq(pdev, 0);
-	mif_init_irq(&mc->irq_cp_fail, irq_num, "cp_fail", flags);
+	mif_init_irq(&mc->irq_cp_fail, cp_fail_irq, "cp_fail", flags);
 
 	ret = mif_request_irq(&mc->irq_cp_fail, cp_fail_handler, mc);
 	if (ret)	{
@@ -832,14 +842,12 @@ int ss310ap_init_modemctl_device(struct modem_ctl *mc, struct modem_data *pdata)
 	** Register CP_WDT interrupt handler
 	*/
 
-	irq_num = platform_get_irq(pdev, 1);
-
-	mif_init_irq(&mc->irq_cp_wdt, irq_num, "cp_wdt", flags);
+	mif_init_irq(&mc->irq_cp_wdt, cp_wdt_irq, "cp_wdt", flags);
 
 	ret = mif_request_irq(&mc->irq_cp_wdt, cp_wdt_handler, mc);
 	if (ret) {
 		mif_err("Failed to request_irq with(%d)", ret);
-		return ret;
+		goto free_cp_fail_irq;
 	}
 
 	/* CP_WDT interrupt must be enabled only after CP booting */
@@ -851,7 +859,7 @@ int ss310ap_init_modemctl_device(struct modem_ctl *mc, struct modem_data *pdata)
 	mc->sysram_alive = devm_ioremap_resource(&pdev->dev, sysram_alive);
 	if (IS_ERR(mc->sysram_alive)) {
 		ret = PTR_ERR(mc->sysram_alive);
-		return ret;
+		goto free_cp_wdt_irq;
 	}
 #endif
 
@@ -862,33 +870,11 @@ int ss310ap_init_modemctl_device(struct modem_ctl *mc, struct modem_data *pdata)
 	if (ret) {
 		mif_err("Failed to mbox_request_irq %u with(%d)",
 				mc->irq_phone_active, ret);
-		return ret;
+		goto free_cp_wdt_irq;
 	}
 
-	init_completion(&mc->init_cmpl);
-	init_completion(&mc->off_cmpl);
-
-	/*
-	** Get/set CP_RST_N
-	*/
-	if (np)	{
-		cp_rst_n = of_get_named_gpio(np, "modem_ctrl,gpio_cp_rst_n", 0);
-		if (gpio_is_valid(cp_rst_n)) {
-			mif_err("cp_rst_n: %d\n", cp_rst_n);
-			ret = gpio_request(cp_rst_n, "CP_RST_N");
-			if (ret)	{
-				mif_err("fail req gpio %s:%d\n", "CP_RST_N", ret);
-				return -ENODEV;
-			}
-
-			gpio_direction_output(cp_rst_n, 1);
-		} else {
-			mif_err("cp_rst_n: Invalied gpio pins\n");
-		}
-	} else {
-		mif_err("cannot find device_tree for pmu_cu!\n");
-		return -ENODEV;
-	}
+	g_mc = mc;
+	dev_set_drvdata(mc->dev, mc);
 
 #ifdef CONFIG_EXYNOS_BUSMONITOR
 	/*
@@ -903,4 +889,10 @@ int ss310ap_init_modemctl_device(struct modem_ctl *mc, struct modem_data *pdata)
 #endif
 	mif_err("---\n");
 	return 0;
+
+free_cp_wdt_irq:
+	free_irq(cp_wdt_irq, mc);
+free_cp_fail_irq:
+	free_irq(cp_fail_irq, mc);
+	return ret;
 }
