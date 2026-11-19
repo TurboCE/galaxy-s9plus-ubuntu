@@ -4996,3 +4996,23 @@ ID matched. Firmware armed the 10-second watchdog and canceled it after
 20 seconds, including beyond the original watchdog deadline, without a
 reset request. Wi-Fi HTTPS204 and no-SIM cleanup passed and no unit
 failed. Intentional watchdog expiry was qualified on the host only.
+
+### 2026-11-20 — Isolate each BBD control command
+
+The control character device previously reused storage across opens and
+could pass leftover bytes or a partly copied command to its string parser.
+Each write now owns a bounded, NUL-terminated copy. Failed copies are
+returned to the caller before dispatch. Existing bounds, command syntax
+and successful byte counts are preserved. Host tests cover writes with
+and without a supplied terminator, length bounds and failed copies.
+
+Built against native #44 and verified the BOOT and backup before changing
+the sensor service module pin. On a distinct warm boot the loaded build
+ID matched, and normal LHD startup armed and canceled the firmware
+watchdog in 1.277 seconds. All six IIO devices passed 80 reads each over
+20 seconds. Wi-Fi-bound HTTPS204, P2P interface presence, successful
+no-SIM cleanup and zero failed units were observed. No sensor reset
+request was logged. The boot journal still contained 105 modem IPC/RFS
+error-priority messages and one SSP error-priority message in the
+observation window. Failed-copy cases ran on the host; a peer transfer
+and SIM-present reconnection were outside this handset trial.

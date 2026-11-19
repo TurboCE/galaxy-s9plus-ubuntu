@@ -29,6 +29,7 @@
 #include <linux/fs.h>
 #include <linux/notifier.h>
 #include <linux/of.h>
+#include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/workqueue.h>
 #include "bbd.h"
@@ -69,7 +70,6 @@ struct bbd_cdev_priv {
 	struct circ_buf read_buf;		/* LHD reads from BBD */
 	struct mutex lock;			/* Lock for read_buf */
 	char _read_buf[BBD_BUFF_SIZE];		/* LHD reads from BBD */
-	char write_buf[BBD_BUFF_SIZE];		/* LHD writes into BBD */
 	wait_queue_head_t poll_wait;		/* for poll */
 };
 
@@ -646,28 +646,6 @@ static ssize_t bbd_common_read(struct file *filp, char __user *buf, size_t size,
 }
 
 /**
- * bbd_common_write - Common write function for BBD devices *
- * lhd writes to BBD devices via this function
- *
- */
-static ssize_t bbd_common_write(struct file *filp, const char __user *buf, size_t size, loff_t *ppos)
-{
-	unsigned int minor = iminor(filp->f_path.dentry->d_inode);
-	//struct bbd_device *bbd = filp->private_data;
-
-	//BUG_ON(size >= BBD_BUFF_SIZE);
-	if (size >= BBD_BUFF_SIZE)
-		return -EINVAL;
-
-	WARN_ON(copy_from_user(bbd.priv[minor].write_buf, buf, size));
-
-#ifdef DEBUG_1HZ_STAT
-	bbd_update_stat(STAT_TX_LHD, size);
-#endif
-	return size;
-}
-
-/**
  * bbd_common_poll - Common poll function for BBD devices
  *
  */
@@ -765,17 +743,24 @@ s64 get_sensor_time_delta_us(void)
  */
 ssize_t bbd_control_write(struct file *filp, const char __user *buf, size_t size, loff_t *ppos)
 {
-	unsigned int minor = iminor(filp->f_path.dentry->d_inode);
-	//struct bbd_device *bbd = filp->private_data;
+	char *command;
+	ssize_t ret;
 
-	/* get command string first */
-	ssize_t len = bbd_common_write(filp, buf, size, ppos);
+	if (!size)
+		return 0;
+	if (size >= BBD_BUFF_SIZE)
+		return -EINVAL;
 
-	if (len <= 0)
-		return len;
+	command = memdup_user_nul(buf, size);
+	if (IS_ERR(command))
+		return PTR_ERR(command);
 
-	/* Process received command string */
-	return bbd_control(bbd.priv[minor].write_buf, len);
+#ifdef DEBUG_1HZ_STAT
+	bbd_update_stat(STAT_TX_LHD, size);
+#endif
+	ret = bbd_control(command, size);
+	kfree(command);
+	return ret;
 }
 
 ssize_t bbd_patch_read(struct file *filp, char __user *buf, size_t size, loff_t *ppos)
