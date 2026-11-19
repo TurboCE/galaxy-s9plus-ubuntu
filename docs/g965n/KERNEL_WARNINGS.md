@@ -21,6 +21,12 @@ latest observed36boots have no error-priority retry line and faultN. This does
 not prove all transport modes or long-run end-to-end integrity. No kernel log
 severity/filter was changed merely to achieve a clean error-priority snapshot.
 
+On native44, a boot with a checked-transport delay of 4–5 ms before the
+first write still logged a zero-byte response for a 36-byte write. The
+sensor service recovered and acceleration and light values remained
+readable. The original profile was restored and the same retry recurred
+on the rollback boot. This first-write delay did not resolve the warning.
+
 Wi-Fi Direct IF_ADD timeout is separately repaired by a real firmware-backed
 control context, with native boot/reboot, lifecycle/scans, existing STA HTTPS
 and owner-assisted bidirectional discovery evidence in WIFI_DIAGNOSTICS.md.

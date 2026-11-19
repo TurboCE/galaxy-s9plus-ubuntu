@@ -4461,3 +4461,19 @@ The cleanup boot restored the Wi-Fi default and left the lab modem
 unloaded. ModemManager, sensors and Bluetooth were active with no failed
 units and readable acceleration and light sensors. The kernel recorded
 63 warnings and one SSP transmit retry.
+
+### 2026-11-20 — Native44 sensor transmit timing trial
+
+Tried an opt-in 4–5 ms wait before the first checked sensor-hub write,
+using a pinned module for the existing kernel and a saved startup profile.
+The first two activation attempts stopped before applying any change.
+The preflight incorrectly treated a disabled service and absent transient
+units as command failures. The corrected preflight verified they were
+inactive and applied the experimental profile for one boot.
+
+The hardware loaded the option, but still logged one zero-byte
+acknowledgment for a 36-byte write. The sensor service reached active and
+acceleration and light readings were available. Restored and verified the
+original module, profile and service on a distinct boot. The restored
+system had no failed units, 63 kernel warnings and one zero-byte SSP
+retry. The timing change was discarded. The retry remains open.
