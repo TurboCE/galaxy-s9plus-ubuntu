@@ -5553,3 +5553,22 @@ Clock source behavior, counter readout, alarm IRQ and suspend wake
 still need hardware evidence. The initial hardware trial should
 isolate the RTC from automatic system-to-RTC and RTC-to-system
 clock synchronization. The live system remains on #44.
+
+### 2026-11-20 — Check no-SIM cleanup and modem setup diagnostics
+
+The current #44 desktop LTE boot logged the no-SIM result and exited
+successfully. Stock ModemManager was active with no enumerated modem.
+The temporary manager override, modem runtime mounts, bearer lease
+and control socket were absent. The eight kernel rmnet interfaces
+remained down, with zero addresses, no IPv4 or IPv6 routes and no
+resolved DNS scope or default route. Wi-Fi-bound HTTPS204 passed
+and there were no failed units.
+
+The same boot emitted ten ordinary shared-memory link construction
+messages at error priority. Prepared an isolated candidate to move
+these setup messages to info/debug and remove mapped addresses from
+them. The mapping failures and the missing ACPM crash-dump region
+remain visible as before. Built and inspected the ARM64 module with
+the same release, config and module-symbol table as #44. The
+candidate has only build evidence. SIM-present reconnection and
+current-build LTE data still require a physical SIM test.
