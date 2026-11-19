@@ -497,6 +497,71 @@ class PrivateRuntimeTests(unittest.TestCase):
             bad=bytearray(new);bad[offset]^=1
             with self.assertRaisesRegex(RuntimeError,'outside'):vr.efs_superblock_proof(old,bad)
 
+    def checkpoint_fixture(self, old, count=8, mutate=None):
+        data=bytearray(old);struct.pack_into('<H',data,0x434,count)
+        if mutate:mutate(data)
+        directory=self.base/'checkpoint';directory.mkdir()
+        image=directory/'EFS.img';image.write_bytes(data)
+        manifest=json.loads(self.manifest.read_text())
+        for row in manifest['partitions']:
+            if row['name']=='EFS':row['sha256']=hashlib.sha256(data).hexdigest()
+        path=directory/'manifest.json';path.write_text(json.dumps(manifest))
+        return path
+
+    def test_checkpoint_chain_accumulates_only_verified_small_mount_steps(self):
+        old,new=self.prepare_superblock_change(counters={'mount_count':12})
+        checkpoint=self.checkpoint_fixture(old)
+        with self.assertRaisesRegex(RuntimeError,'bounds'):self.revalidate_fixture()
+        nv=(self.state/'efs/nv_data.bin').read_bytes()
+        vr.revalidate_efs_superblock(self.old_efs,self.specs['EFS'][0],self.specs['CPEFS'][0],
+                                    self.manifest,True,[checkpoint])
+        receipt=vr.read_provenance()
+        proof=receipt['efs_superblock_revalidations'][-1]['proof']
+        self.assertEqual(proof['policy'],'primary-ext4-four-fields-checkpoint-chain-v1')
+        self.assertEqual(len(proof['steps']),2)
+        self.assertEqual((self.state/'efs/nv_data.bin').read_bytes(),nv)
+        self.assertEqual(self.specs['EFS'][0].read_bytes(),new)
+        self.assert_no_binding()
+
+    def test_checkpoint_chain_refuses_large_hop_and_preserves_receipt(self):
+        old,_=self.prepare_superblock_change(counters={'mount_count':12})
+        checkpoint=self.checkpoint_fixture(old,count=9)
+        before=(self.state/vr.RECEIPT_NAME).read_bytes()
+        with self.assertRaisesRegex(RuntimeError,'bounds'):
+            vr.revalidate_efs_superblock(self.old_efs,self.specs['EFS'][0],self.specs['CPEFS'][0],
+                                        self.manifest,True,[checkpoint])
+        self.assertEqual((self.state/vr.RECEIPT_NAME).read_bytes(),before)
+        self.assertEqual(list(self.state.glob('provenance-before-*')),[])
+
+    def test_checkpoint_chain_rejects_intermediate_data_change(self):
+        old,new=self.prepare_superblock_change(counters={'mount_count':12})
+        checkpoint=self.checkpoint_fixture(old,mutate=lambda b:b.__setitem__(0x600,b[0x600]^1))
+        with self.assertRaisesRegex(RuntimeError,'outside'):
+            vr.efs_checkpoint_chain(old,new,[checkpoint],self.receipt,{'source':self.fingerprints})
+
+    def test_checkpoint_chain_requires_intact_complete_matching_manifest(self):
+        old,new=self.prepare_superblock_change(counters={'mount_count':12})
+        checkpoint=self.checkpoint_fixture(old);original=json.loads(checkpoint.read_text())
+        corrupt=[]
+        d=copy.deepcopy(original);d['complete']=False;corrupt.append(d)
+        d=copy.deepcopy(original);d['partitions'].pop();corrupt.append(d)
+        d=copy.deepcopy(original);d['partitions'][0]['sha256']='0'*64;corrupt.append(d)
+        d=copy.deepcopy(original);d['bootloader']='G965NOTHER';corrupt.append(d)
+        d=copy.deepcopy(original)
+        next(r for r in d['partitions'] if r['name']=='CPEFS')['sha256']='0'*64;corrupt.append(d)
+        for data in corrupt:
+            checkpoint.write_text(json.dumps(data))
+            with self.assertRaises(RuntimeError):
+                vr.efs_checkpoint_chain(old,new,[checkpoint],self.receipt,{'source':self.fingerprints})
+        with self.assertRaises(RuntimeError):
+            vr.efs_checkpoint_chain(old,new,[checkpoint]*2,self.receipt,{'source':self.fingerprints})
+
+    def test_checkpoint_chain_cannot_multiply_time_budget(self):
+        old,new=self.prepare_superblock_change(counters={'mount_count':12,'mount_time':260000})
+        checkpoint=self.checkpoint_fixture(old,mutate=lambda b:struct.pack_into('<I',b,0x42c,180000))
+        with self.assertRaisesRegex(RuntimeError,'Cumulative'):
+            vr.efs_checkpoint_chain(old,new,[checkpoint],self.receipt,{'source':self.fingerprints})
+
     def test_atomic_receipt_publish_failure_preserves_old_state(self):
         self.prepare_superblock_change()
         before=(self.state/vr.RECEIPT_NAME).read_bytes()

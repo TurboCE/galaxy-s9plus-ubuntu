@@ -777,7 +777,54 @@ def preservation_inventory():
             for pattern in ('archive-*', 'quarantine-*') for path in sorted(STATE.glob(pattern))}
 
 
-def revalidate_efs_superblock(old_efs, new_efs, cpefs, manifest, confirm=False):
+def efs_checkpoint_chain(before, after, manifests, old_receipt, current):
+    """Verify archived recovery checkpoints without relaxing a single hop.
+
+    Only mount-count accumulation can exceed the original one-hop limit.
+    Overall time/write bounds and byte identity outside four fields still apply.
+    Checkpoint EFS snapshots must match complete same-handset manifests; callers
+    also verify all nine source backup files before uploading selected evidence.
+    """
+    if not 1 <= len(manifests) <= 7 or len(set(manifests)) != len(manifests):
+        raise RuntimeError('Expected one to seven distinct intermediate backup manifests')
+    proofs = []; previous = before
+    for path in manifests:
+        raw = read_regular(path, 1024 * 1024)
+        data = json.loads(raw); model_fields(data)
+        rows = data.get('partitions', [])
+        if (data.get('complete') is not True or data['bootloader'] != old_receipt['bootloader'] or
+                not isinstance(rows, list) or len(rows) != len(BACKUP_PARTITIONS) or
+                not all(isinstance(e, dict) and isinstance(e.get('name'), str) for e in rows)):
+            raise RuntimeError('Invalid intermediate recovery manifest')
+        entries = {e['name']: e for e in rows}
+        if set(entries) != BACKUP_PARTITIONS or not all(
+                type(e.get('bytes')) is int and e['bytes'] > 0 and
+                isinstance(e.get('sha256'), str) and re.fullmatch(r'[0-9a-f]{64}', e['sha256'])
+                for e in entries.values()):
+            raise RuntimeError('Incomplete intermediate nine-partition manifest')
+        for name in ('CPEFS', 'RADIO'):
+            if any(entries[name][key] != current['source'][name][key] for key in ('bytes', 'sha256')):
+                raise RuntimeError('Intermediate CPEFS/RADIO changed')
+        if entries['EFS']['bytes'] != current['source']['EFS']['bytes']:
+            raise RuntimeError('Intermediate EFS size changed')
+        with verified_backup_snapshot(path.parent / 'EFS.img', entries['EFS']) as snapshot:
+            next_bytes = read_regular(snapshot, entries['EFS']['bytes'])
+        proof = efs_superblock_proof(previous, next_bytes)
+        proofs.append({'manifest_sha256': hashlib.sha256(raw).hexdigest(),
+                       'efs_sha256': entries['EFS']['sha256'], 'proof': proof})
+        previous = next_bytes
+    proofs.append({'efs_sha256': hashlib.sha256(after).hexdigest(),
+                   'proof': efs_superblock_proof(previous, after)})
+    # A chain must not multiply the existing day/write-budget limits.
+    for name, (offset, fmt, bound) in EFS_SUPERBLOCK_FIELDS.items():
+        delta = struct.unpack_from(fmt, after, offset)[0] - struct.unpack_from(fmt, before, offset)[0]
+        maximum = bound * len(proofs) if name == 'mount_count' else bound
+        if not 0 <= delta <= maximum:
+            raise RuntimeError('Cumulative EFS checkpoint maintenance bounds exceeded')
+    return {'schema': 1, 'policy': 'primary-ext4-four-fields-checkpoint-chain-v1', 'steps': proofs}
+
+
+def revalidate_efs_superblock(old_efs, new_efs, cpefs, manifest, confirm=False, intermediate_manifests=None):
     """Explicit provenance maintenance; never modify originals or working NV.
 
     Caller must hold the exclusive runtime lease. The old trusted image plus
@@ -809,8 +856,10 @@ def revalidate_efs_superblock(old_efs, new_efs, cpefs, manifest, confirm=False):
     if old_efs is None:
         raise RuntimeError('Exact old verified EFS backup is required')
     with verified_backup_snapshot(old_efs, old['source']['EFS']) as before, verified_backup_snapshot(new_efs, current['source']['EFS']) as after:
-        proof = efs_superblock_proof(read_regular(before, old['source']['EFS']['bytes']),
-                                     read_regular(after, current['source']['EFS']['bytes']))
+        before_bytes = read_regular(before, old['source']['EFS']['bytes'])
+        after_bytes = read_regular(after, current['source']['EFS']['bytes'])
+        proof = (efs_checkpoint_chain(before_bytes, after_bytes, intermediate_manifests, old, current)
+                 if intermediate_manifests else efs_superblock_proof(before_bytes, after_bytes))
     working = validate_modem_state(old)
     radio_before = file_inventory(STATE / 'RADIO')
     preserved = preservation_inventory()
@@ -962,6 +1011,8 @@ def main():
     parser.add_argument('--efs-backup', type=Path)
     parser.add_argument('--old-efs-backup', type=Path)
     parser.add_argument('--confirm-efs-superblock-revalidation', action='store_true')
+    parser.add_argument('--intermediate-backup-manifest', type=Path, action='append', default=[],
+                        help='Ordered verified recovery checkpoint manifests for bounded EFS-only metadata maintenance')
     parser.add_argument('--cpefs-backup', type=Path)
     parser.add_argument('--backup-manifest', type=Path)
     parser.add_argument('--confirm-archive-existing-private-state', action='store_true')
@@ -971,6 +1022,9 @@ def main():
         value = getattr(args, name)
         if value is not None:
             setattr(args, name, Path(os.path.abspath(value)))
+    args.intermediate_backup_manifest = [Path(os.path.abspath(p)) for p in args.intermediate_backup_manifest]
+    if args.intermediate_backup_manifest and args.action != 'revalidate-efs-superblock':
+        parser.error('Intermediate manifests are only for explicit superblock revalidation')
     if os.geteuid() != 0:
         raise SystemExit('Run as root on the handset')
     os.umask(0o077)
@@ -995,7 +1049,7 @@ def main():
                                 args.confirm_archive_existing_private_state)
         elif args.action == 'revalidate-efs-superblock':
             revalidate_efs_superblock(args.old_efs_backup, args.efs_backup, args.cpefs_backup, args.backup_manifest,
-                                      args.confirm_efs_superblock_revalidation)
+                                      args.confirm_efs_superblock_revalidation, args.intermediate_backup_manifest)
         elif args.action == 'cbd-permissions':
             assert_modem_stopped()
             validate_modem_state(read_provenance())

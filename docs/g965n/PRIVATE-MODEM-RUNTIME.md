@@ -321,3 +321,52 @@ software OFFLINE value is initialized by the driver and cannot independently
 prove hardware power state. After the panic, a new CP trial still requires a
 separately approved fresh physical cold/proven handoff condition; no automated
 retry, reload or reset is authorized.
+
+### Several archived recovery checkpoints
+
+Repeated recovery boots can accumulate more than four EFS mount-count updates
+between modem tests. The ordinary one-hop check still rejects this. An explicit
+maintenance invocation may additionally repeat `--intermediate-backup-manifest`
+in chronological order, pointing to one to seven archived complete same-handset
+nine-partition manifests; each directory must contain its matching `EFS.img`.
+Before uploading selected evidence, verify **all nine files** of each chosen
+backup against its manifest on the host. The exact old and final EFS snapshots,
+final CPEFS and final manifest are still mandatory.
+
+Every adjacent snapshot must independently pass the original four-field proof,
+including at most four mount-count changes per step. Every checkpoint must have
+the same bootloader and unchanged CPEFS/RADIO fingerprints. No bytes outside the
+four primary-superblock fields may change, even temporarily in an intermediate
+snapshot. The total timestamp/write-counter differences still fit the original
+24-hour/4096-KiB limits; a chain cannot multiply those budgets. Duplicates,
+incomplete manifests, different hashes/handsets and missing checkpoints fail.
+The receipt records checkpoint manifest/image hashes and each proof; all old
+receipt, NV, RADIO and quarantine preservation checks still run. No original
+partition is mounted or modified, and this operation does not start the CP.
+
+### Attach to an already-online CP
+
+The bounded RIL launcher supports `--attach-online`. The parent and child both
+read IOCTL_MODEM_STATUS and require exactly STATE_ONLINE4. This path starts no
+CBD and requests no CP reset; the child queries SIM status and establishes AT
+readiness before its existing explicit radio/PDP gates. Keep the modem runtime
+lease and private provenance checks. The sensor supervisor intentionally owns
+a sensor-only runtime and refuses modem nodes/bindings, so stop it for a modem
+trial; prepare the modem runtime under the exclusive lease, resume verified
+copies, run the bounded client, ensure its cgroup/lease ends, tear that runtime
+down, then restart the sensor service. Do not attempt to share an unrestricted
+vendor runtime or bypass either service's device allowlist.
+
+The current KT LTE trial APN follows [KT's published settings](https://ermsweb.kt.com/search/faq/faqAnswerM.do?kbId=KNOW0000270915&nodeId=NODE0000000509&parentNodeId=NODE0000000494).
+Carrier-specific values are an explicit local test input, not a guarantee that
+all SIM plans or other carriers work. A registered CP or candidate IP still
+requires independent interface-bound packet/HTTP/DNS evidence.
+
+The native KT radio-on path now uses the own-vendor builder's command0107,
+EXEC1 and payload0202, after profile acknowledgments/AT readiness. This changed
+observed phone state1→2; AT CFUN1 had acknowledged without establishing that
+transition. No automatic CFUN4/1 retry remains. The independent reference
+[pwr.h](https://github.com/LineageOS/android_external_libsamsung-ipc/blob/6d244414f7c66b0d0f93ef4b34f5276023408016/include/pwr.h)
+corroborates the normal state value, while S9-specific packet facts come from
+the owner's stock RIL. Other carrier/property variants are not qualified by the
+KT result. Registration remained searching; this is not LTE internet proof.

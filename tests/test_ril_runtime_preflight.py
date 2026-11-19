@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace, ModuleType
 import unittest
+import tempfile
+import stat
 from contextlib import nullcontext, redirect_stdout
 from unittest.mock import patch, MagicMock
 
@@ -38,7 +40,8 @@ class StartupPreflightTests(unittest.TestCase):
             self.assertIn('--child', command)
             self.assertEqual(command[command.index('--expected-receipt-sha256')+1], 'a'*64)
             self.assertNotIn('/vendor/bin/cbd', command)  # only child may exec it
-            vendor = cbd.vendor_command(args)
+            with patch.object(cbd, 'new_trace_path', return_value='/fixture/new-private.strace'):
+                vendor = cbd.vendor_command(args)
             chroot = vendor.index('/usr/sbin/chroot')
             self.assertEqual(vendor[chroot+1], str(cbd.ROOT))
             self.assertEqual(vendor[chroot+2], '/vendor/bin/cbd')
@@ -46,6 +49,29 @@ class StartupPreflightTests(unittest.TestCase):
                 self.assertLess(vendor.index('/usr/bin/strace'), chroot)
             else:
                 self.assertNotIn('/usr/bin/strace', vendor)
+
+    def test_each_trace_preserves_earlier_evidence(self):
+        with tempfile.TemporaryDirectory() as name:
+            directory=Path(name);directory.chmod(0o700)
+            with patch.object(cbd,'TRACE_DIR',directory):
+                a=Path(cbd.new_trace_path());a.write_text('earlier evidence')
+                b=Path(cbd.new_trace_path())
+                self.assertNotEqual(a,b)
+                self.assertEqual(a.read_text(),'earlier evidence')
+                self.assertEqual(stat.S_IMODE(b.stat().st_mode),0o600)
+                directory.chmod(0o755)
+                with self.assertRaisesRegex(RuntimeError,'private'):cbd.new_trace_path()
+
+    def test_online_attachment_refuses_all_other_states_and_closes_fd(self):
+        for state in (0,1,2,3,4,5,6,7,8,9,-1):
+            with patch.object(launcher.os,'open',return_value=19), \
+                    patch.object(launcher.fcntl,'ioctl',return_value=state) as ioctl, \
+                    patch.object(launcher.os,'close') as close:
+                if state==4:launcher.require_online_cp()
+                else:
+                    with self.assertRaisesRegex(RuntimeError,'STATE_ONLINE'):launcher.require_online_cp()
+                ioctl.assert_called_once_with(19,0x6f27,0)
+                close.assert_called_once_with(19)
 
     def test_cbd_child_revalidates_before_vendor_exec(self):
         args = SimpleNamespace(child=True, trace=False, seconds=30,
@@ -118,7 +144,11 @@ class StartupPreflightTests(unittest.TestCase):
         self.assertEqual(order,['validated','unit-start','vendor-launch'])
         self.assertEqual(sum(c[0]!='systemctl' for c in commands),1)
         tree=ast.parse((ROOT/'scripts/g965n/run-ril-test.py').read_text())
-        self.assertFalse(any(isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=='ioctl' for n in ast.walk(tree)))
+        calls=[n for n in ast.walk(tree) if isinstance(n,ast.Call) and
+               isinstance(n.func,ast.Attribute) and n.func.attr=='ioctl']
+        self.assertEqual(len(calls),1)
+        self.assertIsInstance(calls[0].args[1],ast.Constant)
+        self.assertEqual(calls[0].args[1].value,0x6f27)  # status-only; no power/reset
         self.assertFalse(any(isinstance(n,ast.Constant) and n.value==0x6f20 for n in ast.walk(tree)))
 
     def test_provenance_and_bind_validation_both_required(self):

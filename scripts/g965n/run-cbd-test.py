@@ -11,8 +11,19 @@ from pathlib import Path
 import stat
 import importlib.util
 import sys
+import tempfile
 
 ROOT = Path('/run/g965n-vendor-runtime/root')
+TRACE_DIR = Path('/var/lib/g965n-vendor-runtime')
+
+
+def new_trace_path():
+    info = TRACE_DIR.lstat()
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077):
+        raise RuntimeError('Trace directory must be owned and private')
+    fd, path = tempfile.mkstemp(prefix='cbd-', suffix='.strace', dir=TRACE_DIR)
+    os.close(fd)
+    return path
 
 
 def main():
@@ -51,7 +62,7 @@ def vendor_command(args):
                'platform/11120000.ufs/by-name/RADIO', '-n', '/mnt/vendor/efs']
     if args.trace:
         command = ['/usr/bin/strace', '-f', '-s', '100', '-o',
-                   '/var/lib/g965n-vendor-runtime/cbd-start.strace'] + command
+                   new_trace_path()] + command
     return command
 
 

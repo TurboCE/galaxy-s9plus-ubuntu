@@ -2960,3 +2960,85 @@ vendor modem probe emits additional error-priority progress/config messages
 messages are preserved privately rather than suppressed. The six IRQ translation
 WARNs are absent; CP sequencer/central remain0. No new SIM/data proof inferred.
 Fold7 test-owned received file and UI dump removed after transfer qualification.
+
+## 2026-11-19 — Continued LTE/runtime and residual error qualification
+
+Owner requested continuing through remaining LTE/sensor/Wi-Fi/kernel issues.
+Refreshed native kernel36 state: modem opt-in module remains loaded, sensor
+service active, failed units0. Uploaded pinned reviewed public runtime/test
+sources into a new private lab; no vendor daemon started. Read-only private
+runtime preflight refuses stale original-partition provenance ("Incomplete
+backup provenance receipt"); modem-specific private bindings are absent in the
+currently sensor-only runtime. Preserved existing NV/receipts/archives; no guard
+bypass, restaging, original mount or CP security call. Comparing verified backup
+metadata to identify the exact provenance drift before any modem trial.
+
+Provenance drift comparison found exactly the four approved EFS primary ext4
+fields changed: timestamps +39047/+39048s, mount count+16, lifetime write+64KiB;
+zero differing bytes outside those fields. The ordinary max4 one-hop policy
+correctly refuses this accumulated history. Located and reverified complete
+nine-partition archived backups at mount counts19→23→27→31→35. Added explicit
+ordered-checkpoint maintenance: every hop retains original max4 and byte-level
+restrictions, same bootloader/CPEFS/RADIO, with total time/write budgets unchanged.
+It cannot accept an arbitrary drift or silently replace NV. Forty runtime tests
+pass, including large-hop, intermediate data corruption, incomplete/checksum/
+wrong-handset manifests and cumulative-time rejection. Device execution pending.
+
+First maintenance attempt stopped because sensor shutdown intentionally tears
+its private runtime down; sensor service was restarted in finally. Corrected
+the procedure to prepare a modem-only runtime while holding the exclusive lease,
+then perform maintenance/resume. Actual checkpoint proof and preservation checks
+passed; no original bytes changed, old receipt archived and private copies reused.
+
+A10s bounded own-vendor CBD trial on native36 then completed cold CP init:
+mode2 returned11 (stock conditional RE_INIT status), mode0 authentication0,
+CP sequencer5, IOCTL_MODEM_STATUS4/ONLINE, mailbox interrupt count308 with
+CP fail/watchdog0 and SError0. This is a real cold-boot/secure firmware result,
+not SIM or PDP proof. Test unit stopped and its cgroup/clients ended; modem-only
+runtime cleaned, sensor runtime restarted successfully. The tracing helper reused
+its legacy fixed filename, so the new trace was preserved separately and the
+helper is being changed to allocate a new private exclusive file per trial.
+No raw trace/identifiers are published. Online CP remains available for a
+separate status-checked RIL attachment without another CBD/reset cycle.
+
+Online-only RIL attachment added: parent and child both read MODEM_STATUS and
+require exactly ONLINE4 before transmitting; no CBD start/reset on this path.
+The existing private-NV lease, model/provenance/payload checks and closed device
+policy remain. A first remote wrapper had a quoting SyntaxError before its
+finally block could run; sensor service was immediately restarted, the embedded
+payload compiled locally before another device change, then retried once.
+No vendor/CP command ran in the failed wrapper.
+
+Actual online-only child attached without CBD, SIM status0 then130 observed;
+AT readiness and CFUN1 acknowledged, attach/profile requests sent once with the
+KT LTE APN from KT's published settings. Initial CEREG0 is not registered; the
+bounded registration/PDP observation is still running. No IP or internet claim.
+
+The90s online-only trial completed with SIM0/130, RFS9 private-copy replies,
+three profile ACKs0x8000 and no AT timeout. CEREG progressed0→2 and stayed
+searching across eight later polls; no PDP plan/activation/candidate IP issued.
+The client ended, private runtime teardown and sensor restart passed. Added an
+explicit online observe-only mode that omits radio configuration/PDP and queries
+CSQ/CFUN/COPS/CGATT/CGREG/CREG. A separate120s status-only observation is running;
+no repeated CBD, reset or CFUN transition in that observation. Unique private
+trace-file allocation also passed actual native creation/0600/distinct-name
+checks; only its two empty test files removed, prior evidence preserved.
+
+Status-only observation passed its120s bound and restored sensors. SIM READY,
+signal CSQ11, functionality query0, packet attach0, CEREG2 and CS/PS registration3
+were observed, without AT timeout. Status getters alone do not establish service.
+Own stock IpcProtocol41 radio-power builder audit independently identifies
+command0107, EXEC kind1, two-byte normal0202; its alternate second byte applies
+to ATT/AIO/TFA property handling, not this KT trial. Corrected the bring-up to
+use that exact KT normal packet after existing explicit profile/AT readiness
+checks; removed automatic AT CFUN4/1 toggling. Primary Lineage pwr.h independently
+agrees on normal0202, but the own-vendor builder establishes the S9 packet kind.
+Corrected its reference repository name to android_external_libsamsung-ipc.
+No binary/disassembly is published; only protocol facts/original implementation.
+
+Native radio3 online-only trial proves phone-state GET1 (low power), then the
+new EXEC yields phone-state2 (normal). No new CBD/CP reset. CEREG nevertheless
+remains searching across the120s observation, with no PDP activation/candidate.
+Thus the functionality transition is corrected, while registration/data are not
+claimed. Further native network-mode/service-domain/status mapping is being
+audited; do not infer S9 layouts solely from the older protocol reference.

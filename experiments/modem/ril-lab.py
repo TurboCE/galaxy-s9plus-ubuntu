@@ -26,13 +26,23 @@ spec = importlib.util.spec_from_file_location('rfs_copy', Path(__file__).with_na
 rfs_copy = importlib.util.module_from_spec(spec); spec.loader.exec_module(rfs_copy)
 
 
-# Protocol facts only: LineageOS/android_hardware_samsung_samsung-ipc,
+# Protocol facts only: LineageOS/android_external_libsamsung-ipc,
 # 6d244414f7c66b0d0f93ef4b34f5276023408016, include/gprs.h and gen.h.
 # GPL-2.0-or-later reference; this is an independent GPL-2.0-only implementation.
 # IMPORTANT: that reference describes 103-byte activation / 27-byte IPv4,
 # not an established SM-G965N 105-byte / 257-byte layout. Never transmit this
 # reference profile on the S9 without a separately reviewed target mapping.
 REFERENCE_PROTOCOL = 'lineage-ipc-6d244414-reference-only'
+
+
+def s9_radio_normal():
+    """Own stock IpcProtocol41 radio-on wire facts, not an AT emulation toggle.
+
+    The native builder emits command0107, EXEC1 and two-byte normal0202.
+    Its regional alternate second byte is not applicable to this KT trial.
+    Lineage's independent pwr.h also documents the normal0202 value.
+    """
+    return (0x0107, b'\x02\x02', 1)
 
 
 def reference_define_pdp(apn, cid=1):
@@ -357,6 +367,9 @@ def main():
     parser.add_argument('--confirm-reviewed-s9-pdp-layout', action='store_true')
     parser.add_argument('--pdp-cid', type=int, choices=(1,), default=1)
     parser.add_argument('--pdp-seconds', type=int, choices=range(10,61), default=30)
+    parser.add_argument('--attach-online', action='store_true')
+    parser.add_argument('--diagnostic-status', action='store_true',
+                        help='Query signal, functionality, operator and registration without changing them')
     args = parser.parse_args()
     if args.configure_radio and (not args.apn or not re.fullmatch(r'[A-Za-z0-9.-]{1,100}', args.apn)):
         raise SystemExit('Explicit valid APN required for radio configuration')
@@ -401,6 +414,7 @@ def main():
         at_active = None
         at_buffer = bytearray()
         at_ready = False
+        diagnostic_queued = False
         at_failed = False
         boot_at = None
         next_at_ping = 0
@@ -414,6 +428,19 @@ def main():
             if os.write(ipc, message) != len(message):
                 raise RuntimeError('Short IPC write')
             print(json.dumps({'sent_command': hex(command), 'bytes': len(body)}), flush=True)
+
+        if args.attach_online:
+            # Recheck in the child after the unit enqueue gap. Status is a read,
+            # not a power transition or an assumption based on a prior boot.
+            state = fcntl.ioctl(ipc, 0x6f27, 0)
+            if state != 4:
+                raise RuntimeError('Online CP state changed before attachment')
+            saw_boot = True
+            boot_at = started
+            print(json.dumps({'attached_online_cp': True, 'status': state,
+                              'cp_reset_requested': False}), flush=True)
+            send(0x0501, kind=2)  # Existing read-only SIM status query, no PIN.
+            send(0x0107, kind=2)  # Read-only phone functionality state.
 
         def cleanup_pdp():
             if pdp_plan is None:
@@ -436,6 +463,10 @@ def main():
 
         while not stop_requested and time.monotonic() - started < args.seconds:
             now = time.monotonic()
+            if args.diagnostic_status and at_ready and not at_failed and not diagnostic_queued:
+                at_queue.extend(['AT+CSQ', 'AT+CESQ', 'AT+CFUN?', 'AT+CPIN?', 'AT+COPS?',
+                                 'AT+CGATT?', 'AT+CGREG?', 'AT+CREG?', 'AT+CEER'])
+                diagnostic_queued = True
             if pdp_opt_in and pdp_plan is None and registered and registration_at is not None and now-registration_at <= 15 and sim_ready and radio_asked and at_ready and not at_failed:
                 pdp_plan = S9PDPPlan(args.apn, args.pdp_cid, now, timeout=args.pdp_seconds)
                 request = pdp_plan.registered(True, now)
@@ -468,12 +499,12 @@ def main():
                     at_queue.append('AT+CEREG?')
                 next_at += 10
             if at_ready and not at_failed and configured and acknowledged == {0x0D14, 0x080A, 0x0808} and not radio_asked:
-                at_queue.appendleft('AT+CFUN=1')
+                # The owner's actual RIL uses IPC EXEC, not AT+CFUN, for RF
+                # power. AT acknowledged CFUN1 while a later query stayed0.
+                command, body, kind = s9_radio_normal()
+                send(command, body, kind=kind)
                 radio_asked = True
                 radio_at = time.monotonic()
-            if not pdp_opt_in and not at_failed and radio_asked and not registered and not radio_retried and time.monotonic() - radio_at > 25:
-                at_queue.extend(['AT+CFUN=4', 'AT+CFUN=1'])
-                radio_retried = True
             if not at_ready and not at_failed and boot_at and time.monotonic() - boot_at >= 3 and time.monotonic() >= next_at_ping and not at_active:
                 at_queue.appendleft('AT')  # harmless readiness check, never retry a state change blindly
                 next_at_ping = time.monotonic() + 3
@@ -567,6 +598,8 @@ def main():
                         elif code == 0x0501 and length > 7:
                             event['sim_status_code'] = message[7]
                             sim_ready = message[7] in (0, 130)
+                        elif code == 0x0107 and length > 7:
+                            event['phone_state_code'] = message[7]
                         elif code == 0x0805 and length >= 10:
                             event['access_technology_code'] = message[7]
                             event['domain_code'] = message[8]
