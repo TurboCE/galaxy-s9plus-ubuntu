@@ -93,3 +93,18 @@ work is to qualify post-init magnetic axes/heading/tilt against a controlled
 reference, then provide the standard heading backend consumed by the app.
 A reboot clears the trial's volatile assumptions; do not describe a previous
 status3 observation as a currently active system compass.
+
+### Native #44 revalidation
+
+The handset's stock BOOT and EFS calibration images came from separate
+verified backup sets. They are distinct from the current kernel
+rollback images. The bounded #44 capture reproduced quality 3 with
+135 real magnetic samples and zero overflow, then removed the
+magnetic channel. The current IIO feeds cover acceleration, light,
+pressure, proximity, gyroscope and thermistors.
+
+The standard [SensorProxy compass interface](https://hadess.pages.freedesktop.org/iio-sensor-proxy/gdbus-net.hadess.SensorProxy.Compass.html)
+provides tilt-compensated magnetic heading to GeoClue by default.
+On the handset its availability remained false. Publishing a
+heading still requires physical reference checks of the initialized
+sensor's mounting geometry and tilt compensation.

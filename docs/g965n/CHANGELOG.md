@@ -5264,3 +5264,28 @@ were recorded. Patch startup, all six IIO feeds, Wi-Fi HTTPS204 and
 no-SIM cleanup passed again with no failed units. The option remains
 enabled on the test handset. Cold starts, other firmware and the
 underlying hub transition remain unqualified.
+
+### 2026-11-20 — Revalidate the calibrated magnetometer on native #44
+
+The first staging check compared the calibration provenance to the
+current kernel rollback backup. That is a different backup set from
+the original stock BOOT and EFS sources, so the check stopped before
+changing the sensor profile. Located both original source images
+and independently reran the own-backup extractor. It checked the
+two partition manifests, reproduced the saved calibration, and kept
+the bytes private.
+
+Verified the current BOOT and rollback backup separately, then added
+a bounded 28-second capture using the existing pinned profile. The
+native #44 handset returned 135 calibrated magnetic samples at
+reported quality 3, no overflow, and 155 acceleration samples. The
+broker disabled the magnetic channel after capture. All six existing
+IIO devices remained readable, Wi-Fi HTTPS204 and no-SIM cleanup
+passed, and there were no failed units or 36-byte ACK retries.
+Ubuntu's stock SensorProxy still reported no compass to GeoClue.
+The stationary trial provides no cardinal or tilt reference and
+therefore does not qualify a heading for publication.
+
+Restored the saved profile without magnetic capture or initialization.
+A distinct warm boot verified the original sensor module, all six
+IIO feeds, Wi-Fi HTTPS204 and no-SIM cleanup with no failed unit.
