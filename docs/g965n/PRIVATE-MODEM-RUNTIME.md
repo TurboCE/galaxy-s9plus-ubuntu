@@ -420,3 +420,29 @@ preceding no-USIM/prior-stock-use statement referred to S8+ and must not be
 applied to S9+. Previous stock-Android LTE use of this exact S9+ is unknown.
 Physical insertion does not independently prove readiness, service eligibility
 or registration. No blacklist/settings conclusion follows the recorded cause.
+
+### Native43 EPS diagnostics and remaining file/QoS gaps
+
+The read-only `AT+CEREG=?` capability query is required before considering
+extended reporting. The [2018 AT specification](https://www.etsi.org/deliver/etsi_ts/127000_127099/127007/14.08.00_60/ts_127007v140800p.pdf)
+describes optional extended reporting, but this owner's modem actually returns
+only modes0,1,2. Do not blindly send mode3 based on a generic modem guide.
+The new decoder returns numeric status/optional reason fields, drops cell/
+tracking-area/timer values, and changes the initial-PDP gate only after a
+complete acknowledged own query. Mode3/extended-URC streaming was not enabled
+or qualified. Native43 stays in searching state2, with no PDP/data pass.
+
+The fresh native run verifies ready state survives phonebook completion130/131;
+SIM readiness alone is not network registration. The same bounded experiment
+exposes missing ECT frequency tables, no-op vendor bus QoS, optional packet-log
+failure and shutdown-channel demux messages. Vendor error-priority dumps are
+not automatically fatal, but the loaded-modem log is not called clean.
+The existing CBD monitor expires at90s; a120s RIL observation must not describe
+that monitor as continuously running or an exit0 job.
+
+The private RFS implementation denies modern file OPEN/CLOSE. It currently
+cannot collect requested modem reject-diagnostic files or provide missing
+CP audio files. Their exact framing/semantics and a confined private namespace
+need review; never expose host paths, original partitions or invented content.
+Raw captures, files, NV and all owner vendor binaries remain private. A normal
+guarded reboot returns the unqualified CP module to its opt-in-off baseline.

@@ -3710,3 +3710,35 @@ checks and private receipt maintenance through checkpoint40. Original identity/
 radio/recovery/bootloader untouched; working NV copies and old receipt preserved.
 A fresh bounded stock CBD/RIL trial will verify live phonebook readiness and
 EPS reporting capability, with no blind auth/reset retry loop.
+
+Native43 guarded private provenance revalidation through checkpoint40 passed;
+matching modem/stock-verified overlay loaded and bounded CBD/RIL ran once.
+Fresh SIM0/130/131 events retain readiness true, verifying phonebook completion
+no longer clears the initial-PDP readiness gate. Completed EPS queries are
+acknowledged/redacted; reporting capability is only[0,1,2]. Mode3 was NOT sent.
+EPS moved0->2 and remained searching; no initial PDP activation/data proof.
+RIL bounded job exited0, no AT timeouts. CBD monitor hit its existing90s bound
+and terminated while the RIL observation was120s; that is not an exit0 claim.
+
+The loaded-modem full ring is NOT clean: observed136error-priority lines and
+67warnings,0CallTrace/SError/GIC-type failure. Many lines are vendor register/
+open diagnostics, but four ECT-missing paths and four explicit unimplemented
+bus-QoS warnings are genuine support gaps. Optional packet-log creation fails;
+closing the RIL channel while CP remains online also yields three not-open/
+demux failures. No severity/filter change or guessed QoS table was applied.
+
+Private OPEN capture identifies requested CP audio/default files absent from
+the verified private EFS/CPEFS trees and diagnostic paths including
+err/csdiag_mmrj_Info.dat. Current RFS intentionally denies every file-based
+OPEN/CLOSE; only bounded legacy NV reads/writes work. This is not evidence that
+all CP file services are implemented. No arbitrary namespace or fake file was
+enabled. Review exact owner/public protocol before a bounded private diagnostic
+file service; do not assume cause6 has a proven standard reject domain.
+
+Private working NV checksum and unchanged-original provenance verify after
+trial; all source/working/receipt history preserved. Ordered normal reboot
+returns43 to modem-opt-in-off, accepted private Mesa persists. Latest cleanup
+boot has two initial sensor zero-accepted-byte retry lines (not error-free);
+strict ACK Y/faultN, fresh accel varies, three drivers active, failedunits0 and
+primaryHTTPS204. Original recovery/radio/identity/bootloader not written. The
+sensor retries and remaining modem support/data failures stay open.
