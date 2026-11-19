@@ -79,7 +79,11 @@ reads use the root-only `dsm_read_cmd` module parameter; the four returned
 parameters remain available via `dsm_rx`. Indices0..366 keep the whole request
 inside the two185-parameter blocks. The command rejects a stopped/suspended/
 faulted DSP and holds the stream lock; it does not change speaker calibration.
-This source correction does not itself prove startup stability or sound quality.
+Native42 initial and normal warm boots pass with zero DSP retries and zero
+error-priority kernel lines. Restoring the same isolated legacy saved control
+emits zero write ioctls (native41: one), without editing the saved state.
+Bounded silent playback and exact one-second capture also pass; this does not
+qualify all routes, long use, or acoustic quality.
 
 The restore behavior was checked against the installed ALSA-utils1.2.9 and its
 [upstream state handling](https://github.com/alsa-project/alsa-utils/blob/v1.2.9/alsactl/state.c).

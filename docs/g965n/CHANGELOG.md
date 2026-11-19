@@ -3496,3 +3496,34 @@ Existing timeout/retry/error behavior unchanged; failure logs add length and
 a fixed alsactl-caller boolean, never payload/calibration data. Actual extracted
 C tests pass bounds, no replay put callback, DSP guards, mutex/errno paths.
 Preparing42 build; native before/after restore and boot/flow checks pending.
+
+Kernel42 audio diagnostic interface build completed (#42 SMP PREEMPT Thu Nov
+19 10:45:52 UTC 2026), source4007122, BOOT89d9d850a23a2f648df09787948735c18ecf56c0197f4cf70427b02cfe26a365/
+27219984bytes. Initial reused discovery guard correctly rejected opt-in Y;
+no reboot/write occurred. Used its model/BOOT/backup checks without the
+unrelated discovery-off requirement for the approved recovery transition.
+Fresh42 backup all nine lengths/hashes passed, six protected partitions
+unchanged, EFS four approved metadata fields only and PARAM bounded N/R
+history extension only. Rollback41 and new42 BOOT verified. Preparing
+BOOT-only update; build is not native startup or diagnostic fix proof.
+
+Native42 BOOT-only write/readback, actual USB SSH boot and matching guarded
+audio/BT/sensor startup passed. Full ring retains early Linux header, error0/
+warning64 (journal omits early boot). Prior41 ABOX errors2/retries20 are not
+reproduced; CPU variation and MCU reset warnings remain. The exact same
+isolated legacy DSM state restore now exits0 with ELEM_INFO1/ELEM_WRITE0
+(native41: write1); original asound.state unchanged, command permissions0200.
+Five invalid command inputs rejected. Bounded silent1s Pulse playback and
+exact96000-byte mono capture passed, capture IRQ+268, retries/stalls/backsteps/
+watchdog recovery/codec errors all0. Audio stayed in memory; no new acoustic
+speech claim. Primary Wi-Fi HTTPS204, failed units0. Initiated a separately
+guarded normal warm reboot after preserving prior boot identity privately.
+
+Native42 normal warm boot independently confirmed by changed private boot ID
+and boot time later than the saved checkpoint. All three drivers auto-started;
+IPC retry/stall/backstep/watchdog/codec counters0. Full ring includes early
+header and reports error0/warning64, no CallTrace/SError/PMIC/AF/chanspec
+failure; primary HTTPS204 and failed units0. Both initial/warm observations
+qualify the saved diagnostic replay correction and bounded startup only, not
+all audio routes, endurance, LTE or full hardware parity. Remaining64 warning
+lines retain CPU variation/cache, optional-device/GPT and MCU reset issues.
