@@ -253,6 +253,13 @@ exclusive LHD open explicitly starts a new stream. Bootstrap and streaming
 protocol semantics are not yet hardware-qualified. Do not enable this option
 as an alleged fix merely because host tests or module compilation pass.
 
+For a checked-ACK investigation, set `tx_ack_diagnostics` to `true` in
+the same transport policy. The pinned module must advertise this
+capability. The option defaults to false and logs rate-limited
+transaction metadata for short acknowledgments, including prior and
+returned receive credit. It leaves frame contents out of the log
+and does not change how the transport retries or commits bytes.
+
 
 Before an unattended strict-ACK boot trial, preserve a known workingNprofile
 and its matching unit as root-only snapshots, pin both and exactBOOT/kernel

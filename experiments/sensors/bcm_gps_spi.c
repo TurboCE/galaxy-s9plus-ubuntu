@@ -37,6 +37,9 @@
 static bool strict_tx_ack;
 module_param(strict_tx_ack, bool, 0444);
 MODULE_PARM_DESC(strict_tx_ack, "experimental checked SSI ACK/queue commit; stops on uncertain TX");
+static bool tx_ack_diagnostics;
+module_param(tx_ack_diagnostics, bool, 0444);
+MODULE_PARM_DESC(tx_ack_diagnostics, "report bounded SSI short-ACK metadata without frame payloads");
 static bool ssi_tx_fault;
 module_param_named(tx_ack_fault, ssi_tx_fault, bool, 0444);
 
@@ -233,6 +236,7 @@ static int bcm_spi_open(struct inode *inode, struct file *filp)
 	priv->read_buf.head = priv->read_buf.tail = 0;
 	priv->write_buf.head = priv->write_buf.tail = 0;
 	WRITE_ONCE(ssi_tx_fault, false); /* New exclusive LHD stream only. */
+	priv->tx_sequence = 0;
 
 	priv->packet_received = 0;
 
@@ -683,6 +687,7 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledge
 	unsigned short bytes_written = 0;
 	unsigned short Nread = 0;  // for Full Duplex only
 	int retry_ctr = ssi_fc;
+	unsigned int tx_sequence = ++priv->tx_sequence;
 	int ssi_tx_fc_retries_copy = ssi_tx_fc_retries;
 	unsigned short frame_data_size = strm->frame_len - strm->ctrl_len;
 	struct ssi_ack_state ack = { .remaining = length };
@@ -759,6 +764,17 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledge
 		// -- if ( strm->ctrl_byte & SSI_FLOW_CONTROL_ENABLED )
 		if ( strm->fc_len != 0 ) {
 			Bwritten = bcm_ssi_get_len(strm->ctrl_byte, &rx->data[strm->pckt_len + Mwrite]);
+			if (tx_ack_diagnostics && Mwrite != Bwritten) {
+				unsigned long block = m_ulRxBufferBlockSize[
+					(rx->status & HSI_F_MOSI_CTRL_SZE_MASK) >> HSI_F_MOSI_CTRL_SZE_SHIFT];
+				unsigned long count = (rx->status & HSI_F_MOSI_CTRL_CNT_MASK) >>
+					HSI_F_MOSI_CTRL_CNT_SHIFT;
+
+				pr_info_ratelimited("[SSPBBD]: short-ack tx=%u attempt=%d request=%u ack=%u stat=%02x credit=%lu prior-credit=%lu mcu-ready=%d\n",
+						tx_sequence, ssi_fc - retry_ctr + 1,
+						Mwrite, Bwritten, rx->status, block * count,
+						g_rx_buffer_avail_bytes, gpio_get_value(priv->mcu_resp));
+			}
 
 			if ( g_bcm_debug_fc || Mwrite != Bwritten ) {
 				// ++ Calculate fc retries

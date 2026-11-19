@@ -27,6 +27,13 @@ sensor service recovered and acceleration and light values remained
 readable. The original profile was restored and the same retry recurred
 on the rollback boot. This first-write delay did not resolve the warning.
 
+A separate native44 boot with opt-in short-ACK diagnostics put the
+36-byte failure at transaction 455, attempt 1. MCU-ready was high,
+previous credit was 12288 bytes, and the response reported zero status,
+zero credit and zero acknowledged bytes. The checked retry path
+recovered. Investigate the status transition or SPI response on that
+transaction before changing retry or credit behavior.
+
 Wi-Fi Direct IF_ADD timeout is separately repaired by a real firmware-backed
 control context, with native boot/reboot, lifecycle/scans, existing STA HTTPS
 and owner-assisted bidirectional discovery evidence in WIFI_DIAGNOSTICS.md.

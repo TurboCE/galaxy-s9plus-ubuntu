@@ -139,6 +139,7 @@ struct bcm_rxtx_work {
 };
 
 struct bcm_spi_priv {
+	unsigned int tx_sequence;
 	struct spi_device *spi;
 
 	/* Char device stuff */

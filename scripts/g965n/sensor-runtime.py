@@ -285,7 +285,8 @@ def ensure_module(entry,name,parameters,expected_parameters):
 
 def transport_policy(profile):
     value=profile.get('transport',{'strict_tx_ack':False})
-    if not isinstance(value,dict) or set(value)!={'strict_tx_ack'} or type(value['strict_tx_ack'])is not bool:
+    if (not isinstance(value,dict) or not {'strict_tx_ack'} <= set(value) <= {'strict_tx_ack','tx_ack_diagnostics'}
+            or any(type(item)is not bool for item in value.values())):
         raise RuntimeError('Expected explicit boolean SSI transport policy')
     info=elf_section(pinned(profile['module'],64*1024*1024),'.modinfo')
     capable=b'parmtype=strict_tx_ack:bool' in info.split(b'\0')
@@ -297,6 +298,13 @@ def transport_policy(profile):
         enabled=value['strict_tx_ack']
         parameters.append('strict_tx_ack='+('1' if enabled else '0'))
         expected['strict_tx_ack']='Y' if enabled else 'N'
+    diagnostic = value.get('tx_ack_diagnostics', False)
+    diag_capable = b'parmtype=tx_ack_diagnostics:bool' in info.split(b'\0')
+    if diagnostic and (not diag_capable or not value['strict_tx_ack']):
+        raise RuntimeError('ACK diagnostics require checked SSI mode on a compatible module')
+    if diag_capable:
+        parameters.append('tx_ack_diagnostics=' + ('1' if diagnostic else '0'))
+        expected['tx_ack_diagnostics'] = 'Y' if diagnostic else 'N'
     return parameters,expected
 
 

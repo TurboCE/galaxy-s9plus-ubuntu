@@ -41,6 +41,23 @@ class SensorRuntimeTests(unittest.TestCase):
             self.assertNotIn('strict_tx_ack',' '.join(params));self.assertNotIn('strict_tx_ack',expected)
             with self.assertRaisesRegex(RuntimeError,'capability'):S.transport_policy({**profile,'transport':{'strict_tx_ack':True}})
 
+    def test_short_ack_diagnostics_are_opt_in_and_require_checked_ack(self):
+        profile = {'module': {'path': '/private/transport'}}
+        checked = b'parmtype=strict_tx_ack:bool\0'
+        diagnostic = checked + b'parmtype=tx_ack_diagnostics:bool\0'
+        enabled = {'strict_tx_ack': True, 'tx_ack_diagnostics': True}
+        with mock.patch.object(S, 'pinned', return_value=b'module'):
+            with mock.patch.object(S, 'elf_section', return_value=diagnostic):
+                self.assertIn('tx_ack_diagnostics=0', S.transport_policy(profile)[0])
+                params, expected = S.transport_policy({**profile, 'transport': enabled})
+                self.assertIn('tx_ack_diagnostics=1', params)
+                self.assertEqual(expected['tx_ack_diagnostics'], 'Y')
+                with self.assertRaisesRegex(RuntimeError, 'checked SSI'):
+                    S.transport_policy({**profile, 'transport': {**enabled, 'strict_tx_ack': False}})
+            with mock.patch.object(S, 'elf_section', return_value=checked):
+                with self.assertRaisesRegex(RuntimeError, 'compatible module'):
+                    S.transport_policy({**profile, 'transport': enabled})
+
     def test_als_only_default_never_passes_matrix(self):
         for profile in [{},{'accel':{}},{'accel':{'enabled':False}}]:
             params,expected=S.bridge_policy(profile)

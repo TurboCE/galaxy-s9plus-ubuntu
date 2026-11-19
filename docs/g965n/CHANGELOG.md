@@ -4599,3 +4599,23 @@ The service ended successfully, restored the installed ModemManager and
 WWAN switch state, and deleted the temporary GSM profile and service
 override. The one-shot service remained disabled. Direct GNOME UI
 interaction and continuous startup remain unqualified.
+
+### 2026-11-20 — Locate the recurring sensor hub short acknowledgment
+
+Added opt-in, rate-limited SSI diagnostics for transaction number,
+attempt, acknowledgment, status, advertised credit and MCU-ready state.
+The metadata excludes frame contents. The supervisor requires checked
+ACK mode and the matching module parameter before enabling collection.
+
+On an exact native44 boot, the 36-byte write that received no
+acknowledgment was the first attempt of transaction 455. The MCU-ready
+line was high. The previous advertised credit was 12288 bytes, while
+the response status and advertised credit were zero. The checked retry
+path recovered and acceleration and light readings remained available.
+This localizes the retry beyond the first stream write and establishes
+what the host saw. It does not identify why the receiver returned zero.
+
+Restored the original sensor profile and module on a separate boot.
+Acceleration and light remained readable, Wi-Fi held the preferred
+route and no unit failed. The diagnostic option was absent from the
+loaded module. The kernel had 63 warnings and one SSP retry.
