@@ -16,13 +16,16 @@ module_param(enable_g965n, bool, 0444);
 static bool enable_accel;
 module_param(enable_accel, bool, 0444);
 MODULE_PARM_DESC(enable_accel, "Opt-in acceleration only after actual mounting evidence; default ALS-only");
+static bool enable_pressure;
+module_param(enable_pressure, bool, 0444);
+MODULE_PARM_DESC(enable_pressure, "Opt-in LPS22H pressure on the qualified SSP profile");
 static int accel_matrix[9], accel_matrix_count;
 module_param_array_named(accel_mount_matrix, accel_matrix, int, &accel_matrix_count, 0444);
 MODULE_PARM_DESC(accel_mount_matrix, "Required explicit9-entry signed permutation, sensor to display axes");
 static DEFINE_MUTEX(lifecycle_lock);
 static DEFINE_MUTEX(sample_lock);
 static struct bridge_cache cache;
-static struct iio_dev *accel_dev, *light_dev;
+static struct iio_dev *accel_dev, *light_dev, *pressure_dev;
 static bool writer_open;
 static struct iio_mount_matrix mount;
 static struct miscdevice bridge_misc;
@@ -42,18 +45,32 @@ static const struct iio_chan_spec accel_channels[] = {
 static const struct iio_chan_spec light_channels[] = {
  { .type=IIO_LIGHT, .info_mask_separate=BIT(IIO_CHAN_INFO_PROCESSED) }
 };
+static const struct iio_chan_spec pressure_channels[] = {
+ { .type=IIO_PRESSURE, .info_mask_separate=BIT(IIO_CHAN_INFO_RAW),
+   .info_mask_shared_by_type=BIT(IIO_CHAN_INFO_SCALE) }
+};
 static int read_sample(struct iio_dev *dev,const struct iio_chan_spec *chan,
                        int *val,int *val2,long mask)
 {
- u32 type=chan->type==IIO_ACCEL?G965N_IIO_ACCEL:G965N_IIO_LIGHT;
- unsigned int axis=chan->type==IIO_ACCEL?chan->channel2-IIO_MOD_X:0;
+ unsigned int axis=0;
+ u32 type;
  s32 sample;int ret;
+ switch (chan->type) {
+ case IIO_ACCEL: type=G965N_IIO_ACCEL;axis=chan->channel2-IIO_MOD_X;break;
+ case IIO_LIGHT: type=G965N_IIO_LIGHT;break;
+ case IIO_PRESSURE: type=G965N_IIO_PRESSURE;break;
+ default: return -EINVAL;
+ }
  mutex_lock(&sample_lock);
  if (mask==IIO_CHAN_INFO_SCALE && type==G965N_IIO_ACCEL) {
   /* Registration requires a verified range8 actual frame. */
   ret=cache.connected && cache.accel.valid?IIO_VAL_INT_PLUS_NANO:-ENODATA;
   if (ret>=0) {*val=0;*val2=2394202;}
- } else if ((mask==IIO_CHAN_INFO_RAW && type==G965N_IIO_ACCEL) ||
+ } else if (mask==IIO_CHAN_INFO_SCALE && type==G965N_IIO_PRESSURE) {
+  /* The LPS22H yields 4096 counts/hPa. IIO reports kPa. */
+  ret=cache.connected && cache.pressure.valid?IIO_VAL_FRACTIONAL:-ENODATA;
+  if (ret>=0) {*val=1;*val2=40960;}
+ } else if ((mask==IIO_CHAN_INFO_RAW && type!=G965N_IIO_LIGHT) ||
             (mask==IIO_CHAN_INFO_PROCESSED && type==G965N_IIO_LIGHT)) {
   ret=bridge_read(&cache,type,axis,ktime_get_boottime_ns(),&sample);
   if (!ret) {*val=sample;ret=IIO_VAL_INT;}
@@ -64,16 +81,32 @@ static int read_sample(struct iio_dev *dev,const struct iio_chan_spec *chan,
 static const struct iio_info sample_info = { .read_raw=read_sample };
 static int register_sensor(u32 type)
 {
- struct iio_dev *dev;struct iio_dev **target=type==G965N_IIO_ACCEL?&accel_dev:&light_dev;
+ struct iio_dev *dev, **target;
+ const struct iio_chan_spec *channels;
+ const char *name;
+ unsigned int count;
  int ret;
- if (type==G965N_IIO_ACCEL && !enable_accel) return -EACCES;
+ switch (type) {
+ case G965N_IIO_ACCEL:
+  if (!enable_accel) return -EACCES;
+  target=&accel_dev;name="g965n-ssp-accel";channels=accel_channels;count=ARRAY_SIZE(accel_channels);
+  break;
+ case G965N_IIO_LIGHT:
+  target=&light_dev;name="g965n-ssp-light";channels=light_channels;count=ARRAY_SIZE(light_channels);
+  break;
+ case G965N_IIO_PRESSURE:
+  if (!enable_pressure) return -EACCES;
+  target=&pressure_dev;name="g965n-ssp-pressure";channels=pressure_channels;count=ARRAY_SIZE(pressure_channels);
+  break;
+ default: return -EINVAL;
+ }
  if (*target) return 0;
  dev=iio_device_alloc(bridge_misc.this_device,0);
  if (!dev) return -ENOMEM;
- dev->name=type==G965N_IIO_ACCEL?"g965n-ssp-accel":"g965n-ssp-light";
+ dev->name=name;
  dev->info=&sample_info;dev->modes=INDIO_DIRECT_MODE;
- dev->channels=type==G965N_IIO_ACCEL?accel_channels:light_channels;
- dev->num_channels=type==G965N_IIO_ACCEL?ARRAY_SIZE(accel_channels):ARRAY_SIZE(light_channels);
+ dev->channels=channels;
+ dev->num_channels=count;
  ret=iio_device_register(dev);
  if (ret) {iio_device_free(dev);return ret;}
  *target=dev;return 0;
@@ -117,10 +150,11 @@ out:
 static int bridge_close(struct inode *inode,struct file *file)
 {
  mutex_lock(&lifecycle_lock);
- mutex_lock(&sample_lock);cache.connected=false;cache.accel.valid=false;cache.light.valid=false;mutex_unlock(&sample_lock);
+ mutex_lock(&sample_lock);memset(&cache,0,sizeof(cache));mutex_unlock(&sample_lock);
  /* Never hold sample_lock across kernfs/IIO removal: active read_raw may use it. */
  if (light_dev) {iio_device_unregister(light_dev);iio_device_free(light_dev);light_dev=NULL;}
  if (accel_dev) {iio_device_unregister(accel_dev);iio_device_free(accel_dev);accel_dev=NULL;}
+ if (pressure_dev) {iio_device_unregister(pressure_dev);iio_device_free(pressure_dev);pressure_dev=NULL;}
  writer_open=false;
  mutex_unlock(&lifecycle_lock);return 0;
 }

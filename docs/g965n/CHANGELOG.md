@@ -4741,3 +4741,29 @@ messages and 67 warnings, including one sensor hub retry.
 Stopped the desktop LTE session and verified bearer release, radio low
 power and Wi-Fi connectivity. Restored the boot enablement after the
 maintenance check. The current LTE session remains stopped until reboot.
+
+### 2026-11-20 — LPS22H pressure through Linux IIO
+
+Added an opt-in SSP ID 5 pressure stream to the verified root broker and
+IIO bridge. The bridge rejects out-of-range and stale data independently
+of acceleration, lux and heartbeats, and registers only after a valid
+hardware frame. The scale follows the pinned LPS22H configuration and
+the ST datasheet, converting raw counts to the Linux IIO unit of kPa.
+
+Verified the native #44 BOOT and nine-partition backup, saved the original
+sensor profile, unit and pins, and hot-replaced only the IIO bridge. The
+sensor service stopped cleanly and restarted while the SSP module and
+running kernel remained in place. The new service stayed active. An
+ordinary Ubuntu user read 300 pressure samples over 60 seconds, with
+120 distinct counts corresponding to 101.4119–101.4160 kPa.
+Acceleration and lux remained readable at each poll. Wi-Fi-bound
+HTTPS returned 204. No new sensor-related kernel warning was reported
+after the service reached readiness.
+
+The pre-existing boot log still includes a sensor hub reset-line
+warning and one successfully recovered SSP transmit retry. The desktop
+LTE unit had already reported that the modem did not provide a ready
+SIM on this boot. ModemManager was active and the pressure trial left
+the modem untouched. Pressure accuracy against a reference, Android
+per-device compensation, and pressure startup after a distinct boot
+remain unverified.

@@ -213,6 +213,24 @@ maintainer must preserve firmware privacy, per-BOOT package/backup/profile
 pins and actual pose evidence rather than copying an unqualified identity
 matrix. Long endurance and power are still unverified.
 
+## Opt-in pressure IIO on native #44
+
+For the pinned LPS22H SSP configuration, set `"pressure": {"enabled": true}`
+in the root-owned sensor profile. The supervisor passes `enable_pressure=1`
+to the bridge, and the broker verifies the live SSP identity and advertised
+ID 5 before adding it. Use the updated broker, supervisor, and bridge as a
+matched set. Pin the rebuilt bridge to the matching BOOT in the module
+receipt, then recompute the receipt, program, profile and unit pins with the
+same procedures used for acceleration. A profile with no pressure policy keeps
+the existing sensor selection.
+
+Ordinary Linux clients can read `in_pressure_raw` and `in_pressure_scale` on
+the IIO device named `g965n-ssp-pressure`. Their product is pressure in kPa.
+No gesture or GNOME setting is needed. Temperature from ID 5 remains a
+diagnostic field. Pressure accuracy against a reference and stock per-device
+compensation still need qualification. See the
+[bridge documentation](../../experiments/iio-bridge/README.md).
+
 ## Native rotation lock
 
 Use GNOME's existing **Auto Rotate** tile in the top-right quick settings.

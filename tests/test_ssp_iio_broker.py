@@ -96,15 +96,22 @@ class BrokerTests(unittest.TestCase):
         frames=[]
         with patch.object(b.os,'write',side_effect=lambda fd,data:frames.append(data) or len(data)):
             f=b.Feed(55);f.publish(2,(391,0,0));f.publish(3);f.publish(1,(-32768,0,32767))
+            probe=types.SimpleNamespace(samples={5:[(4161524,2934)]})
+            seen=set()
+            b.publish_actual(probe,[5],f,seen,None,1)
         decoded=[b.FRAME.unpack(x) for x in frames]
         self.assertEqual(len(frames[0]),48)
         self.assertEqual(decoded[0],(1,48,1,2,0,391,0,0,0,0,0))
         self.assertEqual(decoded[2][2:8],(3,1,1,-32768,0,32767))
+        self.assertEqual(decoded[3],(1,48,4,4,0,4161524,0,0,0,0,0))
+        self.assertEqual(seen,{5})
 
     def test_invalid_or_short_frame_does_not_advance(self):
         f=b.Feed(1)
         with patch.object(b.os,'write') as write:
-            for kind,values in [(2,(-1,0,0)),(2,(1,False,0)),(1,(32768,0,0)),(9,(0,0,0)),(3,(1,0,0))]:
+            for kind,values in [(2,(-1,0,0)),(2,(1,False,0)),(1,(32768,0,0)),
+                                (9,(0,0,0)),(3,(1,0,0)),(4,(0,0,0)),(4,(0x800000,0,0)),
+                                (4,(4161524,2934,0))]:
                 with self.assertRaises(ValueError):f.publish(kind,values)
             write.assert_not_called();self.assertEqual(f.seq,0)
         with patch.object(b.os,'write',return_value=47):

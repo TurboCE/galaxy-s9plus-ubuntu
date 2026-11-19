@@ -24,6 +24,7 @@
 #define CAP_SYS_ADMIN 1
 #define IIO_ACCEL 1
 #define IIO_LIGHT 2
+#define IIO_PRESSURE 3
 #define IIO_MOD_X 1
 #define IIO_MOD_Y 2
 #define IIO_MOD_Z 3
@@ -32,6 +33,7 @@
 #define IIO_CHAN_INFO_SCALE 2
 #define IIO_VAL_INT 1
 #define IIO_VAL_INT_PLUS_NANO 3
+#define IIO_VAL_FRACTIONAL 10
 #define INDIO_DIRECT_MODE 1
 #define IIO_SHARED_BY_TYPE 1
 #define MISC_DYNAMIC_MINOR 255

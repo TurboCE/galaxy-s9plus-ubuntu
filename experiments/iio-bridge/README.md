@@ -4,20 +4,18 @@ New GPL-2.0-only source. This is not a sensor simulator or a replacement sensor
 hub driver. A separately verified root broker must supply **actual SSP data**
 through the existing transport. The module does not access the hub, firmware,
 protected partitions or networks, and never invents a measurement. It exposes
-two genuine IIO devices through the standard kernel subsystem, without fake
+genuine IIO devices through the standard kernel subsystem, without fake
 sysfs files or a replacement D-Bus service.
 
-This source has host validation only. It has not been built against or loaded
-on the handset. A successful host test is not a successful device boot or
-sensor reading. Root project orchestration owns kernel configuration, exact
+See the hardware checkpoints below for the features exercised on the handset.
+Root project orchestration owns kernel configuration, exact
 BOOT/model/backup verification, deployment and recording hardware evidence.
 Nothing here automatically loads the module or changes startup services.
 
 ## Kernel and ownership
 
-The pinned Linux7.1 API requires `CONFIG_IIO`; current native kernel25 does not
-provide that core. A new reviewed kernel must supply it before this module can
-be used. `Makefile` is an ordinary external module build definition only:
+The pinned Linux 7.1 API requires `CONFIG_IIO` in the handset's target kernel.
+`Makefile` is an ordinary external module build definition only:
 
 ```sh
 make -C /absolute/kernel/source O=/absolute/kernel/output \
@@ -31,8 +29,7 @@ No build command flashes, loads modules or activates devices. Loading requires
 `enable_accel=0` supports ALS only, requires no mount matrix, rejects every
 acceleration frame with `EACCES`, and never registers an acceleration device.
 Only `enable_accel=1` requires an explicit nine-entry `accel_mount_matrix` module
-parameter. Physical axis evidence is not currently available, so initial
-hardware qualification must remain ALS-only; do not guess a matrix. Every row and column must contain exactly one signed1; all other
+parameter based on physical axis evidence for the device. Every row and column must contain exactly one signed1; all other
 entries are0. The code accepts rotations/reflections but does not claim a
 particular physical orientation is correct. The owner must establish the
 matrix and whether broker values have already been transformed. There is no
@@ -56,7 +53,7 @@ callback. The file's module reference prevents normal unload while a writer is o
 | --- | --- |
 | version / size | 1 / 48 |
 | seq | First accepted frame1, then strictly increasing unsigned64; no wrap |
-| type | 1 acceleration, 2 illuminance, 3 heartbeat |
+| type | 1 acceleration, 2 illuminance, 3 heartbeat, 4 pressure |
 | flags | Acceleration exactly1, otherwise0 |
 | value[3] | Signed32 encoding, constrained by sensor type |
 | reserved[3] | All zero |
@@ -77,6 +74,17 @@ proves that the broker session remains live. Invalid frames do not consume a
 sequence or refresh freshness. Failed first IIO registration restores the
 previous cache/sequence, allowing a valid frame to be retried.
 
+Pressure is opt-in with `enable_pressure=1`. The broker takes the first
+field of an actual SSP ID 5 sample from the pinned LPS22H configuration.
+Frame value 0 contains positive raw counts within the signed 24-bit range.
+The other fields and flags are zero. Based on the
+[ST LPS22HB datasheet](https://www.st.com/resource/en/datasheet/lps22hb.pdf),
+4096 counts/hPa becomes 1/40960 kPa per count for the
+[Linux IIO ABI](https://www.kernel.org/doc/html/v5.16/admin-guide/abi-testing.html).
+This interpretation follows the pinned Android sensor identity and parser,
+the datasheet and the observed counts. Absolute accuracy and the optional
+Android per-device compensation still require a reference measurement.
+
 ## Real IIO semantics and freshness
 
 No IIO device is registered until that sensor's first valid real frame. This
@@ -86,17 +94,18 @@ verified. Registration exposes:
 - `g965n-ssp-accel`: `in_accel_x_raw`, `in_accel_y_raw`, `in_accel_z_raw`, shared
   scale and standard `in_accel_mount_matrix` through `IIO_MOUNT_MATRIX`.
 - `g965n-ssp-light`: processed `in_illuminance_input`, integer lux.
+- `g965n-ssp-pressure`: `in_pressure_raw` and `in_pressure_scale`, yielding kPa.
 
 Before the first reading, cache reads return `ENODATA` rather than a fabricated
-sample. Acceleration requires both its own sample age and broker heartbeat
-age to be at most2seconds. A newer heartbeat does not revive an old acceleration
-sample. On-change light readings remain valid while broker heartbeat is fresh;
+sample. Acceleration and pressure each require both their own sample age and
+broker heartbeat age to be at most two seconds. A newer heartbeat does not
+revive an old sample. On-change light readings remain valid while broker heartbeat is fresh;
 the broker must monitor transport/daemon health, not blindly heartbeat through
 lost hardware access. Future timestamps are invalid; timestamps are assigned
 by kernel boottime when a frame is accepted, not supplied by userspace.
 
-Closing the last writer file invalidates both caches, unregisters and frees
-both IIO devices, and resets the session for the next exclusive writer.
+Closing the last writer file invalidates the cache, unregisters and frees
+the IIO devices, and resets the session for the next exclusive writer.
 Lifecycle operations serialize open/write/registration/close. Separate sample
 locking protects reads and cache updates. Sample locking is released before
 IIO/kernfs unregister, so an active `read_raw` cannot deadlock removal. There

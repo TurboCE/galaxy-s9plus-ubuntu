@@ -5,6 +5,7 @@ static int iio_device_register(struct iio_dev *p)
  if(registration_fail)return -EIO;
  /* Device cannot advertise data/scale until its first real sample is ready. */
  if(p->channels[0].type==IIO_ACCEL){assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT);assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_SCALE)==IIO_VAL_INT_PLUS_NANO&&v==0&&v2==2394202);}
+ else if(p->channels[0].type==IIO_PRESSURE){assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&v==4161524);assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_SCALE)==IIO_VAL_FRACTIONAL&&v==1&&v2==40960);}
  else assert(p->info->read_raw(p,p->channels,&v,&v2,IIO_CHAN_INFO_PROCESSED)==IIO_VAL_INT);
  registrations++;return 0;
 }
@@ -12,7 +13,7 @@ static void iio_device_unregister(struct iio_dev *p)
 {
  int v,v2;assert(lifecycle_lock.locked&&!sample_lock.locked);
  /* Simulate an active kernfs reader while teardown waits: no deadlock/UAF. */
- assert(p->info->read_raw(p,p->channels,&v,&v2,p->channels[0].type==IIO_ACCEL?IIO_CHAN_INFO_RAW:IIO_CHAN_INFO_PROCESSED)==-ENODATA);
+ assert(p->info->read_raw(p,p->channels,&v,&v2,p->channels[0].type==IIO_LIGHT?IIO_CHAN_INFO_PROCESSED:IIO_CHAN_INFO_RAW)==-ENODATA);
  unregistrations++;
 }
 static struct g965n_iio_frame frame(unsigned type,unsigned seq)
@@ -38,9 +39,12 @@ int main(void)
  u64 prior_heartbeat=cache.heartbeat;disabled=frame(1,2);disabled.flags=bridge_le32(1);
  assert(bridge_write(&file,(const char *)&disabled,48,NULL)==-EACCES);
  assert(cache.seq==1&&cache.heartbeat==prior_heartbeat&&!cache.accel.valid&&cache.light.value[0]==12);
+ disabled=frame(G965N_IIO_PRESSURE,2);disabled.value[0]=bridge_le32(4161524);
+ assert(bridge_write(&file,(const char *)&disabled,48,NULL)==-EACCES);
+ assert(cache.seq==1&&!cache.pressure.valid&&!pressure_dev);
  assert(!bridge_close(NULL,&file));bridge_exit();
  assert(frees==allocations);allocations=registrations=unregistrations=frees=0;
- enable_accel=true;assert(bridge_init()==-EINVAL);accel_matrix_count=9;accel_matrix[0]=accel_matrix[4]=accel_matrix[8]=1;assert(!bridge_init());assert(misc_registered==1&&!accel_dev&&!light_dev);
+ enable_accel=true;enable_pressure=true;assert(bridge_init()==-EINVAL);accel_matrix_count=9;accel_matrix[0]=accel_matrix[4]=accel_matrix[8]=1;assert(!bridge_init());assert(misc_registered==1&&!accel_dev&&!light_dev&&!pressure_dev);
  unsigned int before_opens=stream_opens;
  cap=false;assert(bridge_open(NULL,&file)==-EPERM);cap=true;assert(bridge_open(NULL,&bad)==-EACCES);
  assert(stream_opens==before_opens);
@@ -55,11 +59,18 @@ int main(void)
  assert(read_sample(accel_dev,&accel_channels[0],&val,&val2,IIO_CHAN_INFO_RAW)==IIO_VAL_INT&&val==-5);
  assert(bridge_write(&file,(const char *)&p,48,NULL)==-ERANGE);assert(cache.seq==1);
  p=frame(2,2);p.value[0]=bridge_le32(100);assert(bridge_write(&file,(const char *)&p,48,NULL)==48);assert(light_dev&&registrations==2);
+ p=frame(G965N_IIO_PRESSURE,3);
+ assert(bridge_write(&file,(const char *)&p,48,NULL)==-ERANGE&&!pressure_dev);
+ p.value[0]=bridge_le32(0x800000);
+ assert(bridge_write(&file,(const char *)&p,48,NULL)==-ERANGE&&!pressure_dev);
+ p.value[0]=bridge_le32(4161524);
+ assert(bridge_write(&file,(const char *)&p,48,NULL)==48&&pressure_dev&&registrations==3);
  clock_ns+=G965N_FRESH_NS+1;
  assert(read_sample(accel_dev,accel_channels,&val,&val2,IIO_CHAN_INFO_RAW)==-ENODATA);
  assert(read_sample(light_dev,light_channels,&val,&val2,IIO_CHAN_INFO_PROCESSED)==-ENODATA);
- p=frame(3,3);assert(bridge_write(&file,(const char *)&p,48,NULL)==48);assert(read_sample(light_dev,light_channels,&val,&val2,IIO_CHAN_INFO_PROCESSED)==IIO_VAL_INT&&val==100);assert(read_sample(accel_dev,accel_channels,&val,&val2,IIO_CHAN_INFO_RAW)==-ENODATA);
- assert(!bridge_close(NULL,&file));assert(!cache.connected&&!accel_dev&&!light_dev&&!writer_open);assert(unregistrations==2&&frees==allocations);
+ p=frame(3,4);assert(bridge_write(&file,(const char *)&p,48,NULL)==48);assert(read_sample(light_dev,light_channels,&val,&val2,IIO_CHAN_INFO_PROCESSED)==IIO_VAL_INT&&val==100);assert(read_sample(accel_dev,accel_channels,&val,&val2,IIO_CHAN_INFO_RAW)==-ENODATA);
+ assert(read_sample(pressure_dev,pressure_channels,&val,&val2,IIO_CHAN_INFO_RAW)==-ENODATA);
+ assert(!bridge_close(NULL,&file));assert(!cache.connected&&!accel_dev&&!light_dev&&!pressure_dev&&!writer_open);assert(unregistrations==3&&frees==allocations);
  assert(!bridge_open(NULL,&file));assert(!cache.seq&&!cache.accel.valid&&!cache.light.valid);assert(!bridge_close(NULL,&file));
  bridge_exit();assert(!misc_registered);return 0;
 }
