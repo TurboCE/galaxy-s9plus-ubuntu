@@ -4735,3 +4735,9 @@ boot. LTE automatically reconnected and passed bound DNS and HTTPS204.
 Wi-Fi stayed preferred, acceleration and light remained readable, and
 there were no failed units. The kernel logged 104 error-priority
 messages and 67 warnings, including one sensor hub retry.
+
+### 2026-11-20 — SIM maintenance readiness
+
+Stopped the desktop LTE session and verified bearer release, radio low
+power and Wi-Fi connectivity. Restored the boot enablement after the
+maintenance check. The current LTE session remains stopped until reboot.
