@@ -13,6 +13,17 @@ spec=importlib.util.spec_from_file_location('broker',ROOT/'scripts/g965n/ssp-iio
 b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
 
 class BrokerTests(unittest.TestCase):
+    def test_initial_not_ready_is_bounded_receive_only_wait(self):
+        ready=unittest.mock.Mock(side_effect=[RuntimeError('Hub transport not ready; no sensor enabled'),None])
+        ssp=types.SimpleNamespace(require_transport_ready=ready)
+        with patch.object(b.select,'select',return_value=([],[],[])):
+            self.assertTrue(b.wait_transport(ssp,types.SimpleNamespace(fd=55,requested=lambda:False),lambda:False,1))
+        self.assertEqual(ready.call_count,2)
+        ready.reset_mock();self.assertFalse(b.wait_transport(ssp,types.SimpleNamespace(fd=55,requested=lambda:True),lambda:False,1));ready.assert_not_called()
+        ready.side_effect=RuntimeError('Hub transport not ready; no sensor enabled')
+        with self.assertRaisesRegex(RuntimeError,'deadline'):
+            b.wait_transport(ssp,types.SimpleNamespace(fd=55,requested=lambda:False),lambda:False,0)
+
     def test_wire_layout_actual_values_and_heartbeat(self):
         frames=[]
         with patch.object(b.os,'write',side_effect=lambda fd,data:frames.append(data) or len(data)):

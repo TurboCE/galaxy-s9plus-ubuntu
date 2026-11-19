@@ -143,6 +143,40 @@ def pipe_descriptor(fd, writable):
         raise ValueError('Wrong supervisor pipe direction')
 
 
+class StopChannel:
+    def __init__(self, fd):
+        self.fd = fd
+        self.message = bytearray()
+
+    def requested(self):
+        if not select.select([self.fd], [], [], 0)[0]:
+            return False
+        chunk = os.read(self.fd, 32)
+        if not chunk:
+            return True
+        self.message.extend(chunk)
+        if not b'STOP\n'.startswith(self.message):
+            raise ValueError('Invalid supervisor stop message')
+        return self.message == b'STOP\n'
+
+
+def wait_transport(ssp, channel, stopping, seconds):
+    deadline = time.monotonic() + seconds
+    while not stopping():
+        if channel.requested():
+            return False
+        try:
+            ssp.require_transport_ready()
+            return True
+        except RuntimeError as error:
+            if str(error) != 'Hub transport not ready; no sensor enabled':
+                raise
+        if time.monotonic() >= deadline:
+            raise RuntimeError('Hub transport readiness deadline expired')
+        select.select([channel.fd], [], [], .1)
+    return False
+
+
 def run(profile, ssp, ready_fd, stop_fd):
     enabled = []
     stopping = False
@@ -152,6 +186,9 @@ def run(profile, ssp, ready_fd, stop_fd):
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     with ssp.acquire_probe_lock():
+        channel = StopChannel(stop_fd)
+        if not wait_transport(ssp, channel, lambda: stopping, min(30, profile.get('timeouts', {}).get('startup', 60))):
+            return
         probe = ssp.Probe('lux18')
         feed_fd = None
         try:
@@ -177,18 +214,9 @@ def run(profile, ssp, ready_fd, stop_fd):
             ready = False
             last_accel = None
             next_heartbeat = started
-            stop_message = bytearray()
             while not stopping:
-                if select.select([stop_fd], [], [], 0)[0]:
-                    chunk = os.read(stop_fd, 32)
-                    if not chunk:
-                        break
-                    stop_message.extend(chunk)
-                    if b'STOP\n'.startswith(stop_message):
-                        if stop_message == b'STOP\n':
-                            break
-                    else:
-                        raise ValueError('Invalid supervisor stop message')
+                if channel.requested():
+                    break
                 ssp.require_transport_ready()
                 probe.pump(.05)
                 now = time.monotonic()

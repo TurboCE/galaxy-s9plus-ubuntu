@@ -97,9 +97,11 @@ def validate_profile(profile):
     kernel=json.loads(pinned(profile['kernel_receipt']))
     if kernel.get('built_in_iio')is not True or kernel.get('boot_sha256')!=profile['expected_boot_sha256']:raise RuntimeError('BOOT selection mismatch')
     load_program(profile,'kernel_verifier').verify_kernel(kernel)
-    module=pinned(profile['module'],64*1024*1024)
-    entry=kernel.get('modules',{}).get('sensors',{})
-    if entry.get('sha256')!=digest(module) or entry.get('bytes')!=len(module):raise RuntimeError('Transport does not match exact startup package')
+    for key,feature in (('module','sensors'),('iio_bridge','iio-bridge')):
+        module=pinned(profile[key],64*1024*1024)
+        entry=kernel.get('modules',{}).get(feature,{})
+        if entry.get('sha256')!=digest(module) or entry.get('bytes')!=len(module):
+            raise RuntimeError('Module does not match exact startup package: '+feature)
     for key in ('module','iio_bridge'):
         if type(profile[key].get('bytes'))is not int or profile[key]['bytes']<=0:raise RuntimeError('Module byte size must be pinned')
         data=pinned(profile[key],64*1024*1024)

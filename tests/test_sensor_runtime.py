@@ -237,7 +237,7 @@ class SensorRuntimeTests(unittest.TestCase):
         ko=bytes(raw)+names+info
         def entry(name,data):return {'path':'/root/'+name,'sha256':S.digest(data),'bytes':len(data)}
         backup={'model':'SM-G965N','complete':True,'partitions':[{'name':n,'bytes':1,'sha256':'a'*64} for n in sorted(S.PARTITIONS)]}
-        kernel={'boot_sha256':'b'*64,'built_in_iio':True,'kernel_release':'7.1.0-dirty','modules':{'sensors':{'bytes':len(ko),'sha256':S.digest(ko)}}}
+        kernel={'boot_sha256':'b'*64,'built_in_iio':True,'kernel_release':'7.1.0-dirty','modules':{name:{'bytes':len(ko),'sha256':S.digest(ko)} for name in ('sensors','iio-bridge')}}
         profile={'schema':1,'model':'SM-G965N','programs':{n:entry(n,b'self') for n in ['supervisor','runtime','kernel_verifier','broker','ssp_probe']},'backup_manifest':entry('backup',json.dumps(backup).encode()),'kernel_receipt':entry('kernel',json.dumps(kernel).encode()),'expected_boot_sha256':'b'*64,'module':entry('transport',ko),'iio_bridge':{**entry('bridge',ko),'device':'/dev/g965n-iio-bridge'},'hub_patch':{'path':str(Path('/lib/firmware/g965n/bcm4773-patch.bin').resolve()),'sha256':S.digest(b'patch')},'accel':{'enabled':False},'identity':{'chip_id':1,'firmware':2,'sensor_mask':3},'timeouts':{'startup':60,'cleanup':25}}
         data={'/root/backup':json.dumps(backup).encode(),'/root/kernel':json.dumps(kernel).encode(),'/root/transport':ko,'/root/bridge':ko,profile['hub_patch']['path']:b'patch'}
         check=mock.Mock()

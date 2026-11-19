@@ -2261,3 +2261,28 @@ ef06a8b after#26 API correction. Fresh9backup complete and BOOT-only install
 started; successful device boot and IIO publication remain separate checks.
 Owner now requests no verification subagents; all earlier agents are finished
 and further implementation/verification is performed by the main agent.
+
+
+Native#27 boot,exactBOOT receipt and audio/Bluetooth startup verified. First
+sensor-service trial failed before enabling data because broker queried the
+transport immediately while lhd was still starting. Ordered failure cleanup
+removed its owned runtime; no IIO devices or dangling child remained. Added
+a bounded receive-only ready wait before SSP identity, respecting STOP/EOF;
+8 broker host tests pass. No automatic hardware reset/retry loop added.
+
+Second explicit start succeeded: real IIOaccel/rawxyz/scale0.002394202 and
+qualifiedmountmatrix plus real processed illuminance appeared. Stock Ubuntu
+SensorProxy reports HasAccelerometer=true/HasAmbientLight=true. SSH-launched
+monitor asUID1000 was correctly denied by active-session policy; launching
+through that user's normal systemd manager succeeded and actual lux values
+updated(219..268 in observed window). Policy was not weakened. A normal
+no-device/defaultLightLevel0 is not promoted to a valid measurement.
+
+Exact runningDeviceAllow shows onlyBOOT/SYSTEM/VENDOR read plus reviewed
+char nodes rw(no m or broadmisc grant). Source template's helper children
+emitted one rejected notify message; primary READY succeeded, provenance
+is being traced before final persistence. Orientation remains locked while
+raw service qualification runs; independent240s original-display restore
+timer armed for the next real GNOME rotation trial. No backlight device
+exists: current panel implements only fixed gamma/dimming setup, so auto
+brightness is not claimed merely from ALS success.
