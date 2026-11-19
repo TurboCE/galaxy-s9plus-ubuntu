@@ -4078,3 +4078,13 @@ Completed CGATT queries report false then true while readiness advances.
 This boot returns actual0x8000 for both EXEC and PS-attach SET, so it verifies
 cold-start data and live query parsing, but does not hardware-qualify the specific
 no-SET-ACK alternate gate. Retain that limit; no always-connected claim.
+
+
+After query-aware cold trial: orderly PDP cleanup requested, LPM acknowledged
+and RFS drain reports no failure; RIL exit0. Current model/BOOT/backup and private
+NV/provenance validated before normal cleanup reboot. Distinct boot returns
+modem-off, all three driver services active and failed units0. Full early ring
+retained: error-priority1 (initial SSP zero-write retry), warning63, CallTrace0,
+SError0. Strict ACK isY, supply-cut/bitbangN; accelerometer values vary and ALS
+is readable. This is restored sensor feed/service evidence, not a clean-kernel
+claim, ambient-light-change test or physical wireless/audio retest.
