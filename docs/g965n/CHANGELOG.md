@@ -5359,3 +5359,29 @@ clamp, desktop state and temporary input teardown after the trials.
 Sensors and Wi-Fi HTTPS204 passed, with no failed units or matching
 GPU/display faults in the surrounding log window. These short trials
 do not qualify any permanent power-policy change.
+
+### 2026-11-20 — Isolate shared overview and app-grid frame work
+
+Reanalysed the existing CPU A/B/A capture. During opening,
+`Meta::Display::handle_event()` p95 was 27.93 / 14.90 / 46.44 ms,
+paint p95 was 21.27 / 17.79 / 22.64 ms, and framebuffer swap p95
+was 5.42 / 3.36 / 5.86 ms. The markers may be nested. They describe
+where time was observed and do not identify a specific blocking call.
+
+Ran four opens/closes per phase using the configured Super shortcut
+for the window picker, Super+A for the app grid, then Super again.
+GNOME Shell 46 implements distinct window-picker and app-grid
+targets under one overview transition path. See the
+[GNOME Shell overview controls](https://raw.githubusercontent.com/GNOME/gnome-shell/46.0/js/ui/overviewControls.js).
+
+| Opening target | Paint p95 (ms) | Paint marks over 16.7 ms | Relayout p95 (ms) | Frame-clock dispatch p95 (ms) |
+|---|---:|---:|---:|---:|
+| Window picker, first | 18.062 | 4/55 | 2.594 | 28.145 |
+| App grid | 18.645 | 4/51 | 4.888 | 24.951 |
+| Window picker, repeat | 21.097 | 4/48 | 4.182 | 29.636 |
+
+Both overview targets exceeded the 60 Hz frame budget. The measured
+app-grid relayout increase does not explain the shared slow paints.
+The test restored the desktop and removed the temporary input module.
+Sensors and Wi-Fi HTTPS204 passed, with no failed units or matching
+GPU/display faults in the surrounding three-minute window.

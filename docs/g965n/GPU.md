@@ -137,6 +137,15 @@ had four opening paints over 16.7 ms. The measured evidence favors
 investigating the CPU-side opening workload, with the original power
 policy restored on the handset.
 
+Native #44's window picker and app grid both exceeded the frame budget
+under their actual configured shortcuts. Opening paint p95 was
+18.062/18.645/21.097 ms in the window-picker/app-grid/window-picker
+comparison, with four paints over 16.7 ms in each phase. In the
+earlier CPU comparison, input dispatch and painting took more time
+than framebuffer swapping. These measurements direct investigation
+toward shared overview transition work; they do not identify its
+specific CPU stack or measure physical scanout.
+
 Kernel#13 additionally corrects the board's ACPM-owned supply description.
 The whole-boot missing-mali-regulator error is absent. Another full33-scene/
 100-frame exact pass reports0 matching errors.50ms sampling observes260/455/
