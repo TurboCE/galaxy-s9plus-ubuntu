@@ -1248,6 +1248,8 @@ if 'S9P_TOUCH_MT_AXIS_CHECK' not in touch:
 # they reject unknown source/patch hashes before modifying their target files.
 subprocess.run([sys.executable, str(Path(__file__).with_name('g965n-wifi-diagnostics.py')),
                 str(src)], check=True)
+subprocess.run([sys.executable, str(Path(__file__).with_name('g965n-p2p-setup.py')),
+                str(src)], check=True)
 subprocess.run([sys.executable,
                 str(Path(__file__).resolve().parents[2] / 'experiments/pmic/apply.py'),
                 'apply', '--kernel-source', str(src)], check=True)
