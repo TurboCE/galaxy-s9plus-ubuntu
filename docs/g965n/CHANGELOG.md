@@ -5098,3 +5098,21 @@ no-SIM shutdown passed. Six IIO devices, Wi-Fi HTTPS204 and the P2P
 interface remained available, and no unit failed. Packet contents were
 excluded from the evidence. Fragment handling was verified on the
 host; the no-SIM boot did not verify LTE traffic.
+
+### 2026-11-20 — Reject incomplete sensor SPI responses
+
+The sensor transport now requires the SPI controller's reported actual
+length to match the request before returning success or logging the
+response. A mismatched length returns EIO. An explicit controller error
+still returns its original errno. Host tests covered success, short and
+empty transfers reported as successful, and a controller error return.
+
+Built for native #44, checked BOOT and backup provenance, and saved the
+previous pinned sensor profile and module before staging. A distinct
+handset boot confirmed the exact module build ID, hub firmware startup
+and watchdog cancellation after 1.277 seconds. Six IIO devices delivered
+80 reads each over 20 seconds. Wi-Fi HTTPS204 and no-SIM cleanup passed
+with a P2P interface and zero failed units. One 36-byte write still
+needed its checked ACK retry despite the controller reporting the
+expected length. The check rules out a reported short transfer for
+that retry; physical bus timing remains unmeasured.

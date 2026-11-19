@@ -41,6 +41,12 @@ all 36 bytes with status 0x16 and 12288 bytes of credit. MCU-ready
 was high in both snapshots. The existing checked retry recovered;
 the zero first response still requires investigation.
 
+On a distinct native44 boot with transfer-length validation, the
+controller reported the expected length even for the 36-byte write
+whose acknowledgement required one retry. No controller error or
+reported length mismatch occurred. Physical bus timing remains
+unmeasured.
+
 A later native44 startup profile explicitly selects one standby
 attempt. The driver still records a high MCU_RESP as an unconfirmed
 reset. The sensor service continues to require the pinned hub

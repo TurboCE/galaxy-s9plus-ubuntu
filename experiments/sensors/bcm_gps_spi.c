@@ -666,12 +666,18 @@ int bcm_spi_sync(struct bcm_spi_priv *priv, void *tx_buf, void *rx_buf, int len,
 	/* Sync */
 	pk_log("w", (unsigned char *)xfer.tx_buf, len);
 	ret = spi_sync(msg.spi, &msg);
+	if (ret) {
+		dev_err(&priv->spi->dev, "SSI SPI transfer failed: %d\n", ret);
+		return ret;
+	}
+	if (msg.actual_length != xfer.len) {
+		dev_err(&priv->spi->dev, "SSI SPI transfer length %u, expected %u\n",
+			msg.actual_length, xfer.len);
+		return -EIO;
+	}
+
 	pk_log("r", (unsigned char *)xfer.rx_buf, len);
-
-	if (ret)
-		pr_err("[SSPBBD} spi_sync error, return=%d\n", ret);
-
-	return ret;
+	return 0;
 }
 
 
