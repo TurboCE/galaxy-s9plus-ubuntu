@@ -364,8 +364,10 @@ static DEVICE_ATTR_RW(mcu_power);
  * SPI clock, MCU_REQ and AP_SLEEP were still driven high (those can keep the
  * chip's I/O ring and core partly powered through its input clamp diodes).
  *
- * So: park every line we drive towards the chip low (or as a pulled-down
- * input), hold it in standby, then bring it up in Samsung's order: AP_SLEEP
+ * With a deliberate supply cut, park every driven line low (or as a
+ * pulled-down input). Normal stock policy keeps the rail on: verify that
+ * first and keep active-low SPI CS inactive so it cannot select the chip.
+ * Hold standby, then bring it up in Samsung's order: AP_SLEEP
  * high (ssp_dev.c probe), pins back, enable pin high, 100 ms. If MCU_RESP is
  * still high afterwards the hold is repeated, longer.
  */
@@ -381,7 +383,7 @@ static bool mcu_resp_high(void)
 	return gpiod_get_value(zrn_gpios[ZRN_GPIO_MCU_RESP]) > 0;
 }
 
-static void hub_pins_park(void)
+static void hub_pins_park(bool cs_inactive)
 {
 	zrn_mcu_req(0);
 	gpiod_set_value(zrn_gpios[ZRN_GPIO_AP_SLEEP], 0);
@@ -393,7 +395,10 @@ static void hub_pins_park(void)
 		 * (gph0 PUD 0x..111) hold them low */
 		writel(readl(gph0 + GPH0_CON) & ~0xfffU, gph0 + GPH0_CON);
 	}
-	gph0_set(PIN_CS, false);
+	/* Active-low CS must stay inactive while the powered chip is held.
+	 * Only a deliberate rail cut parks it low to avoid input back-power.
+	 */
+	gph0_set(PIN_CS, cs_inactive);
 }
 
 static int hub_pins_restore(void)
@@ -411,7 +416,16 @@ static int hub_cycle(unsigned int hold_ms)
 {
 	int ret;
 
-	hub_pins_park();
+	/* The normal stock policy keeps LDO37 on. Establish that state before
+	 * driving inactive CS high, including an initially unpowered probe.
+	 * No voltage bits are changed; any failure precedes GPIO manipulation.
+	 */
+	if (!supply_cut) {
+		ret = hub_supply_enable();
+		if (ret)
+			return ret;
+	}
+	hub_pins_park(!supply_cut);
 	gpiod_set_value(zrn_gpios[ZRN_GPIO_GPS_PWR], 0);
 	if (supply_cut) {
 		ret = hub_pmic_result(s9p_acpm_pmic_update(S2MPS18_L37CTRL, 0,
@@ -425,9 +439,11 @@ static int hub_cycle(unsigned int hold_ms)
 	 * from a chip that entered standby and woke again. Do not change the
 	 * reset policy or infer success from this diagnostic alone.
 	 */
-	pr_info("zrn-bbd: hub held %u ms: MCU_RESP %d, SHUB_INT %d\n",
+	pr_info("zrn-bbd: hub held %u ms: MCU_RESP %d, SHUB_INT %d, CS %u, GPS_PWR_EN %d\n",
 		hold_ms, gpiod_get_value(zrn_gpios[ZRN_GPIO_MCU_RESP]),
-		gpiod_get_value(zrn_gpios[ZRN_GPIO_SHUB_INT]));
+		gpiod_get_value(zrn_gpios[ZRN_GPIO_SHUB_INT]),
+		(unsigned int)!!(readl(gph0 + GPH0_DAT) & PIN_CS),
+		gpiod_get_value(zrn_gpios[ZRN_GPIO_GPS_PWR]));
 	ret = hub_supply_enable();
 	if (ret)
 		return ret;

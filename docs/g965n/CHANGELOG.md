@@ -3406,3 +3406,27 @@ Diagnostic kernel39 build completed from097dc37: BOOTcc36bae3da165a266d6a41aee23
 27219984bytes, #39 SMP PREEMPT Thu Nov19 10:04:39 UTC2026. Five matching
 modules/stock-compared overlay frozen. Build only; standby observations still
 need native boot evidence before any change to reset policy.
+
+Recovery39 transition exceeded the short host observation window; the first
+backup inspection refused an absent ADB target before creating a directory
+or any write. Observed the exact G965N recovery/model three times once USB
+settled, then a new bounded backup completed. All nine hashes verified; six
+protected partitions unchanged, EFS approved four metadata fields only, PARAM
+only bounded N/R timestamp-log extension, rollback38/new39 BOOT verified.
+Proceeding with the model/backup/consent-guarded BOOT-only installer; no
+identity/radio/recovery/bootloader write or reset-policy change.
+
+Native39 actual BOOT/readback/profile/module checks and driver startup pass.
+Early-ring collector verifies error-priority0/warning64 and three held-phase
+observations. The initial response was0, then all100/1000/3000ms held phases
+and post-wake phases show MCU_RESP1, SHUB_INT0. Fresh accel samples vary,
+ALS0, strict SSI faultN, all three driver services active. This rules out a
+post-wake-only sampling explanation; reset remains unconfirmed.
+
+Source review identifies powered standby driving active-low SPI CS active.
+Prepared correction: on the normal always-on policy, verify LDO37 enable/
+readback before GPIO manipulation and park CS inactive; explicit supply-cut
+path retains low CS against back-power. Voltage mask/reset holds/retry policy
+unchanged. Held diagnostics now include programmed CS/GPS_PWR_EN levels.
+Actual-C tests cover both policies and fail-before-GPIO/pre/post-readback
+errors; pass. Preparing40 build; no native success claim for this candidate.
