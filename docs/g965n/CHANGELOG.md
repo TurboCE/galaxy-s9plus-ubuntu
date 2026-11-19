@@ -4573,3 +4573,29 @@ A distinct cleanup boot confirmed Wi-Fi, stock ModemManager and
 readable acceleration and light feeds with no failed units. The
 kernel had 63 warnings and one SSP transmit retry. GNOME settings
 interaction and persistent use remain unqualified.
+
+### 2026-11-20 — Desktop LTE boot startup and system switch cycle
+
+The first system switch trial confirmed off released the LTE context
+and removed its route. Its on check mistook NetworkManager's activating
+profile for a ready bearer. Corrected the check to wait for the live
+lease and installed route. The next warm boot had no Wi-Fi default
+and the trial stopped before replacing ModemManager. NetworkManager
+recorded a supplicant disconnect after association. Reconnecting the
+existing Wi-Fi profile restored the default route without changing the
+profile or driver. The Wi-Fi trigger is still unconfirmed.
+
+An exact-model, pinned one-shot service then ran on a distinct native44
+boot and disabled itself. It used the reproduced ARM64 adapter and the
+system NetworkManager. Setting `WwanEnabled=false` removed the LTE route
+and released the bearer. Turning it on again automatically activated
+the temporary GSM profile and created a new bearer. Both LTE
+generations passed DNS and certificate-verified HTTPS204, with the
+second repeating after 30 seconds. Wi-Fi retained its preferred route.
+Turning mobile data off a second time verified release and route
+cleanup again.
+
+The service ended successfully, restored the installed ModemManager and
+WWAN switch state, and deleted the temporary GSM profile and service
+override. The one-shot service remained disabled. Direct GNOME UI
+interaction and continuous startup remain unqualified.

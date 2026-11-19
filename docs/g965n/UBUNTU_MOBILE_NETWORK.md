@@ -65,6 +65,21 @@ NetworkManager deactivated the profile and removed the LTE route,
 and the RIL confirmed release and withdrew the lease. The temporary
 profile was deleted and the stock manager restored. The original Wi-Fi
 default remained in place. This qualifies the tested system handoff.
-The GNOME settings interaction and persistent mobile service remain
-pending. The bounded trials do not qualify SIM PIN, SIM hot swap,
-calls or SMS.
+The bounded trials do not qualify SIM PIN, SIM hot swap, calls or SMS.
+
+## Verified after boot and through the system mobile-data switch
+
+An armed one-shot systemd service started the native44 trial on a
+distinct reboot. It disabled itself as it began and started LTE
+through the existing NetworkManager. Two writes of
+`WwanEnabled=false` removed the LTE route and its modem lease. Setting
+`WwanEnabled=true` between them automatically reactivated the temporary
+GSM profile without a separate connection command. Both data
+generations passed LTE-bound DNS and certificate-verified HTTPS204.
+The second passed again 30 seconds later. Wi-Fi stayed the preferred
+route while mobile data was active.
+
+The service restored the original ModemManager and WWAN switch setting
+and removed the temporary profile. This verifies the NetworkManager
+switch path and one-shot boot startup. Direct GNOME interaction and
+continuous mobile service across ordinary boots remain pending.
