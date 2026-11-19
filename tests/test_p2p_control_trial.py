@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 import importlib.util
+import hashlib
+import io
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -27,6 +29,14 @@ class P2pControlTrialTests(unittest.TestCase):
         self.assertEqual(inventory['0x1']['type'],'managed')
         self.assertEqual(inventory['0xa']['type'],'P2P-device')
         self.assertNotIn('addr',inventory['0xa'])
+
+    def test_readonly_observer_opt_in_does_not_relax_trial_baseline(self):
+        data=b'ANDROID!'+b'x'*24
+        receipt={'model':'SM-G965N','kernel_release':'test','kernel_version':'exact','boot_bytes':32,'boot_sha256':hashlib.sha256(data).hexdigest()}
+        backup={'model':'SM-G965N','complete':True,'bootloader':'G965Ntest','partitions':[{'name':n} for n in ['BOOT','DTB','DTBO','EFS','CPEFS','RADIO','MISC','RECOVERY','PARAM']]}
+        with patch.object(p.Path,'read_bytes',return_value=b'samsung,star2lte\0'),patch.object(p.Path,'read_text',return_value='Y'),patch.object(p.os,'uname',return_value=SimpleNamespace(release='test',version='exact')),patch('builtins.open',side_effect=lambda *a,**kw:io.BytesIO(data)):
+            with self.assertRaisesRegex(ValueError,'opt-in-off'):p.validate(receipt,backup)
+            p.validate(receipt,backup,require_off=False)
 
     def test_wrong_model_backup_kernel_and_bounds_refuse_before_boot_read(self):
         receipt={'model':'SM-G965N','kernel_release':'test','kernel_version':'exact','boot_bytes':32}

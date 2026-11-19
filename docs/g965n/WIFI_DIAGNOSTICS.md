@@ -126,7 +126,7 @@ was synthesized or subscription mask changed. Next compatibility work needs
 an actual qualified firmware discovery BSS query and primary-ifidx0 lifecycle
 review, following the pinned source evidence above.
 
-## Opt-in control-context candidate (not yet hardware-qualified)
+## Explicit firmware-backed control context
 
 Native33 reads real p2p_dev BSS2 after timeout. `g965n-p2p-control.py` implements
 a separate explicitly enabled control-only context, matching pinned firmware
@@ -138,6 +138,38 @@ required; failure unwinds discovery and returns the real error. No primary
 mapping replacement. A non-netdev duplicate guard prevents a null dereference.
 
 A separately explicit `S9_EXPERIMENTAL_P2P_CONTROL=1` adds the kernel command-line
-selection for a later qualified boot. Builds do not enable it by default,
+selection for the qualified native36 boot path. Builds do not enable it by default,
 flash, deploy or publish firmware. Context creation and delete tests alone are
 not evidence of peer discovery, GO/client negotiation or actual peer traffic.
+
+## Latest hardware qualification and reproduction
+
+Native35 passed two guarded create/start/one-channel scan/stop/delete cycles
+with primary mapping unchanged and bound-WiFi HTTPS204 after each. Native36,
+built with `S9_EXPERIMENTAL_P2P_CONTROL=1`, automatically creates the firmware-
+backed P2P control context across initial and warm boots without IF_ADD timeout.
+Native NetworkManager Find discovered Fold7; the owner confirmed reverse
+visibility by an address privately matched to the actual S9 P2P device.
+
+Add `S9_EXPERIMENTAL_P2P_CONTROL=1` to the existing reviewed G965N kernel build
+recipe (retain its other required flags and own-firmware inputs). It adds
+`brcmfmac.g965n_legacy_p2pdev=1`. The general build default remains off; no
+installer/CI automatically flashes or changes firmware. The model/backup/
+consent-guarded BOOT-only installer remains separate.
+
+Already-configured APSTA1 is reused without primary DOWN/APSTA/UP. A connecting
+or connected primary with unconfigured APSTA refuses instead of being reset;
+initial idle setup retains upstream commands. A real firmware BSS query and
+free bounded slot are mandatory. Removal uses the existing non-netdev lifecycle
+and preserves primary data mappings; no firmware event is synthesized.
+
+`p2p-control-trial.py` requires an opt-in-off exact-BOOT baseline and arms a90s
+reboot fallback before its runtime opt-in. It changes only its own test context,
+uses a valid Listen Channel IE for scans, and preserves raw wireless details
+in private0600 logs. `p2p-peer-observe.py` operates through stock NetworkManager
+on an already qualified enabled path, uses signed-int32 Find timeout, and
+prints only counts/generic name-match; it never pairs or connects a peer.
+
+These results qualify initialization, bounded scanning/lifecycle and real
+bidirectional peer discovery. GO/client negotiation, peer IP/file transfer,
+long-term concurrent use and cross-firmware/hardware variants remain open.

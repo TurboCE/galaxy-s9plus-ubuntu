@@ -42,7 +42,7 @@ def trusted_json(path, expected):
     return json.loads(data)
 
 
-def validate(receipt, backup):
+def validate(receipt, backup, require_off=True):
     if (receipt.get('model')!='SM-G965N' or backup.get('model')!='SM-G965N' or
             not backup.get('complete') or not backup.get('bootloader','').startswith('G965N')):
         raise ValueError('Wrong model or incomplete backup')
@@ -58,7 +58,7 @@ def validate(receipt, backup):
     with open('/dev/sda10','rb') as stream:
         if hashlib.sha256(stream.read(size)).hexdigest()!=receipt['boot_sha256']:
             raise ValueError('Actual BOOT differs')
-    if PARAM.read_text().strip()!='N':raise ValueError('Trial requires opt-in-off baseline')
+    if require_off and PARAM.read_text().strip()!='N':raise ValueError('Trial requires opt-in-off baseline')
 
 
 def devices(text):

@@ -2799,3 +2799,40 @@ context lifecycle/scanning plus preserved primary data for the APSTA-aware
 preparation change. It is not peer discovery, GO/client negotiation or actual
 peer-data proof. A persistent opt-in build/reboot qualification is next.
 Owner has opened Fold7 Wi-Fi Direct for a separate real-peer test.
+
+## 2026-11-19 — Native36 persistent P2P and real bidirectional peer discovery
+
+Kernel36 from42484ba built with S9_EXPERIMENTAL_P2P_CONTROL=1, #36 SMP PREEMPT
+Thu Nov19 06:38:38 UTC2026, BOOT5937715b3728efe6453e1995b274f680db726077c91b853f1b4d521d58426ab5/
+27219984bytes. Fresh9backup/fail-fast protected comparison/guardedBOOTwrite/
+readback/nativeboot passed. Runtime parameterY, one native P2P device created
+at4.476s using realBSS2/ifidx0; old IF_ADD timeout absent and primary Wi-Fi
+HTTPS204. Fresh36 protected sensor receipt/module/backup/profile pins staged;
+ordered sensor restart/data passed. Audio/BT active, native ambienttrue and
+401-level brightness retained.
+
+Added bounded NetworkManager peer observer with exact model/BOOT/kernel and
+private input pins. Its optional read-only guard mode permits an already-on
+production path; actual mutation trial still defaults to refusingY (regression
+covered). First Find call used uint32 timeout and was rejected by the native
+API requiring int32; corrected request only, without any driver change. The
+15s native NetworkManager Find then found TWO new peers with a Fold7-name match,
+no API error; StopFind cleanup executed. Owner independently saw the S9 peer on
+Fold7 and supplied an address; private comparison matched the actual S9 P2P
+address. No addresses, peer names or raw IE/logs are published. This establishes
+real bidirectional discovery, not pairing/group negotiation/file or IP traffic
+between peers. Existing primary Wi-Fi traffic was separately verified.
+
+Further warm boot preserved runtimeY/oneP2Pdevice, no IF_ADD timeout, TSP reset
+5.274s/no-110, real ALS/accel, audio/BT services, ambienttrue and requested/applied
+brightness56of401. Bound-WiFi HTTPS204 and failedsystemunits0; full unfiltered
+error-priority kernel log had0lines in both observed36boots. This is bounded
+boot evidence, not error-free hardware/full Lineage parity. Warning audit still
+finds CPU feature differences, RGB/haptic missingDT, alternateGPT, hub reset
+uncertainty and unsupported BT transmit-power command; see KERNEL_WARNINGS.
+
+Read-only GPT header/table CRC audit: sda primary header+entries valid, alternate
+header invalid despite an in-range finalLBA; sdd primary+alternate headers valid.
+Logical sectors4096bytes. No GUIDs/partition data were printed/published and no
+GPT sector was modified. This remaining metadata warning is not repaired by
+hiding it or by an unreviewed table rewrite.
