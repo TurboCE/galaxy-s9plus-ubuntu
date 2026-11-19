@@ -5512,3 +5512,21 @@ load and idle, with 74 power-ons, 73 power-offs and no matching
 PLL/Panfrost kernel error. Clock values are driver reports. The
 earlier intermittent timeout was not reproduced in this baseline
 and the #45 hardware comparison remains pending.
+
+### 2026-11-20 — Distinguish the hub reset warning from service readiness
+
+On the current #44 boot, MCU_RESP was high both during the 1-second
+standby hold and after releasing the hub. The subsequent firmware
+transfer accepted the targeted 36-byte write on its first attempt
+and signalled hub readiness at 6.461 s. In a later passive GPIO
+check, MCU_RESP was low. A successful firmware start does not
+establish that the earlier hardware reset occurred.
+
+During a separate 120-second observation on the same boot, the
+hub readiness flag stayed set and the supervisor PID was unchanged.
+All six IIO devices passed 241 reads each, with a maximum sampling
+gap of 501.7 ms on a 500 ms schedule. The stationary light and
+proximity inputs remained constant. All 13 HTTPS requests bound
+to Wi-Fi returned 204. No new matching hub or Wi-Fi fault or
+failed systemd unit appeared. No reset policy or hardware setting
+was changed. The standby warning's cause remains open.
