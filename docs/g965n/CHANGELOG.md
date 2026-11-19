@@ -5685,3 +5685,20 @@ passed for all three protocols without opening the modem.
 
 This covers request construction. IPv6 activation, prefix discovery
 and LTE-only DNS and data remain pending with a usable SIM.
+
+### 2026-11-20 — Prepare a bounded IPv6 address observation trial
+
+Prepared a local trial patch that uses the reviewed IPv6 and
+dual-stack protocol values in both attach and context definition.
+It collects the observed address families from valid same-context
+responses and ends after observation, through the existing
+deactivation and radio cleanup path. The trial uses an isolated
+cold session and cannot export an IPv4 lease or install routes.
+
+The first host suite exposed launcher fixtures without an explicit
+protocol argument. With the compatibility default restored, all
+384 host tests passed. The ARM64 handset fixture accepted separate
+IPv6 and IPv4 responses for one dual-stack context and issued only
+one cleanup request, without opening the physical modem. Only
+fixture and preflight evidence is available. The live trial patch
+stays local pending SIM-present testing.
