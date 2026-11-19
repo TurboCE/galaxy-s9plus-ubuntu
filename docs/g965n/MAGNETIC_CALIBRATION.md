@@ -84,3 +84,12 @@ cardinal and tilted reference measurements are still required. Do not use the
 old quality1 captures to certify the changed initialization, and do not fit
 away their errors merely to reproduce four operator labels. The installed
 Compass frontend still waits for a genuinely qualified backend.
+
+
+The production#28 profile deliberately has no magnetic initialization/capture
+entry and the current IIO bridge exposes only acceleration/illuminance.
+The diagnostic geometry is not an Ubuntu compass implementation. Remaining
+work is to qualify post-init magnetic axes/heading/tilt against a controlled
+reference, then provide the standard heading backend consumed by the app.
+A reboot clears the trial's volatile assumptions; do not describe a previous
+status3 observation as a currently active system compass.

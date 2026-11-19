@@ -225,12 +225,13 @@ qualified acceleration feed, live `PanelOrientationManaged=true` was verified.
 The owner initially missed the tile, then found it and confirmed that disabling
 it prevents rotation. A subsequent read confirmed `orientation-lock=true` with
 the sensor service still active. No extra toggle, Shell extension, policy
-override or settings mutation was needed. Lock persistence across another
-reboot has not been separately tested.
+override or settings mutation was needed. A later real#28 reboot preserved orientation-lock=true; physical lock behavior
+after that particular reboot was not separately repeated by the owner.
 
 
 For the separate panel driver candidate and its limits, see
 [PANEL_BRIGHTNESS.md](PANEL_BRIGHTNESS.md). For bounded raw magnetic capture
 and private own-backup calibration preparation, see
-[MAGNETIC_CALIBRATION.md](MAGNETIC_CALIBRATION.md). Neither document's
-source/build checkpoint establishes physical brightness or heading quality.
+[MAGNETIC_CALIBRATION.md](MAGNETIC_CALIBRATION.md). Native#28 real light-change
+control and electrical-response evidence are recorded there; optical
+luminance/color/flicker and compass heading quality remain unqualified.

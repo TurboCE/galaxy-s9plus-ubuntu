@@ -49,7 +49,8 @@ sensor service active and no matching new panel/fatal/GPU errors. Real room-ligh
 A focused/fullscreen white-window16/1/16/1 comparison reproduced about0.32A
 net battery-current change and voltage sag at maximum. This is physical
 electrical-response evidence, not calibrated luminance/color/flicker or full
-Samsung parity. Reboot persistence of the updated profile remains pending.
+Samsung parity. A further real#28 reboot auto-started the updated sensor service and restored
+brightness3/actual3 with ambient-enabled=true; audio/BT startup also passed.
 
 `scripts/g965n/backlight-restore.py` saves a private exact-BOOT state. Stage
 the script in a root-owned non-writable directory and save with explicit

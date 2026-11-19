@@ -2461,3 +2461,17 @@ evidence beyond a cached brightness number, but is not calibrated panel power
 or an optical luminance/color/flicker measurement. Private records retained,
 original brightness/ambient policy restored, test window closed and fallback
 timer cancelled after success. Source white-window helper is included.
+
+Performed another real reboot of the same#28 BOOT after updating production
+sensor pins. Sensor, audio and Bluetooth services auto-started successfully;
+backlight requested/actual3 restored. GNOME ambient-enabled=true and owner
+rotation-lock=true persisted. SensorProxy HasAmbientLight/HasAccelerometer
+true and real4lux read. No failed system units or matching new panel/fatal/
+GPU error signatures in this fresh boot window. Temporary test observers/
+white window/rollback timers ended; the bounded idle inhibitor had already
+expired and was not carried into the new boot. Original idle/lock policy
+was not changed. RECOVERY/EFS/CPEFS/RADIO live bytes matched every corresponding
+fresh pre#28 backup hash after the trials/reboot. Compass remains unimplemented
+in production; its trial status3 and offline geometry must not be represented
+as a working post-reboot app. Physical magnetic reference work waits for the
+owner's return; no fake heading or guessed mounting matrix published.
