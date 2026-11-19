@@ -16,6 +16,9 @@ export BOOT_CMDLINE="console=tty0 console=ramoops-1 loglevel=7 panic=5 earlycon=
 if [[ "${S9_EXPERIMENTAL_PANEL_AOR:-0}" = 1 ]]; then
   BOOT_CMDLINE+=" s9p_decon.panel_aor=1"
 fi
+if [[ "${S9_EXPERIMENTAL_P2P_CONTROL:-0}" = 1 ]]; then
+  BOOT_CMDLINE+=" brcmfmac.g965n_legacy_p2pdev=1"
+fi
 PROJ=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 bash "$PROJ/scripts/build/build71.sh" > "$BUILD/stable-build.log" 2>&1
 rc=$?

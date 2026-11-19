@@ -1250,6 +1250,8 @@ subprocess.run([sys.executable, str(Path(__file__).with_name('g965n-wifi-diagnos
                 str(src)], check=True)
 subprocess.run([sys.executable, str(Path(__file__).with_name('g965n-p2p-setup.py')),
                 str(src)], check=True)
+subprocess.run([sys.executable, str(Path(__file__).with_name('g965n-p2p-control.py')),
+                str(src)], check=True)
 subprocess.run([sys.executable,
                 str(Path(__file__).resolve().parents[2] / 'experiments/pmic/apply.py'),
                 'apply', '--kernel-source', str(src)], check=True)

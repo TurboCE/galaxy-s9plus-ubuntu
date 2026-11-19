@@ -125,3 +125,19 @@ reported as working peer discovery/group formation/traffic. No firmware event
 was synthesized or subscription mask changed. Next compatibility work needs
 an actual qualified firmware discovery BSS query and primary-ifidx0 lifecycle
 review, following the pinned source evidence above.
+
+## Opt-in control-context candidate (not yet hardware-qualified)
+
+Native33 reads real p2p_dev BSS2 after timeout. `g965n-p2p-control.py` implements
+a separate explicitly enabled control-only context, matching pinned firmware
+protocol rather than synthesizing a completion. `brcmfmac.g965n_legacy_p2pdev`
+defaults off; root may select it only for a qualified board/BOOT trial. Required
+gates exclude BCDC, legacy netdev allocation, protocol data-interface cleanup
+and any damaged primary mapping. A real query/free bounded nonzero BSS is
+required; failure unwinds discovery and returns the real error. No primary
+mapping replacement. A non-netdev duplicate guard prevents a null dereference.
+
+A separately explicit `S9_EXPERIMENTAL_P2P_CONTROL=1` adds the kernel command-line
+selection for a later qualified boot. Builds do not enable it by default,
+flash, deploy or publish firmware. Context creation and delete tests alone are
+not evidence of peer discovery, GO/client negotiation or actual peer traffic.

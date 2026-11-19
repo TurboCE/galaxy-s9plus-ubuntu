@@ -135,7 +135,7 @@ def transform(data):
 
 def apply(root):
     p=Path(root)/REL;data=p.read_bytes();sha=hashlib.sha256(data).hexdigest()
-    if sha==PATCHED:return
+    if sha in (PATCHED, 'feac7014ab29cce5bb63d38868a5437a75e6af54ccc1c9141e45ee5a89fb02fb'):return  # Reviewed later control-context transform.
     if sha==MASK_VERSION:new=context_transform(data)
     elif sha==PREVIOUS:new=context_transform(observe_transform(data))
     elif sha==ORIGINAL:new=transform(data)

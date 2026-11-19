@@ -2705,3 +2705,31 @@ Native33 P2P timeout diagnostic returned real p2p_dev BSS2 withret0, despite
 noIF_ADD. This is hardware evidence of the firmware discovery context, not
 working peer discovery/group traffic. A scoped opt-in control-context candidate
 is being prepared with failure/lifecycle tests; it is not in native33.
+
+## 2026-11-19 — Opt-in firmware-backed discovery control candidate
+
+Native33's real BSS2 and pinned Lineage101_16 ifidx0 protocol justify a separate
+control-only path instead of inventing IF_ADD. New root-only opt-in parameter
+is defaultfalse. Strict gates require Star2/4361, MSGBUF, legacy-netdev option
+off, no protocol del_if data lifecycle, intact primary slot/mapping. Validate
+real p2p_dev query/range/free slot before allocating an existing non-netdev
+context with control ifidx0; no primary route/flow mapping changes. Create
+failure disables only the discovery just enabled and preserves original error.
+Delete cancels ROC, checks SCAN/discovery-disable results, then uses existing
+host cleanup without waiting for a nonexistent IF_DEL. Cleanup recognition
+does not depend on the mutable opt-in. Duplicate non-netdev IF_ADD refuses
+before the original null-netdev dereference. No fake firmware event, success
+on a failed query or arbitrary BSS index.
+
+ActualC tests cover query/enable/allocation/cleanup failures, invalid indices,
+occupied slots, protocol/primary/data-lifecycle refusal and intact mapping;
+whole-source pin/idempotence/notice tests pass. First unbounded deletion anchor
+also matched detach and refused; restricted exact delete function. A transient
+same-second Python bytecode cache held the old calculated hash; invalidated
+only local generated caches and re-ran tests against actual new source hashes.
+All-source validation precedes writes. Generated C additions explicitly permit
+ISC or GPL-2.0-only; original Broadcom ISC notices remain. Build option
+S9_EXPERIMENTAL_P2P_CONTROL=1 only adds the explicit kernel opt-in; defaultoff.
+No native control-path success claimed. First kernel trial will keep opt-in off
+until independently guarded runtime testing; full P2P RF/group traffic remains
+unqualified even if context creation succeeds.
