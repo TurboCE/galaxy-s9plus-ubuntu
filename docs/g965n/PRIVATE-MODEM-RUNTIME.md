@@ -637,5 +637,9 @@ run the temporary network probes concurrently with the owner.
 
 Native44 verified default failover and DNS withdrawal, independent sensor
 operation, and route replacement and cleanup across a commanded PDP
-cycle. The bounded process does not install a boot unit. Abrupt worker
-termination, persistent operation and unattended radio loss are open.
+cycle. The bounded process does not install a boot unit. Use the
+same trusted route-owner executable and invocation with `--cleanup` as
+the unit's `ExecStopPost` handler. Native44 verified that systemd removed
+the modem route, address and DNS after actual SIGKILL of the worker. This
+exercises crash cleanup, without testing automatic process restart.
+Persistent operation and unattended radio loss are open.

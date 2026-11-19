@@ -4309,3 +4309,25 @@ The distinct cleanup boot returned to modem off with the Wi-Fi default, all
 three driver services active, readable accel and ALS, and no failed units.
 The ring had 63 warnings and two error-priority SSP zero-ACK retry lines.
 These intermittent startup retries remain open.
+
+### 2026-11-20 — Recover LTE route state after the route worker is killed
+
+The route owner writes a private, boot-scoped ownership receipt on tmpfs
+before its first interface mutation. It uses an explicit address label and
+route protocol tag. The common cleanup path checks the original ifindex,
+address, route marker, MTU and resolver scope. Unrelated modem-interface
+configuration causes cleanup to stop and retain the receipt for review.
+Use the owner's cleanup mode as systemd ExecStopPost so recovery also runs
+when the worker cannot execute its normal shutdown handler.
+
+Native44 verified ordinary HTTPS204 and active modem DNS with Wi-Fi down.
+The route worker was then actually killed with signal 9. systemd ran cleanup,
+which removed the address, route, resolver settings and receipt and restored
+the original link state. The RIL and the sensor service stayed in their
+original invocations. Restoring Wi-Fi returned unbound HTTPS204. The test
+did not restart the route worker automatically, and did not simulate radio
+loss or modem failure. There is no boot-time LTE service installed.
+
+The distinct cleanup boot restored the Wi-Fi default, modem-off state and
+all three driver services. There were no failed units. The boot ring had
+63 warnings and one error-priority SSP zero-ACK retry, which remains open.

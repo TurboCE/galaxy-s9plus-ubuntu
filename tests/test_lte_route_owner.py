@@ -40,6 +40,23 @@ class RouteLeaseTests(unittest.TestCase):
                     with self.assertRaises(RuntimeError):
                         read(expiry, candidate)
 
+    def test_recovery_refuses_foreign_routes_and_retains_the_receipt(self):
+        receipt = {'boot': 'this-boot', 'address': '192.0.2.2', 'original_mtu': 1500,
+                   'modem_mtu': 1450, 'ifindex': 11, 'servers': ['192.0.2.53'], 'generation': 1}
+        link = {'ifname': 'rmnet0', 'ifindex': 11, 'flags': ['UP'], 'mtu': 1450}
+        path = SimpleNamespace()
+        with patch.object(owner, 'read_private', return_value=receipt), \
+                patch.object(owner, 'BOOT_ID', SimpleNamespace(read_text=lambda: 'this-boot')), \
+                patch.object(owner, 'ip_json', return_value=[link]), \
+                patch.object(owner, 'link_addresses', return_value=[{'addr_info': []}]), \
+                patch.object(owner, 'defaults', return_value=[{'dev': 'rmnet0', 'metric': 20000,
+                                                               'protocol': '4', 'prefsrc': '192.0.2.2'}]), \
+                patch.object(owner, 'resolver_values', return_value=[]), \
+                patch.object(owner, 'command') as change:
+            with self.assertRaisesRegex(RuntimeError, 'changed ownership'):
+                owner.recover_route(path)
+            change.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()
