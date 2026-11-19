@@ -42,6 +42,9 @@ MODULE_PARM_DESC(strict_tx_ack, "experimental checked SSI ACK/queue commit; stop
 static bool tx_ack_diagnostics;
 module_param(tx_ack_diagnostics, bool, 0444);
 MODULE_PARM_DESC(tx_ack_diagnostics, "report bounded SSI short-ACK metadata without frame payloads");
+static bool patch_tail_settle;
+module_param(patch_tail_settle, bool, 0444);
+MODULE_PARM_DESC(patch_tail_settle, "apply the qualified G965N firmware tail timing workaround");
 static bool ssi_tx_fault;
 module_param_named(tx_ack_fault, ssi_tx_fault, bool, 0444);
 
@@ -690,6 +693,25 @@ int bcm_spi_sync(struct bcm_spi_priv *priv, void *tx_buf, void *rx_buf, int len,
 }
 
 
+static bool bcm_ssi_settle_patch_tail(struct bcm_spi_priv *priv, int length)
+{
+	u64 gap_ns;
+
+	/* The observed G965N firmware transition is a 36-byte write about
+	 * 50 ms after an acknowledged 14-byte write, during patch loading.
+	 */
+	if (!patch_tail_settle || !strict_tx_ack || length != 36 ||
+	    priv->tx_last_complete_len != 14 || !bbd_patch_watchdog_pending())
+		return false;
+
+	gap_ns = ktime_get_ns() - priv->tx_last_complete_ns;
+	if (gap_ns < 40 * NSEC_PER_MSEC || gap_ns > 60 * NSEC_PER_MSEC)
+		return false;
+
+	usleep_range(8000, 9000);
+	return true;
+}
+
 static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledged)
 {
 	struct bcm_ssi_tx_frame *tx = priv->tx_buf;
@@ -708,6 +730,7 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledge
 	u64 transfer_end_ns = 0;
 	int host_req_before = 0;
 	int mcu_resp_before = 0;
+	bool patch_tail_settled;
 	unsigned short frame_data_size = strm->frame_len - strm->ctrl_len;
 	struct ssi_ack_state ack = { .remaining = length };
 	*acknowledged = 0;
@@ -719,6 +742,7 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledge
 	//pr_info("[SSPBBD] %s ++ (%d bytes) @ %s\n", __func__, bytes_to_write,strm->ctrl_byte & SSI_FLOW_CONTROL_ENABLED ? "FC" : "");
 
 	Mwrite = bytes_to_write;
+	patch_tail_settled = bcm_ssi_settle_patch_tail(priv, length);
 
 	do {
 		unsigned int transfer_length;
@@ -743,7 +767,7 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledge
 			transfer_start_ns = ktime_get_ns();
 		}
 		ret = bcm_spi_sync(priv, tx, rx, transfer_length, bits_per_word);
-		if (tx_ack_diagnostics)
+		if (tx_ack_diagnostics || patch_tail_settle)
 			transfer_end_ns = ktime_get_ns();
 
 		if ( ret ) {
@@ -865,10 +889,13 @@ static int bcm_ssi_tx(struct bcm_spi_priv *priv, int length, size_t *acknowledge
 		if (ret)
 			return ret; /* Do not issue another register query after failure. */
 	}
-	if (tx_ack_diagnostics && !ret) {
+	if ((tx_ack_diagnostics || patch_tail_settle) && !ret) {
 		priv->tx_last_complete_ns = transfer_end_ns;
 		priv->tx_last_complete_len = length;
 	}
+	if (patch_tail_settled)
+		pr_info_ratelimited("[SSPBBD]: patch tail settle accepted %zu bytes in %d attempt(s)\n",
+				     *acknowledged, ssi_fc - retry_ctr + 1);
 	bcm_ssi_chk_pzc(priv, rx->status, ssi_dbg_pzc || (ssi_tx_fc_retries > ssi_tx_fc_retries_copy));
 	if (tx_ack_diagnostics && strict_tx_ack && ssi_tx_fc_retries > ssi_tx_fc_retries_copy)
 		pr_info_ratelimited("[SSPBBD]: checked-ack-recovered tx=%u attempts=%d accepted=%zu stat=%02x credit=%lu mcu-ready=%d\n",

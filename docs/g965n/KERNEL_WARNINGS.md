@@ -76,6 +76,13 @@ were zero, rather than just the status and ACK fields. The next
 attempt accepted the complete write. The final file read does
 not establish when the hub received its last firmware bytes.
 
+The opt-in firmware-tail settle interval avoided the 36-byte zero
+ACK on two warm timing trials and a third boot of the exact module
+with diagnostics off. It is restricted to the observed transaction
+lengths and time window during firmware loading. This is a verified
+workaround on the tested handset. Cold-start and firmware-version
+coverage remain open.
+
 A later native44 startup profile explicitly selects one standby
 attempt. The driver still records a high MCU_RESP as an unconfirmed
 reset. The sensor service continues to require the pinned hub

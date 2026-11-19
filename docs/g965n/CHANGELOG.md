@@ -5233,3 +5233,34 @@ to remain possible.
 On a second warm boot, the same module with diagnostics off emitted
 neither file milestone. One zero ACK recovered again. Sensors, Wi-Fi
 HTTPS204 and no-SIM cleanup passed.
+
+### 2026-11-20 — Add a scoped settle interval for the firmware tail write
+
+A private #44 trial added 8–9 ms before the 36-byte write that
+follows an acknowledged 14-byte write by 40–60 ms during active
+firmware loading. The two distinct warm boots each matched once.
+Their measured waits were 9.012 and 9.029 ms, and the first attempt
+accepted all 36 bytes on both. The preceding gaps were 49.123 and
+49.384 ms. No 36-byte zero ACK was reported. Both boots passed patch
+startup, 80 reads each from six IIO devices, Wi-Fi HTTPS204 and no-SIM
+cleanup, with no failed units.
+
+Added the opt-in `transport.patch_tail_settle` sensor profile
+setting. It requires checked acknowledgements and a matching
+module parameter. The matched delay runs only while the firmware
+watchdog is pending. The regular acknowledgement checks and
+retry behavior still apply. Host tests cover capability, default
+and disabled checks, unrelated transactions, and the timing window.
+
+The first host run exposed an overly broad control-function test
+fixture boundary. Moving the watchdog query outside that fixture
+restored the suite and all 378 tests passed.
+
+After verifying model, BOOT and backup provenance, kept a rollback
+copy and booted the exact built module with the profile option on
+and diagnostics off. The targeted 36-byte write passed on its first
+attempt. Zero length/controller errors and zero 36-byte ACK retries
+were recorded. Patch startup, all six IIO feeds, Wi-Fi HTTPS204 and
+no-SIM cleanup passed again with no failed units. The option remains
+enabled on the test handset. Cold starts, other firmware and the
+underlying hub transition remain unqualified.

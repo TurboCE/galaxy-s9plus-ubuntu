@@ -786,6 +786,11 @@ ssize_t bbd_patch_read(struct file *filp, char __user *buf, size_t size, loff_t 
 	return rd_size;
 }
 
+bool bbd_patch_watchdog_pending(void)
+{
+	return delayed_work_pending(&bbd.lk.watchdog);
+}
+
 
 //--------------------------------------------------------------
 //

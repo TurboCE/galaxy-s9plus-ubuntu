@@ -146,5 +146,6 @@ extern int	bbd_mcu_reset(bool IsNoResp);
 extern void bbd_transport_fault(void);
 extern bool bcm_ssi_tx_faulted(void);
 bool bcm_ssi_ack_diagnostics_enabled(void);
+bool bbd_patch_watchdog_pending(void);
 extern int	bbd_init(struct device *dev);
 #endif /* __BBD_H__ */

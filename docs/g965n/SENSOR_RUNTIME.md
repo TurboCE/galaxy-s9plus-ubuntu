@@ -341,6 +341,15 @@ transaction metadata for short acknowledgments, including prior and
 returned receive credit. It leaves frame contents out of the log
 and does not change how the transport retries or commits bytes.
 
+For the observed G965N firmware-tail retry, the pinned module can
+enable `"patch_tail_settle": true` in the same transport policy.
+It requires `"strict_tx_ack": true`. During patch loading it adds
+8–9 ms before a 36-byte write that follows an acknowledged 14-byte
+write by 40–60 ms. The option is off when omitted. Check the pinned
+profile as usual and verify the module's first-attempt acceptance
+and real sensor feeds after boot. Other firmware versions and cold
+starts still need qualification.
+
 
 Before an unattended strict-ACK boot trial, preserve a known workingNprofile
 and its matching unit as root-only snapshots, pin both and exactBOOT/kernel

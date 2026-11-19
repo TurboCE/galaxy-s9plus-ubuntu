@@ -295,7 +295,8 @@ def ensure_module(entry,name,parameters,expected_parameters):
 
 def transport_policy(profile):
     value=profile.get('transport',{'strict_tx_ack':False})
-    if (not isinstance(value,dict) or not {'strict_tx_ack'} <= set(value) <= {'strict_tx_ack','tx_ack_diagnostics','single_boot_standby'}
+    if (not isinstance(value,dict) or not {'strict_tx_ack'} <= set(value) <= {
+            'strict_tx_ack','tx_ack_diagnostics','single_boot_standby','patch_tail_settle'}
             or any(type(item)is not bool for item in value.values())):
         raise RuntimeError('Expected explicit boolean SSI transport policy')
     info=elf_section(pinned(profile['module'],64*1024*1024),'.modinfo')
@@ -322,6 +323,13 @@ def transport_policy(profile):
     if single_capable:
         parameters.append('single_boot_standby=' + ('1' if single else '0'))
         expected['single_boot_standby'] = 'Y' if single else 'N'
+    settle = value.get('patch_tail_settle', False)
+    settle_capable = b'parmtype=patch_tail_settle:bool' in info.split(b'\0')
+    if settle and (not settle_capable or not value['strict_tx_ack']):
+        raise RuntimeError('Patch tail settle requires checked SSI mode on a compatible module')
+    if settle_capable:
+        parameters.append('patch_tail_settle=' + ('1' if settle else '0'))
+        expected['patch_tail_settle'] = 'Y' if settle else 'N'
     return parameters,expected
 
 

@@ -71,6 +71,23 @@ class SensorRuntimeTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, 'compatible module'):
                     S.transport_policy({**profile, 'transport': enabled})
 
+    def test_patch_tail_settle_requires_checked_ack_and_compatible_module(self):
+        profile = {'module': {'path': '/private/transport'}}
+        enabled = {'strict_tx_ack': True, 'patch_tail_settle': True}
+        checked = b'parmtype=strict_tx_ack:bool\0'
+        with mock.patch.object(S, 'pinned', return_value=b'module'):
+            with mock.patch.object(S, 'elf_section',
+                                   return_value=checked + b'parmtype=patch_tail_settle:bool\0'):
+                self.assertEqual(S.transport_policy(profile)[1]['patch_tail_settle'], 'N')
+                params, expected = S.transport_policy({**profile, 'transport': enabled})
+                self.assertIn('patch_tail_settle=1', params)
+                self.assertEqual(expected['patch_tail_settle'], 'Y')
+                with self.assertRaisesRegex(RuntimeError, 'checked SSI'):
+                    S.transport_policy({**profile, 'transport': dict(enabled, strict_tx_ack=False)})
+            with mock.patch.object(S, 'elf_section', return_value=checked):
+                with self.assertRaisesRegex(RuntimeError, 'compatible module'):
+                    S.transport_policy({**profile, 'transport': enabled})
+
     def test_als_only_default_never_passes_matrix(self):
         for profile in [{},{'accel':{}},{'accel':{'enabled':False}}]:
             params,expected=S.bridge_policy(profile)
