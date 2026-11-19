@@ -2,6 +2,8 @@
 import contextlib
 import importlib.util
 import os
+import io
+import json
 from pathlib import Path
 import stat
 import types
@@ -13,6 +15,38 @@ spec=importlib.util.spec_from_file_location('broker',ROOT/'scripts/g965n/ssp-iio
 b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
 
 class BrokerTests(unittest.TestCase):
+    def test_magnetic_trial_is_opt_in_private_bounded_and_accel_qualified(self):
+        p={'accel':{'enabled':True}}
+        self.assertIsNone(b.magnetic_capture_policy(p))
+        valid={'output':'/var/lib/g965n-sensors/magnetic-trials/one.jsonl','seconds':60}
+        p['magnetic_capture']=valid
+        self.assertEqual(b.magnetic_capture_policy(p),valid)
+        for update in ({'seconds':True},{'seconds':601},{'seconds':0},
+                       {'output':'/home/ubuntu/one.jsonl'},
+                       {'output':'/var/lib/g965n-sensors/magnetic-trials/../one.jsonl'}):
+            with self.assertRaises(ValueError):
+                b.magnetic_capture_policy({**p,'magnetic_capture':{**valid,**update}})
+        with self.assertRaises(ValueError):
+            b.magnetic_capture_policy({**p,'accel':{'enabled':False}})
+
+    def test_magnetic_capture_records_actual_batches_expires_and_limits_size(self):
+        c=b.MagneticCapture.__new__(b.MagneticCapture)
+        c.stream=io.StringIO();c.bytes=0;c.deadline=12
+        self.assertTrue(c.record({0:[(1,2,3)],4:[]},10))
+        value=json.loads(c.stream.getvalue())
+        self.assertEqual(value,{'receive_monotonic_s':10,'samples':{'0':[[1,2,3]]}})
+        self.assertFalse(c.record({4:[(4,5,6,2,0)]},12))
+        self.assertNotIn('heading',value)
+        c.bytes=2*1024*1024
+        with self.assertRaisesRegex(RuntimeError,'size bound'):c.record({4:[(4,5,6,2,0)]},11)
+
+    def test_magnetic_trial_does_not_publish_a_heading_into_iio(self):
+        q=types.SimpleNamespace(samples={0:[(1,2,3)],4:[(4,5,6,2,0)],9:[]})
+        feed=types.SimpleNamespace(publish=unittest.mock.Mock());seen=set()
+        b.publish_actual(q,[0,9,4],feed,seen,None,1)
+        feed.publish.assert_called_once_with(1,(1,2,3))
+        self.assertEqual(seen,{0,4});self.assertEqual(q.samples[4],[])
+
     def test_initial_not_ready_is_bounded_receive_only_wait(self):
         ready=unittest.mock.Mock(side_effect=[RuntimeError('Hub transport not ready; no sensor enabled'),None])
         ssp=types.SimpleNamespace(require_transport_ready=ready)

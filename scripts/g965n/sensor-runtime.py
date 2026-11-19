@@ -126,6 +126,8 @@ def validate_profile(profile):
             raise RuntimeError('Orientation evidence does not qualify selected matrix')
     elif 'mount_matrix' in accel or 'orientation_evidence' in profile:
         raise RuntimeError('ALS-only profile must not invent orientation evidence or matrix')
+    if 'magnetic_capture' in profile:
+        load_program(profile,'broker').magnetic_capture_policy(profile)
     if set(profile['identity'])!={'chip_id','firmware','sensor_mask'} or any(type(v)is not int or v<0 for v in profile['identity'].values()):
         raise RuntimeError('Expected pinned hub identity facts')
     for name in ('startup','cleanup'):

@@ -2331,3 +2331,17 @@ no replacement UI or device configuration write was necessary. Rotation lock
 across a further reboot remains untested. Rechecked that no panel backlight
 interface exists; working ALS and rotation lock do not qualify automatic
 brightness or compass heading.
+
+## 2026-11-19 — Bounded calibrated-magnetometer capture candidate
+
+Added an explicit private magnetic_capture profile option to the existing
+single-reader broker. It enables calibrated ID4 alongside qualified accel/ALS
+without raw2/3 or firmware calibration/position writes. It records separate
+received batches, never fabricated simultaneous pairs or heading angles, in
+a root-only exclusive JSONL file, bounded to600s/2MiB. On expiry it removes
+ID4 with the real enable delay and continues normal accel/ALS service.
+The default profile remains unchanged. Broker12/runtime17 host tests pass;
+one runtime mock initially lacked the optional broker validator, fixed by
+loading it only when the diagnostic option is present. Native sampling and
+heading qualification are pending. Automatic brightness still lacks the
+actual takeover driver's DSIM brightness command path, not merely a frontend.

@@ -19,6 +19,59 @@ FRAME = struct.Struct('<IIQIIiiiIII')
 DEVICE = '/dev/g965n-iio-bridge'
 
 
+def magnetic_capture_policy(profile):
+    """Optional bounded private diagnostic, never a compass/heading backend."""
+    value = profile.get('magnetic_capture')
+    if value is None:
+        return None
+    if (not isinstance(value, dict) or set(value) != {'output', 'seconds'} or
+            type(value['seconds']) is not int or not 1 <= value['seconds'] <= 600 or
+            not profile['accel']['enabled']):
+        raise ValueError('Magnetic capture requires qualified acceleration and a bounded duration')
+    path = Path(value['output'])
+    if (path.parent != Path('/var/lib/g965n-sensors/magnetic-trials') or
+            not path.name.endswith('.jsonl') or '..' in path.parts):
+        raise ValueError('Magnetic capture must use the private trial directory')
+    return value
+
+
+class MagneticCapture:
+    """Record separate received batches, not invented simultaneous samples."""
+    def __init__(self, policy):
+        path = Path(policy['output'])
+        for parent in (path.parent, *path.parent.parents):
+            info = parent.lstat()
+            if (not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or
+                    info.st_mode & (0o077 if parent == path.parent else 0o022)):
+                raise ValueError('Unsafe private magnetic capture directory')
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+        self.stream = os.fdopen(fd, 'w')
+        self.started = time.monotonic()
+        self.deadline = self.started + policy['seconds']
+        self.bytes = 0
+        self.write({'schema': 1, 'kind': 'raw-magnetic-acceleration-capture',
+                    'clock': 'host-monotonic-receive', 'heading_qualified': False})
+
+    def write(self, value):
+        line = json.dumps(value, separators=(',', ':')) + '\n'
+        if self.bytes + len(line) > 2 * 1024 * 1024:
+            raise RuntimeError('Magnetic capture exceeded private size bound')
+        self.stream.write(line)
+        self.stream.flush()
+        self.bytes += len(line)
+
+    def record(self, samples, now):
+        if now >= self.deadline:
+            return False
+        actual = {str(k): samples[k] for k in (0, 4) if samples.get(k)}
+        if actual:
+            self.write({'receive_monotonic_s': now, 'samples': actual})
+        return True
+
+    def close(self):
+        self.stream.close()
+
+
 def read_owned(path, private=False):
     path = Path(path)
     if not path.is_absolute() or path.is_symlink():
@@ -89,6 +142,7 @@ def verify_profile(path):
                 evidence.get('status') != 'verified' or evidence.get('model') != 'SM-G965N' or evidence.get('range_g') != 8 or
                 evidence.get('mount_matrix') != matrix):
             raise ValueError('Acceleration mounting evidence does not match')
+    magnetic_capture_policy(profile)
     return profile
 
 
@@ -128,6 +182,8 @@ def publish_actual(probe, selected, feed, seen, last_accel, now):
             last_accel = now
         elif sensor == 9:
             feed.publish(2, (latest[0], 0, 0))
+        elif sensor == 4:
+            pass  # Private raw diagnostic only; never publish an unqualified heading.
         else:
             raise ValueError('Unreviewed sensor in broker')
         probe.samples[sensor] = []
@@ -195,12 +251,16 @@ def run(profile, ssp, ready_fd, stop_fd):
             return
         probe = ssp.Probe('lux18')
         feed_fd = None
+        capture = None
         try:
             identity = ssp.acquire_hub_identity(probe)
             expected = profile['identity']
             if any(identity.get(k) != expected.get(k) for k in ('chip_id', 'firmware', 'sensor_mask')):
                 raise ValueError('Live hub identity differs from qualified profile')
             selected = [0, 9] if profile['accel']['enabled'] else [9]
+            capture_policy = magnetic_capture_policy(profile)
+            if capture_policy is not None:
+                selected.append(4)  # Calibrated only; never enable conflicting raw2/3.
             ssp.require_advertised(selected, identity['sensor_mask'])
             if 0 in selected and probe.transaction(0xE1, length=1) != b'\x08':
                 raise ValueError('Live acceleration range is not 8G; no sensor enabled')
@@ -209,6 +269,8 @@ def run(profile, ssp, ready_fd, stop_fd):
             if not stat.S_ISCHR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
                 raise ValueError('Unsafe IIO feed character device')
             feed = Feed(feed_fd)
+            if capture_policy is not None:
+                capture = MagneticCapture(capture_policy)
             for sensor in selected:
                 probe.samples[sensor] = []
                 enabled.append(sensor)  # Attempt cleanup even if A1 acknowledgement is lost.
@@ -224,6 +286,14 @@ def run(profile, ssp, ready_fd, stop_fd):
                 ssp.require_transport_ready()
                 probe.pump(.05)
                 now = time.monotonic()
+                if capture is not None and not capture.record(probe.samples, now):
+                    ssp.disable_sensors(probe, [4])
+                    enabled.remove(4)
+                    selected.remove(4)
+                    seen.discard(4)
+                    probe.samples[4] = []
+                    capture.close()
+                    capture = None
                 last_accel = publish_actual(probe, selected, feed, seen, last_accel, now)
                 if now >= next_heartbeat:
                     feed.publish(3)
@@ -245,6 +315,8 @@ def run(profile, ssp, ready_fd, stop_fd):
                 if feed_fd is not None:
                     os.close(feed_fd)  # Invalidates/removes real IIO devices even on cleanup failure.
                 os.close(probe.fd)
+                if capture is not None:
+                    capture.close()
 
 
 def main():
