@@ -5702,3 +5702,19 @@ IPv6 and IPv4 responses for one dual-stack context and issued only
 one cleanup request, without opening the physical modem. Only
 fixture and preflight evidence is available. The live trial patch
 stays local pending SIM-present testing.
+
+### 2026-11-20 — Validate DNS answers against the actual test query
+
+The LTE data probe previously checked the transaction ID and accepted
+the first IPv4 answer regardless of its owner. It now checks the echoed
+question and accepts an address only for the requested name or its
+alias chain. The parser supports A and AAAA records and checks compressed
+names for bounds. The existing modem probe continues to issue A queries.
+[DNS message format](https://www.rfc-editor.org/rfc/rfc1035#section-4.1),
+[IPv6 DNS records](https://www.rfc-editor.org/rfc/rfc3596#section-2).
+
+Verified the new decoder on the #44 handset with real A and AAAA
+responses received over its Wi-Fi-bound socket. The test found no
+IPv6 default on Wi-Fi and did not attempt any IPv6 data route. Host
+tests cover wrong questions, unrelated address records, compressed
+aliases and alias loops. LTE-bound IPv6 DNS and data remain pending.

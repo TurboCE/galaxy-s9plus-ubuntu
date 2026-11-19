@@ -19,28 +19,69 @@ import struct
 import subprocess
 
 
-def dns_a(packet,ident):
-    if len(packet)<12:raise ValueError('Short DNS reply')
-    rid,flags,questions,answers,_,_=struct.unpack_from('!HHHHHH',packet)
-    if rid!=ident or not flags&0x8000 or flags&0x020f or questions!=1 or answers>64:
+def dns_address(packet, ident, hostname, qtype=1):
+    address_length = {1: 4, 28: 16}.get(qtype)
+    if address_length is None or len(packet) < 12:
+        raise ValueError('Unsupported or short DNS reply')
+    rid, flags, questions, answers, _, _ = struct.unpack_from('!HHHHHH', packet)
+    if rid != ident or not flags & 0x8000 or flags & 0x7a0f or questions != 1 or answers > 64:
         raise ValueError('Unqualified DNS reply')
-    def skip(at):
+
+    def name(at):
+        labels = []
+        end = None
+        length = 1
         for _ in range(128):
-            size=packet[at];at+=1
-            if not size:return at
-            if size&0xc0==0xc0:
-                if at>=len(packet):raise ValueError('Truncated DNS pointer')
-                return at+1
-            if size>63 or at+size>len(packet):raise ValueError('Bad DNS label')
-            at+=size
+            if at >= len(packet):
+                raise ValueError('Truncated DNS name')
+            size = packet[at]
+            if not size:
+                return tuple(labels), end if end is not None else at + 1
+            if size & 0xc0 == 0xc0:
+                if at + 1 >= len(packet):
+                    raise ValueError('Truncated DNS pointer')
+                target = (size & 0x3f) << 8 | packet[at + 1]
+                if not 12 <= target < at:
+                    raise ValueError('Invalid DNS compression pointer')
+                if end is None:
+                    end = at + 2
+                at = target
+                continue
+            length += size + 1
+            if size > 63 or at + 1 + size > len(packet) or length > 255:
+                raise ValueError('Bad DNS label or name length')
+            labels.append(packet[at + 1:at + 1 + size].lower())
+            at += size + 1
         raise ValueError('DNS label bound exceeded')
-    at=skip(12)+4
+
+    question, at = name(12)
+    expected = tuple(label.lower().encode('ascii') for label in hostname.rstrip('.').split('.'))
+    if question != expected or packet[at:at + 4] != struct.pack('!HH', qtype, 1):
+        raise ValueError('Unexpected DNS question')
+    at += 4
+    addresses = {}
+    aliases = {}
     for _ in range(answers):
-        at=skip(at);kind,cls,ttl,length=struct.unpack_from('!HHIH',packet,at);at+=10
-        if at+length>len(packet):raise ValueError('Truncated DNS record')
-        if kind==1 and cls==1 and length==4:return str(ipaddress.IPv4Address(packet[at:at+4]))
-        at+=length
-    raise ValueError('No DNS A answer')
+        owner, at = name(at)
+        kind, record_class, _, length = struct.unpack_from('!HHIH', packet, at)
+        at += 10
+        if at + length > len(packet):
+            raise ValueError('Truncated DNS record')
+        if record_class == 1 and kind == qtype and length == address_length:
+            addresses.setdefault(owner, packet[at:at + length])
+        if record_class == 1 and kind == 5:
+            target, end = name(at)
+            if end != at + length or aliases.setdefault(owner, target) != target:
+                raise ValueError('Invalid DNS alias')
+        at += length
+    visited = set()
+    owner = question
+    while owner in aliases and owner not in visited:
+        visited.add(owner)
+        owner = aliases[owner]
+    if owner in visited or owner not in addresses:
+        raise ValueError('No matching DNS address answer')
+    return str(ipaddress.ip_address(addresses[owner]))
 
 
 def candidate_from(events, expected_generation=None):
@@ -143,7 +184,7 @@ def network_trial(config, policy_route=False):
                 with bound(socket.SOCK_DGRAM) as s:
                     s.sendto(query,(server,53));packet,peer=s.recvfrom(4096)
                 if peer!=(server,53):raise ValueError('Unexpected DNS peer')
-                target=dns_a(packet,ident);result['dns_over_modem']=True;break
+                target=dns_address(packet,ident,host);result['dns_over_modem']=True;break
             except (OSError,ValueError,IndexError,struct.error):continue
         if not target:raise ValueError('No DNS answer through modem')
         host_route(target)
