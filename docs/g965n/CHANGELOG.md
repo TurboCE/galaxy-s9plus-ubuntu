@@ -2318,3 +2318,16 @@ and full LTE/GPU/suspend parity remain separate. Sensor runtime currently owns
 the shared vendor-runtime lease; do not start modem migration tools concurrently.
 The exact service has Restart=no: a failure stops/invalidates readings rather
 than repeatedly resetting hardware. Long endurance/power remains unqualified.
+
+## 2026-11-19 — Native GNOME rotation lock confirmed
+
+The owner initially reported the Auto Rotate tile missing, then found it in
+quick settings and physically confirmed that disabling it prevents rotation.
+Live read-only verification found orientation-lock=true, sensor service active
+and both real acceleration/illuminance IIO devices present. Mutter's panel
+orientation management was already verified true. Documented the existing
+GNOME control and its inverse relationship to the orientation-lock setting;
+no replacement UI or device configuration write was necessary. Rotation lock
+across a further reboot remains untested. Rechecked that no panel backlight
+interface exists; working ALS and rotation lock do not qualify automatic
+brightness or compass heading.

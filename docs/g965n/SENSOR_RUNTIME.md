@@ -212,3 +212,18 @@ pressure/temperature and gyro system consumers remain separate. The next
 maintainer must preserve firmware privacy, per-BOOT package/backup/profile
 pins and actual pose evidence rather than copying an unqualified identity
 matrix. Long endurance and power are still unverified.
+
+## Native rotation lock
+
+Use GNOME's existing **Auto Rotate** tile in the top-right quick settings.
+Turning it off locks the current orientation; turning it on permits automatic
+rotation. It uses the standard
+`org.gnome.settings-daemon.peripherals.touchscreen orientation-lock` setting:
+`true` means locked, so the tile's enabled state is the inverse of that value.
+The tile is conditional on Mutter managing panel orientation. With this port's
+qualified acceleration feed, live `PanelOrientationManaged=true` was verified.
+The owner initially missed the tile, then found it and confirmed that disabling
+it prevents rotation. A subsequent read confirmed `orientation-lock=true` with
+the sensor service still active. No extra toggle, Shell extension, policy
+override or settings mutation was needed. Lock persistence across another
+reboot has not been separately tested.
