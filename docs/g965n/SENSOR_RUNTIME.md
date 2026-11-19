@@ -227,3 +227,10 @@ it prevents rotation. A subsequent read confirmed `orientation-lock=true` with
 the sensor service still active. No extra toggle, Shell extension, policy
 override or settings mutation was needed. Lock persistence across another
 reboot has not been separately tested.
+
+
+For the separate panel driver candidate and its limits, see
+[PANEL_BRIGHTNESS.md](PANEL_BRIGHTNESS.md). For bounded raw magnetic capture
+and private own-backup calibration preparation, see
+[MAGNETIC_CALIBRATION.md](MAGNETIC_CALIBRATION.md). Neither document's
+source/build checkpoint establishes physical brightness or heading quality.

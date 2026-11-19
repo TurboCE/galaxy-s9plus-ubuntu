@@ -2388,3 +2388,26 @@ visible-brightness confirmation is available now.
 Backlight candidate built successfully as kernel#28 from1b2d58e,BOOT
 10cbb650cb6bc78b3035c2451a09f0c91fb27da72a5cb1b67c1569acf8673541,
 27219984bytes. No new-kernel boot or actual brightness success yet.
+
+Native#27 own-init trial passed valid fuse read and volatileFD/46 command
+handshakes;280magnetic records all reported status3 and overflow0. This is
+stronger firmware-quality status, not proof that north/tilted heading is
+correct. No F1 or persistent calibration write was sent. Before reboot the
+one-shot capture/init profile was removed and original production profile
+restored, avoiding intentional exclusive-output failure on restart.
+
+Fresh nine-partition pre#28 backup completed and guarded BOOT-only write
+readback matched10cbb650...8673541/27219984bytes. Native#28 boot succeeded.
+As intended, the old sensor BOOT pin rejected startup until exact#28 receipt,
+modules and fresh backup manifest were privately staged; production service
+then started with one-shot magnetic options absent. Audio/BT startup active.
+Backlight max16,requested16,actual16; GNOME Screen Brightness100 exposed.
+Independent45s maximum-brightness rollback was armed for a manual sweep.
+Requested16,12,8,4,1,0,16 each matched completed actual readback; original
+ambient policy restored and rollback timer cancelled after success. No
+matching panel/BUG/WARNING/SError/Oops/Panfrost-fault entries in that window.
+This proves bounded native command completion, not optical brightness, full
+Samsung gamma/HBM parity or automatic dimming. ALS3lux/currentbrightness100
+requires a standard GNOME ambient normalization/light-change trial.
+Added private exact-BOOT brightness-rollback helper (2tests) and read-only
+bounded real ALS/backlight observer; no fake sensor inputs or policy bypass.
