@@ -4118,3 +4118,10 @@ remain open.
 The distinct cleanup boot restored the normal modem-off state and all
 three driver services, with zero failed units. The retained early ring
 had 63 warnings and two error-priority SSP zero-write retry messages.
+
+
+Prepare an experimental modem kernel with IPv4 and IPv6 multiple routing
+tables. The build verifies the resolved Kconfig dependencies. Native43 lacks
+this support, which prevented policy routing before the first data trial.
+The earlier host-route proof remains valid. No live route or boot behavior
+is claimed for this build change.

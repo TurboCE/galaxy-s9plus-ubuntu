@@ -370,11 +370,23 @@ fi
 if [ "${S9_EXPERIMENTAL_MODEM:-0}" = 1 ]; then
 	cfg --enable OF_OVERLAY
 	cfg --enable OF_DYNAMIC
+	# Keep cellular routes independently selectable from Wi-Fi and USB.
+	cfg --enable IP_ADVANCED_ROUTER
+	cfg --enable IP_MULTIPLE_TABLES
+	cfg --enable IPV6_MULTIPLE_TABLES
 fi
 for extra in "$@"; do
 	cfg $extra
 done
-make -s O=out olddefconfig
+make -s O=out olddefconfig || exit 1
+if [ "${S9_EXPERIMENTAL_MODEM:-0}" = 1 ]; then
+	for sym in IP_ADVANCED_ROUTER IP_MULTIPLE_TABLES IPV6_MULTIPLE_TABLES FIB_RULES; do
+		if ! grep -qx "CONFIG_${sym}=y" out/.config; then
+			echo "Modem routing requires CONFIG_${sym}=y after Kconfig resolution" >&2
+			exit 1
+		fi
+	done
+fi
 # BEGIN G965N BUILTIN INITRAMFS CONTRACT
 python3 - "$RAMFS" "$PROJ/device" "${INIT:-probe}" <<'INITRAMFS_CONTRACT'
 from pathlib import Path
