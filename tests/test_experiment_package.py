@@ -83,6 +83,15 @@ class ExperimentPackageTests(unittest.TestCase):
         self.assertNotIn('artifacts', receipt)
         self.assertEqual(set(receipt['modules']), {'audio', 'bluetooth'})
 
+    def test_iio_bridge_requires_exact_core_and_records_module(self):
+        with self.assertRaises(SystemExit):
+            self.run_package(['iio-bridge'])
+        self.assertFalse((self.output / 'manifest.json').exists())
+        (self.kernel / '.config').write_text('CONFIG_IIO=y\n')
+        receipt = self.run_package(['iio-bridge'])
+        self.assertTrue(receipt['built_in_iio'])
+        self.assertEqual(receipt['modules']['iio-bridge']['path'], 'iio-bridge/g965n-iio-bridge.ko')
+
     def test_modem_requires_the_actual_overlay_before_writing_receipt(self):
         with self.assertRaises(FileNotFoundError):
             self.run_package(['modem'])

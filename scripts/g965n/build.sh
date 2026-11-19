@@ -36,7 +36,7 @@ docker volume create "$VOLUME" >/dev/null
 RUN=(docker run --rm --platform linux/amd64 --cpus "${S9_BUILD_CPUS:-3}"
   --memory "${S9_BUILD_MEMORY:-4g}" -v "$VOLUME:/build" -v "$ROOT:/src"
   -e "S9_PROJECT_COMMIT=$(git rev-parse HEAD)")
-for feature in AUDIO BLUETOOTH SENSORS MODEM; do
+for feature in AUDIO BLUETOOTH SENSORS MODEM IIO_BRIDGE; do
   option="S9_EXPERIMENTAL_$feature"
   if [[ "${!option:-0}" = 1 ]]; then RUN+=(-e "$option=1"); fi
 done

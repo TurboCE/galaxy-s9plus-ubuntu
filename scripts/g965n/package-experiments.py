@@ -12,7 +12,8 @@ import subprocess
 import sys
 
 FILES = {'audio': 'snd-zrn-abox.ko', 'bluetooth': 'zrn-bt.ko',
-         'sensors': 'zrn-bbd.ko', 'modem': 'g965n-modem.ko'}
+         'sensors': 'zrn-bbd.ko', 'modem': 'g965n-modem.ko',
+         'iio-bridge': 'g965n-iio-bridge.ko'}
 ROOT = Path(__file__).resolve().parents[2]
 OVERLAY_SOURCE = 'experiments/modem/g965n-modem-overlay.dts'
 
@@ -76,11 +77,14 @@ def main():
     boot = a.boot.read_bytes()
     if boot[:8] != b'ANDROID!' or not 0 < len(boot) <= 57671680:
         raise SystemExit('Invalid G965N BOOT artifact')
+    built_in_iio = 'CONFIG_IIO=y' in (a.kernel_out / '.config').read_text().splitlines()
+    if 'iio-bridge' in a.features and not built_in_iio:
+        raise SystemExit('IIO bridge requires the exact kernel built-in IIO core')
     receipt = {'model': 'SM-G965N', 'kernel_release': (a.kernel_out / 'include/config/kernel.release').read_text().strip(),
                'kernel_version': version[1], 'source_commit': a.source_commit,
                'boot_bytes': len(boot), 'boot_sha256': hashlib.sha256(boot).hexdigest(),
                'built_in_aes': 'CONFIG_CRYPTO_AES=y' in (a.kernel_out / '.config').read_text().splitlines(),
-               'modules': modules}
+               'built_in_iio': built_in_iio, 'modules': modules}
     if 'modem' in a.features:
         receipt['artifacts'] = {'modem_overlay': modem_overlay(a.output, a.stock_boot)}
     (a.output / 'manifest.json').write_text(json.dumps(receipt, indent=2) + '\n')

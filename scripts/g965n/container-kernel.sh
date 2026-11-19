@@ -31,13 +31,14 @@ fi
 echo '5b5d2290940203316024a94581107ffad17670bb2f596fd27ef483d3d2685994  /build/reference/twrp.img' | sha256sum -c -
 find firmware device/base/lib/firmware -type f ! -name '*.md' -exec sha256sum {} + > /build/firmware-inputs.sha256
 bash scripts/build/build_stable.sh
-if [[ "${S9_EXPERIMENTAL_AUDIO:-0}${S9_EXPERIMENTAL_BLUETOOTH:-0}${S9_EXPERIMENTAL_SENSORS:-0}${S9_EXPERIMENTAL_MODEM:-0}" != 0000 ]]; then
+if [[ "${S9_EXPERIMENTAL_AUDIO:-0}${S9_EXPERIMENTAL_BLUETOOTH:-0}${S9_EXPERIMENTAL_SENSORS:-0}${S9_EXPERIMENTAL_MODEM:-0}${S9_EXPERIMENTAL_IIO_BRIDGE:-0}" != 00000 ]]; then
   make -C /build/src/mainline O=out ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- modules_prepare
   # Image-only builds produce vmlinux.symvers, not the external-module table.
   # This image has no other module dependencies; use its own exact export list.
   cp /build/src/mainline/out/vmlinux.symvers /build/src/mainline/out/Module.symvers
-  for feature in audio bluetooth sensors modem; do
+  for feature in audio bluetooth sensors modem iio-bridge; do
     option="S9_EXPERIMENTAL_${feature^^}"
+    option=${option//-/_}
     [[ "${!option:-0}" = 1 ]] || continue
     make -C /build/src/mainline O=out ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
       "M=/src/experiments/$feature" clean
@@ -64,8 +65,9 @@ git -C /build/src/mainline rev-parse HEAD > dist/g965n/kernel-commit.txt
 sha256sum /build/out/busybox-arm64 > dist/g965n/busybox.sha256
 sha256sum "dist/uniloader/$name" > dist/g965n/boot.sha256
 features=()
-for feature in audio bluetooth sensors modem; do
+for feature in audio bluetooth sensors modem iio-bridge; do
   option="S9_EXPERIMENTAL_${feature^^}"
+    option=${option//-/_}
   [[ "${!option:-0}" != 1 ]] || features+=("$feature")
 done
 if (( ${#features[@]} )); then

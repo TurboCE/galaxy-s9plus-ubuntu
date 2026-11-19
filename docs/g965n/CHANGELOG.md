@@ -2202,3 +2202,25 @@ not a service crash. lm-sensors reports no hwmon devices. GNOME orientation/
 brightness settings, SSP autostart and driver configuration were not changed.
 Automatic rotation/brightness and application compass readings remain absent;
 previous raw sensor tests are not system integration. No FUSE/portal changes.
+
+
+## 2026-11-19 — Begin real IIO integration; axis qualification deferred
+
+Native#25 read-only checks confirm CONFIG_IIO is disabled and no standard
+sensor devices exist. Exact BOOT/module checks preceded a bounded lhd window;
+identity0x55/fw21031900/mask verified,actual E1 full-scale query returned8G.
+Pinned LSM6DSL factory contract4096counts/g supports scale9.80665/4096.
+Owner cannot hold device for six-pose qualification now. No inferred mounting
+matrix or automatic rotation is applied. Stopped lhd,unmounted isolated runtime
+and unloaded transport normally after the read-only range check.
+
+Added an opt-in real IIO feed module plus typed48-byte exclusive root writer
+ABI. It publishes only actual validated SSP readings, lazily registers devices
+after first data and invalidates/removes them on writer close. ALS-only is
+default; all acceleration frames fail before state changes unless explicit
+accel opt-in and validated mounting matrix. Heartbeat does not revive stale
+continuous acceleration; on-change light stays valid only while its broker
+is alive. No fake sysfs or mock DBus provider, no compass-heading substitute.
+Two actual-C host sanitizer harnesses pass; exact-kernel IIO packaging guards
+pass7 tests. Kernel/core and module build integration added under explicit
+S9_EXPERIMENTAL_IIO_BRIDGE. No IIO module/native boot qualification yet.

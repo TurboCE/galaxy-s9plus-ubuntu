@@ -361,6 +361,12 @@ fi
 if [ "${S9_EXPERIMENTAL_SENSORS:-0}" = 1 ]; then
 	cfg --enable SPI
 fi
+if [ "${S9_EXPERIMENTAL_IIO_BRIDGE:-0}" = 1 ]; then
+	# Core/direct-mode real sensor devices only; external feed driver stays opt-in.
+	cfg --enable IIO
+	cfg --disable IIO_BUFFER
+	cfg --disable IIO_TRIGGER
+fi
 if [ "${S9_EXPERIMENTAL_MODEM:-0}" = 1 ]; then
 	cfg --enable OF_OVERLAY
 	cfg --enable OF_DYNAMIC

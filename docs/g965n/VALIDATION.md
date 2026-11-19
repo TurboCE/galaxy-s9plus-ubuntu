@@ -105,3 +105,8 @@ Psensor and local Compass frontend installed; real Wayland launches verified.
 No standard IIO/hwmon sensor backend exists. Proxy's no-device exit is normal.
 Compass intentionally waits without a real reading; GNOME automatic screen
 rotation/brightness remain unimplemented. App installation is not parity.
+
+Standard sensor integration candidate: actual#25 E1 reports8G, but owner could
+not perform mounting-pose checks. Acceleration/rotation stays disabled. New
+real IIO feed module is ALS-only by default and source-tested; IIO core/module
+not yet built or booted. No new system integration success claimed.
