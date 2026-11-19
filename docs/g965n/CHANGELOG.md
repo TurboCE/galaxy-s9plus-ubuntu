@@ -5530,3 +5530,26 @@ proximity inputs remained constant. All 13 HTTPS requests bound
 to Wi-Fi returned 204. No new matching hub or Wi-Fi fault or
 failed systemd unit appeared. No reset policy or hardware setting
 was changed. The standby warning's cause remains open.
+
+### 2026-11-20 — Build the Exynos8 RTC driver and device tree
+
+The revision 26 reference declares the RTC at `0x141e0000` with
+alarm and tick interrupts 31 and 32. Its Exynos8 driver match
+skips explicit clock lookup and uses the S3C6410-style alarm IRQ.
+The installed #44 kernel includes the S3C RTC driver but has
+neither that match nor the RTC node.
+[Reference revision 26 device tree](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/arch/arm64/boot/dts/exynos/exynos9810-star2lte_eur_open_26.dts),
+[reference RTC driver](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/drivers/rtc/rtc-s3c.c).
+
+Prepared the Exynos8 match and board node in a separate build.
+The existing compatibles retain their clock requirements. The
+clock API handles a missing handle for the Exynos8 path. Compiled
+the ARM64 object and inspected the generated device tree for the
+single RTC node, register range and both interrupts. The first
+standalone tree check needed the kernel's DTS include prefixes and
+the node's actual location under `/soc@0`.
+
+Clock source behavior, counter readout, alarm IRQ and suspend wake
+still need hardware evidence. The initial hardware trial should
+isolate the RTC from automatic system-to-RTC and RTC-to-system
+clock synchronization. The live system remains on #44.
