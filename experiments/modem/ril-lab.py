@@ -861,6 +861,7 @@ def main():
                         elif code == 0x0501 and length > 7:
                             event['sim_status_code'] = message[7]
                             sim_ready = sim_ready_after_status(sim_ready, message[7])
+                            event['sim_ready_for_initial_pdp'] = sim_ready
                         elif code == 0x0107 and length > 7:
                             event['phone_state_code'] = message[7]
                             phone_normal = message[7] == 2
