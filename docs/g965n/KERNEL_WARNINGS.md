@@ -53,3 +53,13 @@ initial+normal warm native boots pass the normal path and fresh IIO feeds;
 initial and warm error-priority streams each have zero lines. The MCU_RESP
 warning still occurs and is retained: supply mode readback and successful
 feeds do not demonstrate a physical hard reset or voltage measurement.
+
+Use `scripts/g965n/kernel-health.py` with exact protected kernel receipt/
+backup pins for new observations. Native38 journal retains111late lines
+without the Linux boot header, whereas the ring retains694lines including
+early boot. Journal-only absence is not evidence that an early warning is
+gone. Native ring error-priority0, warning-priority64 includes52CPU variations
+plus their unsupported-feature notice, cache hierarchy1, RGB/haptic2, GPT1,
+4initramfs banners, taint1, Bluetooth quirk1 and hub reset1. The collector
+preserves all original priorities/private raw logs and reports incomplete
+coverage rather than asserting every hardware function is qualified.

@@ -3388,3 +3388,21 @@ end of the existing standby hold, before any restore/re-enable. Holds, rail
 policy, GPIO writes, retry decisions and existing warning remain unchanged.
 The observation alone will not qualify a hard reset. Actual power/error-path
 C test still passes; preparing kernel39 to collect both phases on hardware.
+
+Read-only audit found the current journal has111kernel lines and no Linux
+boot header, while dmesg retains694lines including the boot header and all
+52 CPU register-variation warnings (+one unsupported-variation notice).
+Both error-priority counts are0, so the earlier bounded error count holds,
+but journal-only collection cannot support early-warning absence. Added
+exact model/BOOT/backup-guarded kernel-health.py: captures non-clearing dmesg
+all/error/warning streams plus kernel journal/error stream, stores raw logs
+root-private0700/0600 without overwriting, emits numeric counts/coverage only.
+Two host privacy/file-preservation tests and native38 capture pass. Ring has
+64warning-priority lines:53CPU notices, cache hierarchy1, RGB/haptic2, GPT1,
+4informational initramfs banners, module taint1, BT quirk1, MCU reset1.
+No severity/filter changed; no whole-device qualification inferred.
+
+Diagnostic kernel39 build completed from097dc37: BOOTcc36bae3da165a266d6a41aee2331842c1ffbd1e68c881e28ed8670e8f8f51a5/
+27219984bytes, #39 SMP PREEMPT Thu Nov19 10:04:39 UTC2026. Five matching
+modules/stock-compared overlay frozen. Build only; standby observations still
+need native boot evidence before any change to reset policy.
