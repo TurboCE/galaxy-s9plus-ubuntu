@@ -15,7 +15,7 @@ A build or a driver node is not sufficient evidence of a working function.
 | Display / touch | Owner confirmed desktop/touch; 2x desktop scaling persisted at 720x1480 logical pixels | #30 scoped post-power controller reset passed initial native boot and3warmboots;#31/#32 initial boots also passed with first input registration~5.29s and no initial-110; previous delay-only#29 failed; basic interaction previously owner verified; apps wider than 720 minimum still need adaptations |
 | GPU | #21 isolated patched Mesa with nocrc,noafbc: exact128x128 readback100, full33 positive scene rows, fullscreen1440x2960 U-tiled presentation and FIFO61/61/61fps;0 new matching GPU faults/timeouts; actual private-library maps verified | Bounded isolated rendering passed.100us IRQ generation-check rejections +1 with40ms completion wait failures0; frame impact unconfirmed. System desktop remains on the previously failing Mesa stack. Desktop/browser/endurance, CRC-enabled operation and allocation policy remain unqualified |
 | Wi-Fi | Native#25 HTTPS204 explicitly bound to Wi-Fi after policy correction; earlier NTP/connection observations | Data path verified; long reconnect tests pending |
-| Wi-Fi Direct / roaming | #24 policy5 and rawBADOPTION(-3) identified; #25 scoped product-profile preservation removes legacy-trigger initialization failure | Initialization correction hardware verified; P2P IF_ADD timeout persists on#31/#32 despite all setup steps returning0 and actual event-mask IFbit=1; real access-point handover remains unverified |
+| Wi-Fi Direct / roaming | #24 policy5 and rawBADOPTION(-3) identified; #25 scoped product-profile preservation removes legacy-trigger initialization failure | Initialization correction hardware verified; Native35 opt-in firmware-backed context passed2create/start/one-channel-scan/stop/delete cycles with primary identity preserved and post-cycle Wi-Fi HTTPS204; default-off baseline still uses old event path. Persistent boot/actualpeer/groupdata and real AP handover remain pending |
 | USB networking / SSH | Mac received address automatically; key-only SSH works | Verified |
 | Manual wired disconnect recovery | Console identified Wi-Fi path; privileged reconnection + gadget rebind restored USB SSH | Verified |
 | System services | #25 failed system units0; initramfs/pinctrl/CLKOUT/phantom charger/roam-trigger errors absent; earlier SO_PASSSEC/Dbusmenu fixes retained | Bounded observation; RGB/haptic/P2P and CPU/cache limitations remain |
@@ -173,3 +173,6 @@ Native33: smoother401level output and owner physical assessment passed; standard
 native ambient toggle verified. SPI ID/OF warning absent with real sensor data.
 P2P realfirmwareBSS2 query succeeded but IF_ADD still times out; compatibility
 candidate remains off/not deployed. No all-module parity claim.
+
+Native35 bounded P2P lifecycle/scans and preserved primary HTTPS passed twice.
+Peer discovery/groupdata and boot-default opt-in remain separate qualification.

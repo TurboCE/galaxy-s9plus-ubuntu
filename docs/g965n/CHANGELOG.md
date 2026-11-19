@@ -2778,3 +2778,24 @@ original setup. Gate/query failures propagate. ActualC connected/configured,
 connected/unconfigured, connecting and idle setup-failure tests pass, as do
 exact previously-built-source migration and source-integrity tests. This is a
 candidate mitigation until real primary data survives the new trial.
+
+## 2026-11-19 — Native35 scan/lifecycle and preserved STA data verified
+
+Kernel35 from3c24446, #35 SMP PREEMPT Thu Nov19 06:32:10 UTC2026,
+BOOT1b982dbe1107d7103c759a846e02ced71a9f4a502fba88f29538bd18b7162e23/
+27219984bytes passed fullbuild/fresh9backup/protected comparison/BOOTwrite/
+readback/nativeboot. Baseline opt-inN, sensor/audio/BT active, real ALS/accel
+and bound-WiFi HTTPS204. Fresh35 backup/profile pins installed with ordered
+sensor restart. New trial helper protected under kernel35-tools and hash
+checked against the actual public source before root execution.
+
+Runtime opt-in trial performed TWO complete test-owned create→start→single-
+channel DIRECT- scan→stop→delete cycles successfully. Both scans completed;
+both post-delete primary ifindex/address remained unchanged and bound-WiFi
+HTTPS returned204. Correct Listen Channel IE supplied. Runtime opt-in restoredN,
+no test-owned device or recovery timer left; success summary confirmed from
+private log and systemd completion. This qualifies bounded firmware-backed
+context lifecycle/scanning plus preserved primary data for the APSTA-aware
+preparation change. It is not peer discovery, GO/client negotiation or actual
+peer-data proof. A persistent opt-in build/reboot qualification is next.
+Owner has opened Fold7 Wi-Fi Direct for a separate real-peer test.
