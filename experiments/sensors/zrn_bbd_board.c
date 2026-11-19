@@ -375,11 +375,9 @@ MODULE_PARM_DESC(standby_ms, "how long the reset path holds the chip in standby 
 static bool supply_cut;
 module_param(supply_cut, bool, 0644);
 MODULE_PARM_DESC(supply_cut, "also switch LDO37 off during the hold (off by default: the stock kernel never does)");
-
-static bool mcu_resp_high(void)
-{
-	return gpiod_get_value(zrn_gpios[ZRN_GPIO_MCU_RESP]) > 0;
-}
+static bool single_boot_standby;
+module_param(single_boot_standby, bool, 0444);
+MODULE_PARM_DESC(single_boot_standby, "Use one standby attempt on probe; sensor readiness is checked after firmware startup");
 
 static void hub_pins_park(void)
 {
@@ -443,22 +441,34 @@ static int hub_cycle(unsigned int hold_ms)
 	return 0;
 }
 
-static int hub_power_sequence(unsigned int hold_ms)
+static int hub_power_sequence(bool boot)
 {
-	unsigned int hold = hold_ms;
-	bool stale = mcu_resp_high();
-	int i, ret;
+	unsigned int attempts = boot && single_boot_standby ? 1 : 3;
+	unsigned int hold = standby_ms;
+	unsigned int i;
+	int before, response, ret;
 
-	for (i = 0; i < 3; i++) {
+	before = gpiod_get_value(zrn_gpios[ZRN_GPIO_MCU_RESP]);
+	if (before < 0)
+		return before;
+	if (boot && !before)
+		hold = 100;
+	for (i = 0; i < attempts; i++) {
 		ret = hub_cycle(hold);
-		pr_info("zrn-bbd: hub standby %u ms%s: MCU_RESP %d (was %d), SHUB_INT %d\n", hold,
-			supply_cut ? " with supply cut" : "", mcu_resp_high(), stale,
-			gpiod_get_value(zrn_gpios[ZRN_GPIO_SHUB_INT]));
-		if (ret || !mcu_resp_high())
+		if (ret)
 			return ret;
+		response = gpiod_get_value(zrn_gpios[ZRN_GPIO_MCU_RESP]);
+		if (response < 0)
+			return response;
+		pr_info("zrn-bbd: hub standby %u ms%s: MCU_RESP %d (was %d), SHUB_INT %d\n", hold,
+			supply_cut ? " with supply cut" : "", response, before,
+			gpiod_get_value(zrn_gpios[ZRN_GPIO_SHUB_INT]));
+		if (!response)
+			return 0;
 		hold = max(hold * 3, standby_ms);
 	}
-	pr_warn("zrn-bbd: MCU_RESP still high with MCU_REQ low; the chip did not reset\n");
+	pr_warn("zrn-bbd: MCU_RESP remained high after %u standby attempt(s); reset unconfirmed\n",
+		attempts);
 	return 0;
 }
 
@@ -469,7 +479,7 @@ static ssize_t reset_store(struct device *dev, struct device_attribute *attr,
 
 	if (kstrtoint(buf, 0, &reset) || reset != 1)
 		return -EINVAL;
-	reset = hub_power_sequence(standby_ms);
+	reset = hub_power_sequence(false);
 	return reset ? reset : size;
 }
 static DEVICE_ATTR_WO(reset);
@@ -912,7 +922,7 @@ static int __init board_init(void)
 	bbd_register(NULL, &ssp_callbacks);
 	/* Match Samsung's power-up order on every probe, including module reload;
 	 * a chip left running by a warm reboot gets the long hold */
-	ret = hub_power_sequence(mcu_resp_high() ? standby_ms : 100);
+	ret = hub_power_sequence(true);
 	if (ret)
 		goto err;
 	{

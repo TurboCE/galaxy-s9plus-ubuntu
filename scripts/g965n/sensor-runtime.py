@@ -295,7 +295,7 @@ def ensure_module(entry,name,parameters,expected_parameters):
 
 def transport_policy(profile):
     value=profile.get('transport',{'strict_tx_ack':False})
-    if (not isinstance(value,dict) or not {'strict_tx_ack'} <= set(value) <= {'strict_tx_ack','tx_ack_diagnostics'}
+    if (not isinstance(value,dict) or not {'strict_tx_ack'} <= set(value) <= {'strict_tx_ack','tx_ack_diagnostics','single_boot_standby'}
             or any(type(item)is not bool for item in value.values())):
         raise RuntimeError('Expected explicit boolean SSI transport policy')
     info=elf_section(pinned(profile['module'],64*1024*1024),'.modinfo')
@@ -315,6 +315,13 @@ def transport_policy(profile):
     if diag_capable:
         parameters.append('tx_ack_diagnostics=' + ('1' if diagnostic else '0'))
         expected['tx_ack_diagnostics'] = 'Y' if diagnostic else 'N'
+    single = value.get('single_boot_standby', False)
+    single_capable = b'parmtype=single_boot_standby:bool' in info.split(b'\0')
+    if single and not single_capable:
+        raise RuntimeError('Selected transport module lacks single boot standby support')
+    if single_capable:
+        parameters.append('single_boot_standby=' + ('1' if single else '0'))
+        expected['single_boot_standby'] = 'Y' if single else 'N'
     return parameters,expected
 
 

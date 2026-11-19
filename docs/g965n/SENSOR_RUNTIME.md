@@ -213,6 +213,18 @@ maintainer must preserve firmware privacy, per-BOOT package/backup/profile
 pins and actual pose evidence rather than copying an unqualified identity
 matrix. Long endurance and power are still unverified.
 
+## Opt-in single standby attempt on startup
+
+On the qualified native #44 transport module, set
+`"single_boot_standby": true` inside the existing `transport` object.
+The supervisor verifies the module supports the parameter before it
+loads the pinned file. The module performs the first normal standby
+attempt, then the usual firmware startup, live hub identity check
+and sensor readiness checks determine whether the service can start.
+If MCU_RESP stays high, the driver reports that the reset was
+unconfirmed. Explicit recovery resets retain the original retry path.
+An omitted or false setting uses the original startup policy.
+
 ## Opt-in pressure IIO on native #44
 
 For the pinned LPS22H SSP configuration, set `"pressure": {"enabled": true}`

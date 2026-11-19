@@ -32,14 +32,19 @@ struct device {int unused;};struct device_attribute {int unused;};
 #define S2MPS18_L37CTRL 0x6e
 #define LDO_ON_MODE 0xc0
 #define ZRN_GPIO_GPS_PWR 3
+#define ZRN_GPIO_MCU_RESP 2
 static void *zrn_gpios[4];
-static bool supply_cut;
-static int updates,reads,sleeps,parks,restores,enabled,disabled,logs;
+static bool supply_cut,single_boot_standby;
+static unsigned int standby_ms=1000;
+static int updates,reads,sleeps,parks,restores,enabled,disabled,logs,warnings;
+static int reply[4],reply_index;
 static int update_results[3],read_result,restore_result;
 static unsigned int update_values[3];
 static u8 read_value;
 #define pr_err(...) ((void)logs++)
 #define pr_info(...) ((void)0)
+#define pr_warn(...) ((void)warnings++)
+#define max(a,b) ((a)>(b)?(a):(b))
 #define sysfs_emit(b,fmt,...) snprintf(b,32,fmt,##__VA_ARGS__)
 static int s9p_acpm_pmic_update(u8 reg,u8 value,u8 mask) {
  assert(reg==0x6e&&mask==0xc0&&updates<3);update_values[updates]=value;return update_results[updates++];
@@ -47,17 +52,20 @@ static int s9p_acpm_pmic_update(u8 reg,u8 value,u8 mask) {
 static int s9p_acpm_pmic_read(u8 reg,u8 *value) {
  assert(reg==0x6e);reads++;*value=read_value;return read_result;
 }
-static void msleep(unsigned int ms) {assert(ms==20||ms==100||ms==1000);sleeps++;}
+static void msleep(unsigned int ms) {assert(ms==20||ms==100||ms==1000||ms==3000||ms==9000);sleeps++;}
 static void hub_pins_park(void) {parks++;}
 static int hub_pins_restore(void) {restores++;return restore_result;}
 static void gpiod_set_value(void *gpio,int value) {(void)gpio;if(value)enabled++;else disabled++;}
+static int gpiod_get_value(void *gpio) {assert(reply_index<4);return reply[reply_index++];}
 static int kstrtoll(const char *s,unsigned int base,long long *value) {
  char *end;*value=strtoll(s,&end,base);return end==s||*end?-EINVAL:0;
 }
 static void reset(void) {
  updates=reads=sleeps=parks=restores=enabled=disabled=logs=0;
+ warnings=reply_index=0;
+ for(int i=0;i<4;i++)reply[i]=1;
  for(int i=0;i<3;i++)update_results[i]=update_values[i]=0;
- read_result=restore_result=0;read_value=0xce;supply_cut=false;
+ read_result=restore_result=0;read_value=0xce;supply_cut=single_boot_standby=false;
 }
 '''
 CASES=r'''
@@ -91,6 +99,12 @@ int main(void) {
  reset();supply_cut=true;assert(hub_cycle(1000)==0&&updates==2&&update_values[0]==0&&update_values[1]==0xc0&&enabled==1);
  reset();supply_cut=true;update_results[0]=2;assert(hub_cycle(1000)==-EIO&&updates==1&&reads==0&&sleeps==0&&enabled==0);
  reset();supply_cut=true;update_results[1]=-ETIMEDOUT;assert(hub_cycle(1000)==-ETIMEDOUT&&updates==2&&restores==0&&enabled==0);
+ reset();assert(hub_power_sequence(true)==0&&parks==3&&warnings==1);
+ reset();single_boot_standby=true;assert(hub_power_sequence(true)==0&&parks==1&&warnings==1);
+ reset();single_boot_standby=true;assert(hub_power_sequence(false)==0&&parks==3&&warnings==1);
+ reset();reply[0]=0;reply[1]=0;assert(hub_power_sequence(true)==0&&parks==1&&warnings==0);
+ reset();reply[0]=-EIO;assert(hub_power_sequence(true)==-EIO&&!parks&&!warnings);
+ reset();reply[1]=-ENODEV;assert(hub_power_sequence(true)==-ENODEV&&parks==1&&!warnings);
  return 0;
 }
 '''
@@ -101,7 +115,7 @@ class SensorPowerErrors(unittest.TestCase):
         cc=shutil.which('cc')
         if not cc:self.skipTest('C compiler unavailable')
         text=SOURCE.read_text()
-        body='\n'.join(function(text,n) for n in ['hub_pmic_result','hub_supply_enable','mcu_power_show','mcu_power_store','hub_cycle'])
+        body='\n'.join(function(text,n) for n in ['hub_pmic_result','hub_supply_enable','mcu_power_show','mcu_power_store','hub_cycle','hub_power_sequence'])
         with tempfile.TemporaryDirectory() as tmp:
             p=Path(tmp);(p/'power.c').write_text(STUB+body+CASES)
             subprocess.run([cc,'-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-parameter',str(p/'power.c'),'-o',str(p/'power')],check=True)

@@ -4931,3 +4931,26 @@ pairs. All six IIO devices were readable, Wi-Fi HTTPS204 and no-SIM
 cleanup passed, and no systemd unit failed. No thermistor read
 failure was logged in the observed boot. Reference calibration
 and thermal/charging policy remain unqualified.
+
+### 2026-11-20 — Shorter sensor hub startup on native44
+
+The original warm startup held the hub in standby for 1, 3 and 9
+seconds. MCU_RESP read high during and after all three holds. The
+sensor service eventually reached readiness in 21.783 seconds.
+
+Added an explicit boot option that performs only the first standby
+attempt, leaving the original power, pin, manual reset and default
+startup policies in place. The driver now reports a high MCU_RESP
+as an unconfirmed reset and propagates a GPIO read error instead of
+interpreting it as a low response. The checked transport and live
+hub and sensor readiness requirements still gate the service.
+
+Verified the #44 BOOT and backup, saved the previous profile, and
+staged the matching transport and supervisor. Two distinct normal
+reboots with the option enabled reached sensor-service readiness in
+9.046 and 8.974 seconds. There was one 1-second standby attempt and
+one recovered zero-ACK write retry on each boot. The warning
+remained because the hardware reset was unconfirmed. Both boots
+passed six live IIO reads, Wi-Fi HTTPS204, P2P interface presence and
+normal no-SIM cleanup without failed systemd units. Cold boot and
+suspend/resume with the option remain unqualified.

@@ -41,6 +41,13 @@ all 36 bytes with status 0x16 and 12288 bytes of credit. MCU-ready
 was high in both snapshots. The existing checked retry recovered;
 the zero first response still requires investigation.
 
+A later native44 startup profile explicitly selects one standby
+attempt. The driver still records a high MCU_RESP as an unconfirmed
+reset. The sensor service continues to require the pinned hub
+identity and fresh data after firmware startup. The profile reduces
+startup delay on this handset. The first zero-ACK retry can still
+occur and the physical reset behavior remains unresolved.
+
 With desktop LTE enabled, native44 additionally records legacy SIPC
 startup messages. The exact-module follow-up checks the initial memory
 mapping and mailbox IRQ before using them. Known optional ECT and

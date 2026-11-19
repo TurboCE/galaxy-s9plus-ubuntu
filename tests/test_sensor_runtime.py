@@ -27,6 +27,19 @@ V=module(ROOT/'scripts/g965n/vendor-runtime.py')
 
 
 class SensorRuntimeTests(unittest.TestCase):
+    def test_single_boot_standby_requires_explicit_policy_and_matching_module(self):
+        default = {'module': {'path': '/private/transport'}}
+        enabled = {**default, 'transport': {'strict_tx_ack': False, 'single_boot_standby': True}}
+        with mock.patch.object(S, 'pinned', return_value=b'module'):
+            with mock.patch.object(S, 'elf_section', return_value=b'vermagic=old\0'):
+                with self.assertRaisesRegex(RuntimeError, 'single boot standby'):
+                    S.transport_policy(enabled)
+            with mock.patch.object(S, 'elf_section', return_value=b'parmtype=single_boot_standby:bool\0'):
+                self.assertEqual(S.transport_policy(default)[1]['single_boot_standby'], 'N')
+                params, expected = S.transport_policy(enabled)
+                self.assertIn('single_boot_standby=1', params)
+                self.assertEqual(expected['single_boot_standby'], 'Y')
+
     def test_checked_ack_capability_and_default_parameters_cannot_adopt_enabled_trial(self):
         profile={'module':{'path':'/private/transport'}}
         with mock.patch.object(S,'pinned',return_value=b'module'),mock.patch.object(S,'elf_section',return_value=b'parmtype=strict_tx_ack:bool\0'):
