@@ -4187,3 +4187,21 @@ and no trial rule remained. The Wi-Fi default and interface-bound HTTPS204
 were verified. The full boot ring had zero error-priority lines, 63
 warnings, no Call Trace or SError and no SSP zero-ACK retries in this
 boot. Zero failed units. Earlier intermittent SSP retries remain open.
+
+### 2026-11-20 — Hold an already-qualified LTE context
+
+The explicit bounded cold trial can hold a qualified PDP beyond the original
+activation deadline. The deadline still applies to the unqualified phase.
+A held context fails when its registration evidence goes stale, SIM or AT
+readiness is lost, IPv4 route parameters change, or the CP invalidates the
+context. Existing shutdown and no-reset constraints apply.
+
+On native44 the same RIL invocation and context carried actual modem DNS and
+verified HTTPS204 immediately after qualification and again 27.1 seconds
+later with a 20-second activation limit. Both source-policy trials restored
+all temporary state, kept the Wi-Fi default and recorded RX10/TX9 with zero
+interface errors. The same independent sensor service remained active.
+Teardown requested PDP deactivation, then verified RF low-power response and
+completed the RFS tail drain. It did not establish explicit PDP deactivation
+acknowledgement or CP power-off. Long-lived startup, application fallback and
+automatic reattachment remain open.

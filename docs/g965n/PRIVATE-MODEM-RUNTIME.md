@@ -577,3 +577,15 @@ NV lease applies to the legacy view. Native43 completed a sensor restart
 and restored sensor feeds while the same bounded RIL/PDP session continued
 to carry actual data. Use the dedicated view for independent service
 lifecycles.
+
+
+### Bounded held context
+
+`--hold-qualified-pdp` requires the explicit PDP switches and a cold trial
+with `--quiesce-radio-on-exit`. A qualified context remains available through
+the bounded service window while SIM and AT readiness and fresh registration
+continue to hold. A route-relevant IPv4 configuration change invalidates the
+context. The activation deadline is still enforced until qualification. On
+native44 this was verified by two policy-route DNS/HTTPS probes in the same
+context, with the second 27.1 seconds after initial qualification, beyond
+the 20-second activation limit. There is no automatic retry in this mode.

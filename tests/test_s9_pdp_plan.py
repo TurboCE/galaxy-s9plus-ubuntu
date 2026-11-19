@@ -130,8 +130,8 @@ class S9PDPTests(unittest.TestCase):
         self.assertNotIn('raw_hex',str(record));self.assertNotIn('cause_name',str(record))
         with self.assertRaises(ValueError):ril.private_s9_status_record(bytes(4))
 
-    def plan_at_activation(self):
-        p=ril.S9PDPPlan('fixture.apn',1,0,timeout=30)
+    def plan_at_activation(self, *, hold=False):
+        p=ril.S9PDPPlan('fixture.apn',1,0,timeout=30,hold_qualified=hold)
         self.assertIsNone(p.registered(False,1))
         self.assertEqual(p.registered(True,2)[0],0x0d01)
         self.assertIsNone(p.registered(True,3))
@@ -155,6 +155,35 @@ class S9PDPTests(unittest.TestCase):
         self.assertEqual(p.reason,'deadline')
         self.assertEqual(p.cleanup(),(0x0d04,ril.s9_activate_pdp(enable=False)))
         self.assertIsNone(p.cleanup())
+
+    def test_hold_applies_only_after_qualification_and_requires_fresh_link(self):
+        early = self.plan_at_activation(hold=True)
+        early.ack(ack(0x0d04), 8)
+        self.assertEqual(early.tick(30), 'failed')
+        for link in ({'registration_at': 20}, {'registered': False},
+                     {'sim_ready': False}, {'at_ready': False}):
+            p = self.plan_at_activation(hold=True)
+            p.ack(ack(0x0d04), 8)
+            p.event(0x0d09, ipv4(), 9)
+            p.event(0x0d10, status(), 9)
+            fresh = dict(registered=True, registration_at=39, sim_ready=True, at_ready=True)
+            self.assertEqual(p.observe_link(40, **fresh), 'candidate-ip')
+            self.assertEqual(p.observe_link(41, **(fresh | link)), 'failed')
+            self.assertEqual(p.cleanup(), (0x0d04, ril.s9_activate_pdp(enable=False)))
+            self.assertIsNone(p.cleanup())
+
+    def test_held_ip_change_invalidates_route_configuration(self):
+        p = self.plan_at_activation(hold=True)
+        p.ack(ack(0x0d04), 8)
+        p.event(0x0d09, ipv4(), 9)
+        p.event(0x0d10, status(), 9)
+        p.event(0x0d09, ipv4(), 39)
+        self.assertEqual(p.state, 'candidate-ip')
+        changed = ipv4()
+        changed[6] = 3
+        p.event(0x0d09, changed, 40)
+        self.assertEqual(p.reason, 'ipv4-configuration-changed')
+        self.assertEqual(p.state, 'failed')
 
     def test_candidate_private_record_once_and_only_selected_fields(self):
         p=self.plan_at_activation()

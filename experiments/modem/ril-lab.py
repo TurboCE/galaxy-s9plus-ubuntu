@@ -501,12 +501,13 @@ def private_s9_status_record(body, cid=1):
 
 class S9PDPPlan:
     """One activation, pure transitions; candidate IP is never internet proof."""
-    def __init__(self, apn, cid, now, timeout=30):
+    def __init__(self, apn, cid, now, timeout=30, *, hold_qualified=False):
         self.definition = s9_define_pdp(apn, cid)
         if type(timeout) is not int or not 1 <= timeout <= 60:
             raise ValueError('Bounded S9 PDP deadline required')
         self._time(now)
         self.cid = cid; self.deadline = now + timeout
+        self.hold_qualified = hold_qualified
         self.state = 'await-registration'; self.reason = None
         self.pending = None; self.activation_issued = False; self.cleanup_issued = False
         self.configuration = None; self.status = None; self.report_emitted = False
@@ -521,9 +522,18 @@ class S9PDPPlan:
 
     def tick(self, now):
         self._time(now)
-        if now >= self.deadline and self.state not in ('failed', 'finished'):
+        holding = self.hold_qualified and self.state == 'candidate-ip'
+        if now >= self.deadline and not holding and self.state not in ('failed', 'finished'):
             self.fail('deadline')
         return self.state
+
+    def observe_link(self, now, *, registered, registration_at, sim_ready, at_ready):
+        if not registered:
+            self.fail('registration-lost')
+        elif self.hold_qualified and (not sim_ready or not at_ready or registration_at is None
+                                     or now - registration_at > 15):
+            self.fail('attachment-not-current')
+        return self.tick(now)
 
     def registered(self, confirmed, now):
         if self.tick(now) != 'await-registration' or confirmed is not True:
@@ -558,9 +568,14 @@ class S9PDPPlan:
             self.fail('unexpected-event-kind'); return
         try:
             if command == 0x0D09:
-                self.configuration = s9_ip_config(body, self.cid)
-                if not self.configuration['ipv4']:
+                configuration = s9_ip_config(body, self.cid)
+                if not configuration['ipv4']:
                     self.fail('ipv4-not-provided'); return
+                if self.hold_qualified and self.state == 'candidate-ip':
+                    route_fields = ('ipv4', 'dns4', 'gateway', 'prefix4', 'mtu')
+                    if any(configuration[key] != self.configuration[key] for key in route_fields):
+                        self.fail('ipv4-configuration-changed'); return
+                self.configuration = configuration
             elif command == 0x0D10:
                 self.status = s9_pdp_status(body, self.cid)
                 if not self.status['active']:
@@ -694,6 +709,8 @@ def main():
     parser.add_argument('--confirm-reviewed-s9-pdp-layout', action='store_true')
     parser.add_argument('--pdp-cid', type=int, choices=(1,), default=1)
     parser.add_argument('--pdp-seconds', type=int, choices=range(10,61), default=30)
+    parser.add_argument('--hold-qualified-pdp', action='store_true',
+                        help='Hold an already-qualified context until this bounded cold trial ends')
     parser.add_argument('--attach-online', action='store_true')
     parser.add_argument('--diagnostic-status', action='store_true',
                         help='Query signal, functionality, operator and registration without changing them')
@@ -718,6 +735,9 @@ def main():
     if args.configure_radio and (not args.apn or not re.fullmatch(r'[A-Za-z0-9.-]{1,100}', args.apn)):
         raise SystemExit('Explicit valid APN required for radio configuration')
     pdp_opt_in = validate_s9_opt_in(args)
+    if args.hold_qualified_pdp and (not pdp_opt_in or args.attach_online or
+                                    not args.quiesce_radio_on_exit):
+        parser.error('Held PDP requires a bounded cold PDP trial with radio cleanup')
     if b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):
         raise SystemExit('Expected star2lte')
     os.umask(0o077)
@@ -875,14 +895,15 @@ def main():
                                      'AT+CGATT?', 'AT+CGREG?', 'AT+CREG?', 'AT+CEER', 'AT+CEREG=?'])
                 diagnostic_queued = True
             if pdp_opt_in and pdp_plan is None and registered and registration_at is not None and now-registration_at <= 15 and sim_ready and radio_asked and packet_attachment_ready(ps_attach_acknowledged, ps_attach_query, ps_attach_query_at, now) and at_ready and not at_failed:
-                pdp_plan = S9PDPPlan(args.apn, args.pdp_cid, now, timeout=args.pdp_seconds)
+                pdp_plan = S9PDPPlan(args.apn, args.pdp_cid, now, timeout=args.pdp_seconds,
+                                     hold_qualified=args.hold_qualified_pdp)
                 request = pdp_plan.registered(True, now)
                 if request:
                     send(*request)
             if pdp_plan is not None:
-                if not registered:
-                    pdp_plan.fail('registration-lost')
-                pdp_plan.tick(now)
+                if pdp_plan.state != 'failed':
+                    pdp_plan.observe_link(now, registered=registered, registration_at=registration_at,
+                                          sim_ready=sim_ready, at_ready=at_ready and not at_failed)
                 if pdp_plan.state == 'failed':
                     cleanup_pdp()
                 if pdp_previous_state != pdp_plan.state:
