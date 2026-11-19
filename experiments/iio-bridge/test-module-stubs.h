@@ -35,7 +35,6 @@
 #define INDIO_DIRECT_MODE 1
 #define IIO_SHARED_BY_TYPE 1
 #define MISC_DYNAMIC_MINOR 255
-#define no_llseek NULL
 struct mutex {bool locked;};
 #define DEFINE_MUTEX(name) struct mutex name
 static void mutex_lock(struct mutex *m){assert(!m->locked);m->locked=true;}
@@ -46,7 +45,19 @@ static bool capable(int c){assert(c==CAP_SYS_ADMIN);return cap;}
 static bool of_machine_is_compatible(const char *s){return !strcmp(s,"samsung,star2lte")?board:!strcmp(s,"samsung,exynos9810")?chip:false;}
 static u64 ktime_get_boottime_ns(void){return clock_ns;}
 typedef long long loff_t;
-struct inode {int unused;};struct file {int f_flags;};
+#define FMODE_LSEEK 1U
+#define FMODE_PREAD 2U
+#define FMODE_PWRITE 4U
+#define FMODE_ATOMIC_POS 8U
+#define FMODE_STREAM 16U
+struct inode {int unused;};struct file {int f_flags;unsigned int f_mode;};
+static unsigned int stream_opens;
+/* Exact pinned Linux7.1 fs/open.c semantics, without a position or seek API. */
+static int stream_open(struct inode *inode,struct file *file)
+{
+ file->f_mode &= ~(FMODE_LSEEK|FMODE_PREAD|FMODE_PWRITE|FMODE_ATOMIC_POS);
+ file->f_mode |= FMODE_STREAM;stream_opens++;return 0;
+}
 static int copy_fail,copy_count;
 static unsigned long copy_from_user(void *d,const void *s,size_t n){copy_count++;if(copy_fail)return n;memcpy(d,s,n);return 0;}
 struct device {int unused;};

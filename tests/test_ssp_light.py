@@ -6,7 +6,12 @@ import signal
 import io
 import json
 import unittest
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
+from contextlib import nullcontext
+import tempfile
+import os
+import stat
+from types import SimpleNamespace
 
 spec = importlib.util.spec_from_file_location('ssp_probe',
     Path(__file__).resolve().parents[1] / 'experiments/sensors/ssp-probe.py')
@@ -257,7 +262,7 @@ class StartupReadinessTests(unittest.TestCase):
         with patch.object(ssp, 'Probe', Probe), patch.object(ssp, 'require_board'), \
              patch.object(ssp.Path, 'read_text', return_value='1'), \
              patch.object(ssp, 'acquire_hub_identity', side_effect=RuntimeError('identity failed')), \
-             patch('builtins.open', mock_open()), patch.object(ssp.fcntl, 'flock'), \
+             patch.object(ssp, 'acquire_probe_lock', return_value=nullcontext()), \
              patch.object(ssp.signal, 'signal'), patch.object(ssp.os, 'close') as close, \
              patch('sys.argv', ['ssp-probe', '--sample-seconds', '5', '--ap-awake']), \
              self.assertRaisesRegex(RuntimeError, 'identity failed'):
@@ -317,7 +322,7 @@ class SamplingPhaseTests(unittest.TestCase):
         with patch.object(ssp, 'Probe', Probe), patch.object(ssp, 'require_board'), \
              patch.object(ssp.Path, 'read_text', return_value='1'), \
              patch.object(ssp, 'acquire_hub_identity', return_value={'chip_id': 0x55, 'firmware': 1, 'sensor_mask': 1 << 9}), \
-             patch('builtins.open', mock_open()), patch.object(ssp.fcntl, 'flock'), \
+             patch.object(ssp, 'acquire_probe_lock', return_value=nullcontext()), \
              patch.object(ssp.signal, 'signal'), patch.object(ssp.os, 'close'), \
              patch.object(ssp.time, 'monotonic', side_effect=lambda: clock.now), \
              patch('sys.stdout', output), \
@@ -541,7 +546,7 @@ class ThermalADCReadTests(unittest.TestCase):
         with patch.object(ssp, 'Probe', Probe), patch.object(ssp, 'require_board'), \
              patch.object(ssp.Path, 'read_text', return_value='1'), \
              patch.object(ssp, 'acquire_hub_identity', side_effect=identity), \
-             patch('builtins.open', mock_open()), patch.object(ssp.fcntl, 'flock'), \
+             patch.object(ssp, 'acquire_probe_lock', return_value=nullcontext()), \
              patch.object(ssp.signal, 'signal'), patch.object(ssp.os, 'close') as close, \
              patch('sys.argv', ['ssp-probe', '--read-thermal-adc']), \
              patch('sys.stdout', new_callable=io.StringIO) as output:
@@ -549,3 +554,86 @@ class ThermalADCReadTests(unittest.TestCase):
         self.assertEqual(calls, ['identity',(0xA9,{'length':2}),(0xAA,{'length':2})])
         self.assertEqual(json.loads(output.getvalue())['thermal_adc_raw'], {'0':4660,'1':4660})
         close.assert_called_once_with(123)
+
+
+class CanonicalProbeLockTests(unittest.TestCase):
+    def metadata(self, fd):
+        actual = self.real_fstat(fd)
+        return SimpleNamespace(st_mode=actual.st_mode, st_uid=0,
+                               st_nlink=actual.st_nlink, st_dev=actual.st_dev, st_ino=actual.st_ino)
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.path = Path(self.temp.name) / 'lease'
+        self.real_fstat = os.fstat
+        self.path_patch = patch.object(ssp, 'PROBE_LOCK_PATH', str(self.path))
+        self.path_patch.start(); self.addCleanup(self.path_patch.stop)
+
+    def test_existing_contents_preserved_and_contention_and_fd_closed(self):
+        self.path.write_bytes(b'preserve this receipt')
+        self.path.chmod(0o600)
+        with patch.object(ssp.os, 'fstat', side_effect=self.metadata):
+            with ssp.acquire_probe_lock() as fd:
+                self.assertEqual(os.read(fd, 100), b'preserve this receipt')
+                self.assertFalse(os.get_inheritable(fd))
+                with self.assertRaises(BlockingIOError):
+                    with ssp.acquire_probe_lock():
+                        self.fail('Second owner acquired lease')
+            with self.assertRaises(OSError):
+                self.real_fstat(fd)
+        self.assertEqual(self.path.read_bytes(), b'preserve this receipt')
+
+    def test_creation_flags_and_no_metadata_adoption(self):
+        actual_open = os.open
+        with patch.object(ssp.os, 'fstat', side_effect=self.metadata), \
+             patch.object(ssp.os, 'open', wraps=actual_open) as opened:
+            with ssp.acquire_probe_lock():
+                pass
+            flags = opened.call_args.args[1]
+            self.assertEqual(flags, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC)
+            self.assertEqual(opened.call_args.args[2], 0o600)
+        self.path.chmod(0o644)
+        with patch.object(ssp.os, 'fstat', side_effect=self.metadata), self.assertRaises(RuntimeError):
+            with ssp.acquire_probe_lock():
+                pass
+        self.assertEqual(stat.S_IMODE(self.path.stat().st_mode), 0o644)
+
+    def test_foreign_owner_links_and_special_file_refused_before_flock(self):
+        self.path.touch(mode=0o600)
+        for attribute, value in [('st_uid', 1000), ('st_nlink', 2), ('st_mode',stat.S_IFIFO|0o600)]:
+            def bad(fd):
+                result = self.metadata(fd); setattr(result, attribute, value); return result
+            with patch.object(ssp.os, 'fstat', side_effect=bad), \
+                 patch.object(ssp.fcntl, 'flock') as flock, self.assertRaises(RuntimeError):
+                with ssp.acquire_probe_lock():
+                    pass
+            flock.assert_not_called()
+        target = Path(self.temp.name) / 'target'
+        self.path.rename(target); self.path.symlink_to(target)
+        with self.assertRaises(OSError):
+            with ssp.acquire_probe_lock():
+                pass
+
+    def test_replaced_path_after_lock_and_body_error_close_descriptors(self):
+        self.path.touch(mode=0o600)
+        real_flock = ssp.fcntl.flock
+        def replace(fd, mode):
+            real_flock(fd, mode)
+            self.path.rename(self.path.with_suffix('.old'))
+            self.path.touch(mode=0o600)
+        with patch.object(ssp.os, 'fstat', side_effect=self.metadata), \
+             patch.object(ssp.fcntl, 'flock', side_effect=replace), \
+             patch.object(ssp.os, 'close', wraps=os.close) as close, \
+             self.assertRaisesRegex(RuntimeError,'replaced'):
+            with ssp.acquire_probe_lock():
+                pass
+        closed_fd = close.call_args.args[0]
+        with self.assertRaises(OSError):
+            self.real_fstat(closed_fd)
+        with patch.object(ssp.os, 'fstat', side_effect=self.metadata):
+            with self.assertRaisesRegex(ValueError,'body'):
+                with ssp.acquire_probe_lock() as fd:
+                    raise ValueError('body')
+            with self.assertRaises(OSError):
+                self.real_fstat(fd)

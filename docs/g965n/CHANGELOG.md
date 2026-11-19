@@ -2224,3 +2224,18 @@ is alive. No fake sysfs or mock DBus provider, no compass-heading substitute.
 Two actual-C host sanitizer harnesses pass; exact-kernel IIO packaging guards
 pass7 tests. Kernel/core and module build integration added under explicit
 S9_EXPERIMENTAL_IIO_BRIDGE. No IIO module/native boot qualification yet.
+
+
+Candidate#26 Image/core compiled but external bridge build failed because
+Linux7.1 removed no_llseek. No artifact was installed and native#25 stayed
+running. Replaced the legacy field with stream_open()+llseekNULL using the
+pinned kernel's stream semantics; actual-C host tests verify nonseekable
+FMODE_STREAM and denial paths. New full build required.
+
+Owner returned for mounting checks. Idle canonical SSP lock verified as
+root-owned ordinary/single-link/exclusively free,then explicitly migrated0644
+→0600 without truncation. New nofollow lock helper refuses unsafe metadata
+and passes42 host tests. Exact#25 transport and bounded900s lhd restarted.
+First three labeled poses had near-identical dominant rawX; do not infer
+orientation from them. Continuous movement comparison requested to separate
+physical target/pose timing from a stuck data path. No matrix installed.

@@ -9,6 +9,7 @@ Default mode sends no sleep/wake commands. Explicit --ap-awake sends only two
 volatile AP-awake notifications; no sleep, calibration or persistent writes.
 """
 import argparse
+from contextlib import contextmanager
 import fcntl
 import json
 import os
@@ -16,7 +17,37 @@ from pathlib import Path
 import select
 import signal
 import struct
+import stat
 import time
+
+
+PROBE_LOCK_PATH = '/run/lock/g965n-ssp-probe.lock'
+
+
+@contextmanager
+def acquire_probe_lock():
+    """Hold the canonical, strictly root-owned SSP lease without adopting it.
+
+    Existing metadata is never repaired here. The operator must migrate an old
+    file only after confirming every previous owner has stopped. Never unlink
+    the lock: waiters and brokers must continue referring to the same inode.
+    """
+    fd = os.open(PROBE_LOCK_PATH, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    try:
+        def verify():
+            held = os.fstat(fd)
+            named = os.stat(PROBE_LOCK_PATH, follow_symlinks=False)
+            if (not stat.S_ISREG(held.st_mode) or held.st_uid != 0 or
+                    held.st_nlink != 1 or stat.S_IMODE(held.st_mode) != 0o600 or
+                    (held.st_dev, held.st_ino) != (named.st_dev, named.st_ino)):
+                raise RuntimeError('Unsafe SSP lock metadata or replaced lock path')
+        verify()
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        # Do not use an inode replaced while we were acquiring the lease.
+        verify()
+        yield fd
+    finally:
+        os.close(fd)
 
 
 # Layout facts from the pinned Lineage sensor_value/get_light_sensordata.
@@ -326,8 +357,7 @@ def main():
     if Path('/sys/class/sec/sensorhub/ready').read_text().strip() != '1':
         raise SystemExit('Hub not ready; start the own-device lhd with its stock configuration first')
     signal.signal(signal.SIGTERM, terminate_probe)
-    with open('/run/lock/g965n-ssp-probe.lock', 'w') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    with acquire_probe_lock():
         probe = Probe(args.light_layout)
         enabled = []
         complete = True

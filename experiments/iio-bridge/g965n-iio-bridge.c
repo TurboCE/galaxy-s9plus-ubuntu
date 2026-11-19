@@ -83,6 +83,8 @@ static int bridge_open(struct inode *inode,struct file *file)
  int ret=0;
  if (!capable(CAP_SYS_ADMIN)) return -EPERM;
  if ((file->f_flags&O_ACCMODE)!=O_WRONLY) return -EACCES;
+ ret=stream_open(inode,file);
+ if (ret) return ret;
  mutex_lock(&lifecycle_lock);
  if (writer_open) ret=-EBUSY;
  else {
@@ -123,7 +125,7 @@ static int bridge_close(struct inode *inode,struct file *file)
  mutex_unlock(&lifecycle_lock);return 0;
 }
 static const struct file_operations bridge_fops = {
- .owner=THIS_MODULE,.open=bridge_open,.write=bridge_write,.release=bridge_close,.llseek=no_llseek
+ .owner=THIS_MODULE,.open=bridge_open,.write=bridge_write,.release=bridge_close,.llseek=NULL
 };
 static struct miscdevice bridge_misc = {
  .minor=MISC_DYNAMIC_MINOR,.name="g965n-iio-bridge",.fops=&bridge_fops,.mode=0600

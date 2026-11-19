@@ -41,7 +41,10 @@ default identity matrix silently substituted for missing evidence.
 The misc node `/dev/g965n-iio-bridge` is root-owned mode0600. Opening and writing
 require `CAP_SYS_ADMIN`; the sole writer opens `O_WRONLY`. A second open fails
 with `EBUSY`. Do not grant the node to an input group or ordinary applications.
-The file's module reference prevents normal unload while a writer is open.
+The file uses the pinned kernel's `stream_open()` semantics: seeking,
+positional I/O and atomic file positions are disabled, `FMODE_STREAM` is set,
+and `.llseek` is NULL. Packet framing is enforced independently by the write
+callback. The file's module reference prevents normal unload while a writer is open.
 
 ## Fixed packet contract
 
