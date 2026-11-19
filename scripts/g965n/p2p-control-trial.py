@@ -126,7 +126,9 @@ def main():
             if after[owned].get('type')!='P2P-device':raise RuntimeError('Unexpected created interface type')
             run(['iw','wdev',owned,'p2p','start'])
             scan=None
-            if args.scan:scan=run(['iw','wdev',owned,'scan','freq','2412','ssid','DIRECT-'],timeout=10)
+            # P2P scans require the listen-channel attribute; XX/0x04 with
+            # global operating class81/channel1 does not change the regdomain.
+            if args.scan:scan=run(['iw','wdev',owned,'scan','ies','dd:0c:50:6f:9a:09:06:05:00:58:58:04:51:01','freq','2412','ssid','DIRECT-'],timeout=10)
             run(['iw','wdev',owned,'p2p','stop'])
             run(['iw','wdev',owned,'del'])
             if owned in inventory():raise RuntimeError('Owned context survived delete')

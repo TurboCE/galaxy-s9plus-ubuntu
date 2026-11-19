@@ -2752,3 +2752,29 @@ identity and post-delete HTTPS. Cleanup resets runtime opt-in; failure leaves
 fallback armed, never guesses ownership; private0600 logs remain excluded.
 No partition/firmware writes. Inventory/guard host tests2passed; iw on native34
 contains required __p2pdev syntax. Actual trial is still pending.
+
+## 2026-11-19 — First control trial: real lifecycle, malformed scan, recovery
+
+Native34 runtime opt-in trial created the real BSS2 control context, started
+it, then stopped/deleted it successfully in failure cleanup. One-channel scan
+returnedENOENT: the diagnostic request omitted the P2P Listen Channel IE;
+primary cfg80211_get_p2p_attr in the actual scan-prep path requires it. This
+failed request is not working RF discovery. Trial helper now supplies the
+standard global-class81/channel1 Listen Channel attribute, within cfg80211's
+normal regulatory checks; it does not alter regdomain or invent sensor data.
+
+Remote SSH was unavailable during the failed trial/recovery window. Actual
+90s independent reboot recovery ran; native34 baselineN returned with all
+sensor/audio/BT services, failedsystemunits0, ambienttrue and bound-WiFi HTTPS204.
+USB SSH became usable again and is now preferred for radio tests. Records show
+create/start/stop/delete returned0, scan-2; no peer/group/data-parity claim.
+
+Source review found the legacy branch still called upstream primary DOWN/
+APSTA/UP setup before creating its context, which can disrupt a live STA.
+New prepare step reads actual APSTA; configured1 uses only discovery/address
+commands and never resets primary. If APSTA needs initial setup, CONNECTED or
+CONNECTING SME state refusesEBUSY; only an idle initial primary can use the
+original setup. Gate/query failures propagate. ActualC connected/configured,
+connected/unconfigured, connecting and idle setup-failure tests pass, as do
+exact previously-built-source migration and source-integrity tests. This is a
+candidate mitigation until real primary data survives the new trial.

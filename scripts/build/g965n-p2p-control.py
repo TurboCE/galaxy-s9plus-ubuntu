@@ -12,7 +12,8 @@ from pathlib import Path
 
 BASE = Path('drivers/net/wireless/broadcom/brcm80211/brcmfmac')
 P2P_OLD = 'adc908e9f1aac6bf2d6b6c53989f0e0f864aaf2d1e4d19a9286ddaf7eaa07b97'
-P2P_NEW = 'feac7014ab29cce5bb63d38868a5437a75e6af54ccc1c9141e45ee5a89fb02fb'
+P2P_PREVIOUS = 'feac7014ab29cce5bb63d38868a5437a75e6af54ccc1c9141e45ee5a89fb02fb'
+P2P_NEW = 'e9b7e382fbd6aa7d33321382ac44c539c6f1545cb27a3e2aa4efd3b3693f61cd'
 CORE_OLD = '6be9e2f7ca8bab0b2e747c20d22efed99f1b0b93adb6c304257c2a12e073973e'
 CORE_NEW = '8572556af759d417e2ab5d91f4b68eef4e512a38206d990fe09856cdde889e2e'
 
@@ -27,6 +28,29 @@ static bool brcmf_g965n_control_scope(struct brcmf_if *pri)
 	       pri->drvr->bus_if->proto_type == BRCMF_PROTO_MSGBUF &&
 	       !pri->drvr->settings->p2p_enable && !pri->drvr->proto->del_if &&
 	       pri->drvr->iflist[0] == pri && pri->drvr->if2bss[0] == 0;
+}
+
+/* Preserve an already configured/associated primary STA: DOWN clears it. */
+static int brcmf_g965n_prepare_control(struct brcmf_if *pri, u8 *address)
+{
+	u32 apsta = 0;
+	int ret;
+
+	if (!brcmf_g965n_control_scope(pri) || !pri->vif)
+		return -EOPNOTSUPP;
+	ret = brcmf_fil_iovar_int_get(pri, "apsta", &apsta);
+	if (ret)
+		return ret;
+	if (apsta != 1) {
+		if (test_bit(BRCMF_VIF_STATUS_CONNECTED, &pri->vif->sme_state) ||
+		    test_bit(BRCMF_VIF_STATUS_CONNECTING, &pri->vif->sme_state))
+			return -EBUSY;
+		return brcmf_p2p_set_firmware(pri, address);
+	}
+	ret = brcmf_fil_iovar_int_set(pri, "p2p_disc", 0);
+	if (!ret)
+		ret = brcmf_fil_iovar_data_set(pri, "p2p_da_override", address, ETH_ALEN);
+	return ret;
 }
 
 static bool brcmf_g965n_is_control(struct brcmf_cfg80211_vif *vif)
@@ -127,7 +151,28 @@ def p2p_transform(data):
         '\t\t\t\tbrcmf_remove_interface(vif->ifp, true);\n\t\t\t}\n'
         '\t\t\tbrcmf_cfg80211_arm_vif_event(cfg, NULL);\n\t\t\treturn err;\n\t\t}\n'
         '\t\tbrcmf_p2p_deinit_discovery(p2p);')
-    return (s[:start]+deletion+s[end:]).encode()
+    return prepare_operations((s[:start]+deletion+s[end:]).encode())
+
+
+
+def prepare_operations(data):
+    text=data.decode()
+    start=text.index('static struct wireless_dev *brcmf_p2p_create_p2pdev(')
+    end=text.index('static int brcmf_p2p_get_conn_idx(',start)
+    body=text[start:end]
+    setup='\terr = brcmf_p2p_set_firmware(pri_ifp, p2p->dev_addr);\n\tif (err < 0 && brcmf_g965n_checked_p2p(pri_ifp))\n\t\tgoto fail;\n\n'
+    body=once(body,setup,'')
+    body=once(body,'\t\terr = brcmf_g965n_create_control(pri_ifp, p2p_vif, p2p->dev_addr);',
+        '\t\terr = brcmf_g965n_prepare_control(pri_ifp, p2p->dev_addr);\n'
+        '\t\tif (!err)\n\t\t\terr = brcmf_g965n_create_control(pri_ifp, p2p_vif, p2p->dev_addr);')
+    body=once(body,'\tbrcmf_cfg80211_arm_vif_event(p2p->cfg, p2p_vif);',setup+'\tbrcmf_cfg80211_arm_vif_event(p2p->cfg, p2p_vif);')
+    return (text[:start]+body+text[end:]).encode()
+
+
+def upgrade(data):
+    text=data.decode();start=text.index('/* G965N firmware has a discovery BSS, not a separate data interface. */')
+    end=text.index('static struct wireless_dev *brcmf_p2p_create_p2pdev(',start)
+    return prepare_operations((text[:start]+HELPER+text[end:]).encode())
 
 
 def core_transform(data):
@@ -147,9 +192,12 @@ def apply(root):
         sha = hashlib.sha256(data).hexdigest()
         if sha == new:
             continue
-        if sha != old:
+        if name == 'p2p.c' and sha == P2P_PREVIOUS:
+            result = upgrade(data)
+        elif sha == old:
+            result = transform(data)
+        else:
             raise ValueError('Unreviewed '+name+'; no control-context change')
-        result = transform(data)
         if hashlib.sha256(result).hexdigest() != new:
             raise ValueError('Control-context transform identity changed')
         pending.append((path, result))

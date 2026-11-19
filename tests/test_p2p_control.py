@@ -21,6 +21,10 @@ STUB=r'''
 #include <string.h>
 typedef uint8_t u8;typedef uint32_t u32;
 #define BRCMF_MAX_IFS 16
+#define ETH_ALEN 6
+#define BRCMF_VIF_STATUS_CONNECTED 1
+#define BRCMF_VIF_STATUS_CONNECTING 2
+#define test_bit(n,p) (!!(*(p)&(1UL<<(n))))
 #define BRCMF_PROTO_MSGBUF 1
 #define BRCM_CC_4361_CHIP_ID 4361
 #define module_param_named(...)
@@ -35,15 +39,18 @@ struct settings {bool p2p_enable;};
 struct proto {void (*del_if)(void *);};
 struct brcmf_if;
 struct brcmf_pub {struct bus *bus_if;struct settings *settings;struct proto *proto;struct brcmf_if *iflist[16];int if2bss[16];void *wiphy;};
-struct brcmf_cfg80211_vif {struct brcmf_if *ifp;};
+struct brcmf_cfg80211_vif {struct brcmf_if *ifp;unsigned long sme_state;};
 struct brcmf_if {struct brcmf_pub *drvr;int ifidx,bsscfgidx;void *ndev;struct brcmf_cfg80211_vif *vif;};
 static bool target=true;
 static bool of_machine_is_compatible(const char *s) {assert(!strcmp(s,"samsung,star2lte"));return target;}
 static int sets,gets,adds,on_error,get_error,off_error,alloc_error;
-static u32 actual_bss=2;
+static u32 actual_bss=2,apsta=1;
+static int apsta_error,overrides,setups,setup_error;
 static struct brcmf_if allocated;
 static int brcmf_fil_iovar_int_set(struct brcmf_if *i,const char *n,int v) {(void)i;assert(!strcmp(n,"p2p_disc"));sets++;return v?on_error:off_error;}
-static int brcmf_fil_iovar_int_get(struct brcmf_if *i,const char *n,u32 *v) {(void)i;assert(!strcmp(n,"p2p_dev"));gets++;*v=actual_bss;return get_error;}
+static int brcmf_fil_iovar_int_get(struct brcmf_if *i,const char *n,u32 *v) {(void)i;if(!strcmp(n,"apsta")){*v=apsta;return apsta_error;}assert(!strcmp(n,"p2p_dev"));gets++;*v=actual_bss;return get_error;}
+static int brcmf_p2p_set_firmware(struct brcmf_if *i,u8 *a) {(void)i;(void)a;setups++;return setup_error;}
+static int brcmf_fil_iovar_data_set(struct brcmf_if *i,const char *n,u8 *a,int size) {(void)i;(void)a;assert(!strcmp(n,"p2p_da_override")&&size==6);overrides++;return 0;}
 static struct brcmf_if *brcmf_add_if(struct brcmf_pub *d,int bss,int idx,bool p2p,const char *n,u8 *mac) {
  (void)n;(void)mac;adds++;assert(bss>0&&bss<16&&idx==0&&p2p&&!d->settings->p2p_enable&&!d->iflist[bss]&&d->if2bss[0]==0);
  if(alloc_error)return ERR_PTR(alloc_error);
@@ -56,6 +63,13 @@ int main(void) {
  struct bus bus={4361,1};struct settings settings={0};struct proto proto={0};
  struct brcmf_pub d={.bus_if=&bus,.settings=&settings,.proto=&proto};
  struct brcmf_if pri={.drvr=&d,.ndev=(void *)1};struct brcmf_cfg80211_vif vif={0};u8 mac[6]={0};d.iflist[0]=&pri;
+ struct brcmf_cfg80211_vif primary_vif={.ifp=&pri};pri.vif=&primary_vif;
+ primary_vif.sme_state=1UL<<BRCMF_VIF_STATUS_CONNECTED;
+ assert(brcmf_g965n_prepare_control(&pri,mac)==0&&setups==0&&overrides==1);
+ apsta=0;assert(brcmf_g965n_prepare_control(&pri,mac)==-EBUSY&&setups==0);
+ primary_vif.sme_state=1UL<<BRCMF_VIF_STATUS_CONNECTING;assert(brcmf_g965n_prepare_control(&pri,mac)==-EBUSY&&setups==0);
+ primary_vif.sme_state=0;setup_error=-ETIMEDOUT;assert(brcmf_g965n_prepare_control(&pri,mac)==-ETIMEDOUT&&setups==1);
+ apsta=1;apsta_error=-EIO;assert(brcmf_g965n_prepare_control(&pri,mac)==-EIO&&setups==1);apsta_error=0;sets=gets=adds=0;
  assert(!g965n_legacy_p2pdev);assert(!brcmf_g965n_control_scope(0));
  on_error=-EIO;assert(brcmf_g965n_create_control(&pri,&vif,mac)==-EIO&&sets==1&&gets==0&&adds==0);on_error=0;sets=0;
  get_error=-ENODEV;off_error=-EBUSY;assert(brcmf_g965n_create_control(&pri,&vif,mac)==-ENODEV&&sets==2&&adds==0);get_error=off_error=0;
@@ -91,6 +105,10 @@ class P2pControlTests(unittest.TestCase):
         p2p=s.transform((cache/'p2p.c').read_bytes());core=(cache/'core.c').read_bytes()
         self.assertEqual(hashlib.sha256(p2p).hexdigest(),c.P2P_OLD)
         self.assertEqual(hashlib.sha256(core).hexdigest(),c.CORE_OLD)
+        previous=cache/'p2p-control-v1.c'
+        if previous.exists():
+            self.assertEqual(hashlib.sha256(previous.read_bytes()).hexdigest(),c.P2P_PREVIOUS)
+            self.assertEqual(c.upgrade(previous.read_bytes()),c.p2p_transform(p2p))
         with tempfile.TemporaryDirectory() as temporary:
             base=Path(temporary)/c.BASE;base.mkdir(parents=True);a=base/'p2p.c';b=base/'core.c'
             a.write_bytes(p2p);b.write_bytes(b'unreviewed')
