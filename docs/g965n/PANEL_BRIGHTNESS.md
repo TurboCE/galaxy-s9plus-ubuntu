@@ -45,8 +45,11 @@ Host C failure injection and kernel#28 build/native boot passed. A seven-step
 16,12,8,4,1,0,16 sweep matched completed command readback. GNOME's normal
 Brightness property was available; setting25percent produced raw4. Three
 DPMS off/on cycles each read actual0 asleep and restored raw4 awake, with
-sensor service active and no matching new panel/fatal/GPU errors. Optical
-dimming, automatic adjustment and full Samsung parity remain unqualified.
+sensor service active and no matching new panel/fatal/GPU errors. Real room-light ON/OFF subsequently drove standard GNOME backlight4→16→3.
+A focused/fullscreen white-window16/1/16/1 comparison reproduced about0.32A
+net battery-current change and voltage sag at maximum. This is physical
+electrical-response evidence, not calibrated luminance/color/flicker or full
+Samsung parity. Reboot persistence of the updated profile remains pending.
 
 `scripts/g965n/backlight-restore.py` saves a private exact-BOOT state. Stage
 the script in a root-owned non-writable directory and save with explicit
@@ -71,3 +74,12 @@ Starting at maximum in a3lux room can leave the result clamped at maximum;
 that observation alone is not a failed ALS driver. Use the existing standard
 brightness UI/API to choose a suitable reference, then validate a real light
 change. Do not inject synthetic lux or add a competing brightness daemon.
+
+The temporary `experiments/sensors/backlight-white-window.py` draws white
+without changing settings, sensors or brightness and closes after75seconds.
+Its state reports normal GTK focus/fullscreen, not optical measurements.
+Do not infer panel power from net battery current alone; charger and system
+load also contribute. The earlier locked-screen current trial was
+inconclusive. In remote tests, merely setting Mutter PowerSave0 does not
+reset a pre-existing idle state. Use normal session activity; do not enable
+test-only idle-reset APIs or weaken GNOME unit/polkit restrictions.

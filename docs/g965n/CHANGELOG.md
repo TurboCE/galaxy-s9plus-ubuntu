@@ -2439,3 +2439,25 @@ N15.89/E91.72/S182.09/W307.53. These are not a calibrated system backend and
 are not used by the installed Compass app. New initialization's actual
 cardinal/tilted heading and reference magnetic/true-north semantics remain
 pending while owner is away.
+
+Owner remotely switched the real room light ON/OFF/ON/OFF. Read-only ALS
+observers captured approximately2..4lux dark and up to802lux bright. After
+normal session activity, with no manual brightness writes in the final
+light-change intervals, requested/actual brightness rose4→16 and fell16→3.
+The last complete bright/dark phases included real571..802lux and2..4lux
+with final command levels16 and3. This qualifies the real ALS→SensorProxy→
+GNOME→DSIM control path in that active-session window, not optical nits or
+long-term/color/flicker parity. Initially PowerSave0/unlock alone left an
+old idle state; one reviewed gpio-keys software volume event reset activity
+and original PulseAudio volume/mute were restored. No physical-key test
+claimed, permanent idle bypass or synthetic lux injected.
+
+For stronger hardware evidence, a temporary ordinary-user white GTK window
+was confirmed focused/fullscreen, with automatic75s close. Under guarded
+manual16/1/16/1, net battery-current medians were approximately-321.9/+11.2/
+-317.7/-0.9mA, with max-level voltage about4.017V versus4.078V at minimum.
+The repeated0.32..0.33A change with voltage sag is physical electrical-response
+evidence beyond a cached brightness number, but is not calibrated panel power
+or an optical luminance/color/flicker measurement. Private records retained,
+original brightness/ambient policy restored, test window closed and fallback
+timer cancelled after success. Source white-window helper is included.
