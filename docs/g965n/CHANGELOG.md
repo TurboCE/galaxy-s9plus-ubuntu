@@ -5588,3 +5588,20 @@ eight Wi-Fi-bound HTTPS204 responses during and after the scans.
 The kernel logged no new matching Wi-Fi/P2P warning or error and
 no systemd unit failed. This trial covered the discovery lifecycle.
 Active peer negotiation and file transfer on #44 remain pending.
+
+### 2026-11-20 — Isolate the GPIO diagnostics warning
+
+A read of the GPIO debug listing during the earlier sensor GPIO
+check triggered 23 warnings on #44. The shared trace begins in
+`gpiolib_dbg_show()` and reaches a missing optional direction
+callback. The Samsung pinctrl driver has no such callback. This
+warning is separate from Bluetooth's existing unsupported
+transmit-power-command quirk.
+
+Fetched Christophe Leroy's upstream fix, accepted by Bartosz
+Golaszewski, and applied it to an isolated copy without changing
+the original tree. The exact diff only guards the direction
+lookup in the debug listing. The AArch64 GPIO object compiled.
+Hardware boot and a repeated debug listing on the fixed kernel
+remain pending.
+[Upstream commit d761c7e38a00](https://github.com/torvalds/linux/commit/d761c7e38a000603a9d16270a1af770a0e8efb5e).
