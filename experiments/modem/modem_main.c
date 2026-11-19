@@ -882,8 +882,13 @@ static void modem_shutdown(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct modem_ctl *mc = dev_get_drvdata(dev);
+	int ret;
 
-	mc->ops.modem_shutdown(mc);
+	ret = mc->ops.modem_shutdown(mc);
+	if (ret) {
+		mif_err("CP shutdown failed (%d); offline not confirmed\n", ret);
+		return;
+	}
 	mc->phone_state = STATE_OFFLINE;
 
 	mif_err("%s\n", mc->name);

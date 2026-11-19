@@ -436,7 +436,15 @@ static int ss310ap_shutdown(struct modem_ctl *mc)
 		ret = ret < 0 ? ret : -EIO;
 		goto shutdown_out;
 	}
-	if (mc->phone_state == STATE_OFFLINE || ret == 0)
+	if (ret == 0) {
+		/* An already offline/uninitialised CP needs no secure reset. A
+		 * contradictory online software state is not a verified shutdown.
+		 * Neither case may clear an earlier failed-session latch. */
+		if (mc->phone_state != STATE_OFFLINE)
+			ret = -EIO;
+		goto shutdown_out;
+	}
+	if (mc->phone_state == STATE_OFFLINE)
 #else
 	if (mc->phone_state == STATE_OFFLINE
 		|| exynos_get_cp_power_status() <= 0)

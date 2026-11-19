@@ -22,5 +22,41 @@ class RadioWireFacts(unittest.TestCase):
         self.assertNotIn('AT+CFUN=1',strings)
         self.assertIn('AT+CFUN?',strings)
 
+    def test_ps_attach_is_not_pdp_activation_or_detach(self):
+        command,body,kind=ril.s9_ps_attach()
+        frame=struct.pack('<HBBBBB',len(body)+7,1,255,command>>8,command&255,kind)+body
+        self.assertEqual(frame,bytes.fromhex('0a0001ff0d0303010000'))
+
+    def test_automatic_selection_carries_no_manual_operator(self):
+        command,body,kind=ril.s9_select_automatic()
+        frame=struct.pack('<HBBBBB',len(body)+7,1,255,command>>8,command&255,kind)+body
+        self.assertEqual(frame,bytes.fromhex('0f0001ff08020302000000000000ff'))
+
+    def test_attach_profile_uses_its_own_ipv4_type_not_pdp_definition_type(self):
+        body=ril.s9_lte_attach_profile('fixture.example')
+        self.assertEqual(len(body),194)
+        self.assertEqual(body[:3],bytes((1,1,5)))
+        self.assertEqual(body[3:104],b'fixture.example'.ljust(101,b'\0'))
+        self.assertEqual(body[104:192],bytes(88))
+        self.assertEqual(body[192:],bytes((5,0)))
+        self.assertEqual(ril.s9_define_pdp('fixture.example')[2],2)
+        for apn in ['', 'bad/apn', 'x'*101, 'x'*125]:
+            with self.assertRaises(ValueError):ril.s9_lte_attach_profile(apn)
+        with self.assertRaises(ValueError):ril.s9_define_pdp('x'*101)
+
+    def test_home_network_discards_subscriber_suffix_and_redacts_all_fragments(self):
+        # Synthetic fixtures only; no real SIM identity.
+        for suffix in ['1234567890','9999999999']:
+            response=('AT+CIMI\r\r\n45008'+suffix+'\r\nOK\r\n').encode()
+            result=ril.home_network_only(response)
+            self.assertEqual(result,{'mcc':'450','mnc':'08','subscriber_identity_redacted':True})
+            self.assertNotIn(suffix,str(result))
+            for start in range(len(response)):
+                record=ril.at_log_record(response[start:start+3],'AT+CIMI')
+                self.assertTrue(record['at_status_redacted'])
+                self.assertNotIn('at_status',record)
+        self.assertIsNone(ril.home_network_only(b'AT+CIMI\r\nERROR\r\n'))
+        self.assertEqual(ril.home_network_only(b'\r\n310260123456789\r\n')['mnc'],None)
+
 
 if __name__=='__main__':unittest.main()

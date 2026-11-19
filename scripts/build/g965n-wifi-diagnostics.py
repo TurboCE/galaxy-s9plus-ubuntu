@@ -125,6 +125,39 @@ def once(text, old, new):
     return text.replace(old, new, 1)
 
 
+# New C additions: ISC OR GPL-2.0-only; retain the original Broadcom notices.
+CHANNEL_HELPER = r'''/* An idle/removed P2P BSS has no current channel to query. */
+static bool brcmf_g965n_p2p_has_no_channel(struct brcmf_if *ifp,
+					struct wireless_dev *wdev)
+{
+	if (!ifp || !ifp->vif ||
+	    !of_machine_is_compatible("samsung,star2lte") ||
+	    ifp->drvr->bus_if->chip != BRCM_CC_4361_CHIP_ID ||
+	    ifp->drvr->bus_if->proto_type != BRCMF_PROTO_MSGBUF)
+		return false;
+	if (wdev->iftype == NL80211_IFTYPE_P2P_CLIENT)
+		return !test_bit(BRCMF_VIF_STATUS_CONNECTED, &ifp->vif->sme_state);
+	if (wdev->iftype == NL80211_IFTYPE_P2P_GO)
+		return !test_bit(BRCMF_VIF_STATUS_AP_CREATED, &ifp->vif->sme_state);
+	return false;
+}
+
+'''
+
+
+def channel_state_guard(content):
+    text = content.decode()
+    text = once(text, 'static int brcmf_cfg80211_get_channel(',
+                CHANNEL_HELPER + 'static int brcmf_cfg80211_get_channel(')
+    anchor = ('\tif (!ndev || drvr->bus_if->state != BRCMF_BUS_UP)\n'
+              '\t\treturn -ENODEV;\n\n'
+              '\terr = brcmf_fil_iovar_int_get(netdev_priv(ndev), "chanspec", &chanspec);')
+    text = once(text, anchor, anchor.replace('\terr =',
+                '\tif (brcmf_g965n_p2p_has_no_channel(netdev_priv(ndev), wdev))\n'
+                '\t\treturn -ENODATA;\n\n\terr ='))
+    return text.encode()
+
+
 def transform(name, original):
     text = original.decode()
     if name == 'fwil.c':
@@ -158,16 +191,17 @@ def transform(name, original):
                     ''.join('\t' + line for line in trigger.splitlines(keepends=True)) + '\t}\n')
     else:
         raise ValueError('unknown source')
-    return text.encode()
+    return channel_state_guard(text.encode()) if name == 'cfg80211.c' else text.encode()
 
 
 # Exact patched identities: generated from the reviewed originals and helper.
 PATCHED = {
     'fwil.c': '8ce50eaa039f157a47604c81b1629a349223e6ab379816ec4cfb5e5d10afa2b7',
     'fweh.c': 'e58ecc096234b07296d8f6affb72b56bed9e91fe2a62519e081f7a5d161fdb61',
-    'cfg80211.c': 'abbbc06d7dc662203b04ea4b52ed28f29b5c1573e953d261c80d97825b92aaf0',
+    'cfg80211.c': 'df97fe1d475f4e725a3fb92fba1a05416a9054d514d9fbab9c6bd4812f42eaf6',
 }
 
+PREVIOUS_QUALIFIED_CFG_SHA256 = 'abbbc06d7dc662203b04ea4b52ed28f29b5c1573e953d261c80d97825b92aaf0'
 
 PREVIOUS_CFG_SHA256 = 'fc3d4d3ccb275149308e7a78243ab7df098ce2ae9994ea3f70a06b646784b2a3'
 
@@ -194,6 +228,12 @@ def apply(root):
         content = path.read_bytes()
         digest = hashlib.sha256(content).hexdigest()
         if digest == PATCHED[name]:
+            continue
+        if name == 'cfg80211.c' and digest == PREVIOUS_QUALIFIED_CFG_SHA256:
+            result = channel_state_guard(content)
+            if hashlib.sha256(result).hexdigest() != PATCHED[name]:
+                raise ValueError('channel-state guard drift; refusing changes')
+            pending.append((path, result))
             continue
         if name == 'cfg80211.c' and digest == PREVIOUS_CFG_SHA256:
             content = restore_previous_cfg(content)

@@ -45,6 +45,45 @@ def s9_radio_normal():
     return (0x0107, b'\x02\x02', 1)
 
 
+def s9_ps_attach():
+    """Own stock IpcTxPsAttach: SET0d03, attach=true, no detach flags/reason."""
+    return (0x0D03, b'\x01\x00\x00', 3)
+
+
+def s9_select_automatic():
+    """Own stock NetSetNetSelectionAuto: mode2, zero PLMN, automatic RAT ff."""
+    return (0x0802, b'\x02' + bytes(6) + b'\xff', 3)
+
+
+def s9_lte_attach_profile(apn, cid=1):
+    reference_define_pdp(apn, cid)
+    if len(apn) > 100:
+        raise ValueError('S9 attach APN exceeds the bounded NUL-terminated field')
+    # IpcTxSetLteAttachProfile maps IPv4 to5 in this particular message.
+    # PDP definition uses a different type2; do not reuse it here.
+    body = bytearray(194)
+    body[:3] = bytes((1, cid, 5))
+    body[3:104] = apn.encode('ascii').ljust(101, b'\0')
+    body[192] = 5  # Same IPv4 protocol for roaming; no credentials/PCSCF.
+    return bytes(body)
+
+
+def home_network_only(buffer):
+    """Return a network prefix, never the subscriber identity or its suffix."""
+    match = re.search(rb'(?:^|[\r\n])([0-9]{14,16})(?=[\r\n])', buffer)
+    if not match:
+        return None
+    prefix = match[1][:5].decode('ascii')
+    return {'mcc': prefix[:3], 'mnc': prefix[3:] if prefix[:3] == '450' else None,
+            'subscriber_identity_redacted': True}
+
+
+def at_log_record(chunk, command):
+    if command == 'AT+CIMI':
+        return {'at_status_redacted': True, 'bytes': len(chunk)}
+    return {'at_status': chunk.decode('ascii', 'replace')}
+
+
 def reference_define_pdp(apn, cid=1):
     if not re.fullmatch(r'[A-Za-z0-9.-]{1,100}', apn) or type(cid) is not int or not 1 <= cid <= 3:
         raise ValueError('Invalid bounded reference APN/CID')
@@ -151,6 +190,8 @@ def s9_define_pdp(apn, cid=1):
     if not isinstance(apn, str):
         raise ValueError('S9 APN must be an explicit string')
     reference_define_pdp(apn, cid)  # shared conservative APN/CID validation
+    if len(apn) > 100:
+        raise ValueError('S9 PDP APN exceeds the bounded NUL-terminated field')
     # IPv4 wire type2; internal DataProtocol enums are not wire values.
     return bytes((1, cid, 2)) + apn.encode('ascii').ljust(101, b'\0') + bytes(23)
 
@@ -405,6 +446,10 @@ def main():
         radio_asked = False
         radio_at = 0
         radio_retried = False
+        phone_normal = False
+        ps_attach_issued = False
+        ps_attach_acknowledged = False
+        network_selection_issued = False
         registered = False
         registration_at = None
         pdp_plan = None
@@ -441,6 +486,10 @@ def main():
                               'cp_reset_requested': False}), flush=True)
             send(0x0501, kind=2)  # Existing read-only SIM status query, no PIN.
             send(0x0107, kind=2)  # Read-only phone functionality state.
+            if args.diagnostic_status:
+                for command in (0x080A, 0x0808, 0x0802):
+                    send(command, kind=2)  # Native preferred mode/domain/selection getters.
+                send(0x0805, b'\xff\x03', kind=2)  # Own stock data registration GET.
 
         def cleanup_pdp():
             if pdp_plan is None:
@@ -464,10 +513,10 @@ def main():
         while not stop_requested and time.monotonic() - started < args.seconds:
             now = time.monotonic()
             if args.diagnostic_status and at_ready and not at_failed and not diagnostic_queued:
-                at_queue.extend(['AT+CSQ', 'AT+CESQ', 'AT+CFUN?', 'AT+CPIN?', 'AT+COPS?',
+                at_queue.extend(['AT+CIMI', 'AT+CSQ', 'AT+CESQ', 'AT+CFUN?', 'AT+CPIN?', 'AT+COPS?',
                                  'AT+CGATT?', 'AT+CGREG?', 'AT+CREG?', 'AT+CEER'])
                 diagnostic_queued = True
-            if pdp_opt_in and pdp_plan is None and registered and registration_at is not None and now-registration_at <= 15 and sim_ready and radio_asked and at_ready and not at_failed:
+            if pdp_opt_in and pdp_plan is None and registered and registration_at is not None and now-registration_at <= 15 and sim_ready and radio_asked and ps_attach_acknowledged and at_ready and not at_failed:
                 pdp_plan = S9PDPPlan(args.apn, args.pdp_cid, now, timeout=args.pdp_seconds)
                 request = pdp_plan.registered(True, now)
                 if request:
@@ -486,11 +535,7 @@ def main():
                 if report is not None:
                     print(json.dumps(report), flush=True)
             if args.configure_radio and not configured and saw_boot and sim_ready:
-                attach = bytearray(194)
-                attach[:3] = bytes((1, 1, 2))
-                attach[3:3 + len(args.apn)] = args.apn.encode('ascii')
-                attach[192] = 2
-                send(0x0D14, attach)  # LTE attach profile
+                send(0x0D14, s9_lte_attach_profile(args.apn))
                 send(0x080A, b'\x0b')  # LTE/WCDMA/GSM
                 send(0x0808, b'\x01')  # stock combined circuit/packet service
                 configured = True
@@ -505,6 +550,14 @@ def main():
                 send(command, body, kind=kind)
                 radio_asked = True
                 radio_at = time.monotonic()
+            if args.configure_radio and radio_asked and phone_normal and not ps_attach_issued:
+                command, body, kind = s9_ps_attach()
+                send(command, body, kind=kind)
+                ps_attach_issued = True
+            if args.configure_radio and phone_normal and ps_attach_acknowledged and not network_selection_issued:
+                command, body, kind = s9_select_automatic()
+                send(command, body, kind=kind)
+                network_selection_issued = True
             if not at_ready and not at_failed and boot_at and time.monotonic() - boot_at >= 3 and time.monotonic() >= next_at_ping and not at_active:
                 at_queue.appendleft('AT')  # harmless readiness check, never retry a state change blindly
                 next_at_ping = time.monotonic() + 3
@@ -528,7 +581,7 @@ def main():
                 if not chunk:
                     raise RuntimeError('Modem channel closed')
                 if fd == at:
-                    print(json.dumps({'at_status': chunk.decode('ascii', 'replace')}), flush=True)
+                    print(json.dumps(at_log_record(chunk, at_active[0] if at_active else None)), flush=True)
                     at_buffer.extend(chunk)
                     if len(at_buffer) > 65536:
                         raise RuntimeError('AT response exceeds bounded buffer')
@@ -538,6 +591,10 @@ def main():
                         registration_at = time.monotonic()
                     echoed = at_active and (at_active[0] + '\r').encode('ascii') in at_buffer
                     if echoed and (b'\r\nOK\r\n' in at_buffer or b'ERROR' in at_buffer):
+                        if at_active[0] == 'AT+CIMI':
+                            network = home_network_only(at_buffer)
+                            print(json.dumps({'sim_home_network': network,
+                                              'subscriber_identity_redacted': True}), flush=True)
                         if at_active[0] == 'AT' and b'\r\nOK\r\n' in at_buffer:
                             at_ready = True
                         at_active = None
@@ -569,6 +626,10 @@ def main():
                             acknowledged.clear()
                             radio_asked = False
                             radio_retried = False
+                            phone_normal = False
+                            ps_attach_issued = False
+                            ps_attach_acknowledged = False
+                            network_selection_issued = False
                             registered = False
                             registration_at = None
                             at_ready = False
@@ -586,8 +647,12 @@ def main():
                             event['request_command'] = hex(message[7] << 8 | message[8])
                             event['result_code'] = struct.unpack_from('<H', message, 10)[0]
                             request = message[7] << 8 | message[8]
-                            if request in (0x0D14, 0x080A, 0x0808) and event['result_code'] == 0x8000:
+                            event['acknowledged_command'] = hex(request)
+                            event['request_kind'] = message[9]
+                            if request in (0x0D14, 0x080A, 0x0808) and message[9] == 3 and event['result_code'] == 0x8000:
                                 acknowledged.add(request)
+                            if request == 0x0D03 and message[9] == 3 and event['result_code'] == 0x8000:
+                                ps_attach_acknowledged = True
                         elif code in (0x0D09, 0x0D10) and pdp_plan is not None:
                             pdp_plan.event(code, message[7:], time.monotonic(), kind=kind)
                             if code == 0x0D10 and length > 7 and message[7] == pdp_plan.cid:
@@ -600,6 +665,9 @@ def main():
                             sim_ready = message[7] in (0, 130)
                         elif code == 0x0107 and length > 7:
                             event['phone_state_code'] = message[7]
+                            phone_normal = message[7] == 2
+                        elif code in (0x080A, 0x0808, 0x0802) and length > 7:
+                            event['network_setting_code'] = message[7]
                         elif code == 0x0805 and length >= 10:
                             event['access_technology_code'] = message[7]
                             event['domain_code'] = message[8]

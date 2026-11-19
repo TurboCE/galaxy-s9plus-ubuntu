@@ -184,6 +184,13 @@ int main(int argc,char **argv){assert(argc==2);clear();const char *test=argv[1];
  else if(!strcmp(test,"shutdown-completion-irqs")){offline_in_wait=true;assert(ss310ap_shutdown(&mc)==0);assert(!cp_security_failed);
   clear();mc.phone_state=STATE_ONLINE;fatal_in_wait=true;assert(ss310ap_shutdown(&mc)==-EIO);assert(cp_security_failed);}
  else if(!strcmp(test,"shutdown-error")){assert_result=-ETIMEDOUT;assert(ss310ap_shutdown(&mc)==-ETIMEDOUT);assert(cp_security_failed);}
+ else if(!strcmp(test,"shutdown-offline-noop")){statuses[0]=0;mc.phone_state=STATE_OFFLINE;
+  assert(ss310ap_shutdown(&mc)==0);assert(event_count==1&&events[0]==1&&!ctrl_writes&&!security_calls);}
+ else if(!strcmp(test,"shutdown-noop-preserves-latch")){statuses[0]=0;mc.phone_state=STATE_OFFLINE;cp_security_failed=true;
+  assert(ss310ap_shutdown(&mc)==0);assert(cp_security_failed&&!ctrl_writes&&!security_calls);
+  assert(g965n_cp_security_request(2,0,0)==-EIO);}
+ else if(!strcmp(test,"shutdown-state-contradiction")){statuses[0]=0;mc.phone_state=STATE_ONLINE;
+  assert(ss310ap_shutdown(&mc)==-EIO);assert(cp_security_failed&&event_count==1&&!ctrl_writes&&!security_calls);}
  else if(!strcmp(test,"logging-guard")){statuses[0]=0;assert(security_request_cp_ram_logging()==-EAGAIN);assert(!security_calls&&!clock_on&&!init_calls&&!cp_security_failed);
   statuses[0]=0;statuses[1]=1;status_count=2;status_index=0;assert(g965n_cp_security_request(2,0,0)==0);assert(init_calls==1&&security_calls==1);
   clear();cp_security_failed=true;statuses[0]=0;assert(security_request_cp_ram_logging()==-EIO);assert(cp_security_failed&&!clock_on);
@@ -224,9 +231,31 @@ class CPSecurityGuardTests(unittest.TestCase):
     def test_fault_injection_on_production_functions(self):
         for scenario in ('pmu-init-fail','status-fail','post-init-unready','cold-success','mode2-positive-abi',
             'terminal-error','negative-error','clock-faults','positive-pmu-error','noop-reset-latch','off-error','reset-error','verified-reset','irq-during-reset-publish','irq-latch',
-            'on-dump-fault','shutdown-completion-irqs','shutdown-error','logging-guard','ctrl-write-errors','serialized-transition'):
+            'on-dump-fault','shutdown-completion-irqs','shutdown-error','shutdown-offline-noop',
+            'shutdown-noop-preserves-latch','shutdown-state-contradiction','logging-guard','ctrl-write-errors','serialized-transition'):
             with self.subTest(scenario=scenario):
                 subprocess.run([str(self.binary),scenario],check=True,capture_output=True,text=True,timeout=5)
+
+    def test_actual_sequencer_status_rejects_transitional_states(self):
+        code=r'''
+#include <assert.h>
+#include <errno.h>
+typedef unsigned int u32;
+#define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
+#define pr_err(...) ((void)0)
+static int cp_status[1],value,result;
+static int run(int *s,unsigned long n,u32 *out) {(void)s;(void)n;*out=value;return result;}
+'''+function('experiments/modem/zrn_cp_pmu.c','cal_cp_status')+r'''
+int main(void) {
+ for(value=0;value<8;value++)assert(cal_cp_status()==(value==0?0:value==5?1:-EAGAIN));
+ value=0;result=-ETIMEDOUT;assert(cal_cp_status()==-ETIMEDOUT);
+ result=1;assert(cal_cp_status()==-EIO);
+}
+'''
+        src=Path(self.temp.name)/'status.c';out=Path(self.temp.name)/'status'
+        src.write_text(code)
+        subprocess.run([shutil.which('cc'),'-Wall','-Wextra','-Werror',str(src),'-o',str(out)],check=True)
+        subprocess.run([str(out)],check=True)
 
 
 if __name__=='__main__':unittest.main()

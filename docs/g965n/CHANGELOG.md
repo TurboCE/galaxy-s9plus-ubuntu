@@ -3042,3 +3042,57 @@ remains searching across the120s observation, with no PDP activation/candidate.
 Thus the functionality transition is corrected, while registration/data are not
 claimed. Further native network-mode/service-domain/status mapping is being
 audited; do not infer S9 layouts solely from the older protocol reference.
+
+Read-only native network getters confirmed preferred mode11, service domain1,
+selection2 and phone normal2; native data-registration GET returned ACT4/domain3/
+state1, consistent with no confirmed packet registration. AT still reports
+searching/unattached; CEER provides no cause. A separate private home-network
+query confirms450/08 (KT). Its entire subscriber-response stream is redacted
+before journaling; only MCC/MNC retained, with no14–16-digit identity in the
+observed journal. Actual SIM subscription activity still needs confirmation;
+owner queried asynchronously while development continues.
+
+Own stock radio/network audit found an omitted PS-attach transaction: native
+IpcTxPsAttach uses SET0d03 with attach010000. Initial LTE profile IPv4 is type5
+(and roaming type5) in its194-byte message, distinct from PDP-definition type2;
+previous bring-up used2 for both profile fields. Added independent source
+encoders, once-only PS attach after normal phone-state and explicit profile
+configuration, and PS ACK requirement before the existing single PDP activation.
+No detach/reset/retry loop. Conservative100-character S9 APN bound prevents
+slice expansion past its fixed field. Five radio/field/privacy tests and14 PDP
+plan tests pass; actual attach6 trial pending. No binary/disassembly published.
+
+Attach6 native trial accepted updated profile, mode/domain and PS attach, but
+registration changed to CEREG0 and no PDP plan was issued. The next select7 trial
+also sent one independently checked native automatic-selection SET; firmware
+returned raw generic result100 for0802, while0107 EXEC returned0x8005 with phone
+already normal2. Profile080a/0d14/0808 and PS0d03 SETs returned0x8000. Registration
+remained absent. These are unsuccessful registration trials, not LTE fixes.
+GET/SET ACK kinds are now logged/checked explicitly to avoid a GET satisfying a
+SET prerequisite. No automatic radio/selection/CP retry added.
+
+The next trial was started before the prior sensor restart job had completed;
+its stop canceled that restart, leaving a failed/canceled sensor job. Modem trial
+leases prevented simultaneous modem runtimes. Select7 subsequently ended, its
+private runtime was removed and sensor restart completed; current sensor active,
+checked SSI faultN and CP read-only ONLINE4. Future trials must await the entire
+previous wrapper/cleanup completion, not just client exit. No data/partition loss.
+Owner confirms current KT SIM recently had working LTE in a phone; continue
+port-side investigation rather than assuming inactive subscription.
+
+Previous-boot journal correlation pinpoints the remaining chanspec-52 at owned
+P2P connection deactivation/deletion, after successful bidirectional payloads.
+Prepared a narrowly scoped BCM4361/star2/MSGBUF channel-state predicate: idle P2P
+client/GO returns ENODATA before querying a nonexistent current firmware channel;
+active P2P/primary/other chips remain on original error-propagating path. Original
+log severity is unchanged. Actual injected-C scope/state test and five existing
+Wi-Fi diagnostic tests pass. Kernel build/reboot/group teardown proof pending.
+
+Prepared shutdown/status safety corrections before the next build: only stable
+CP sequencer0/off and5/initialised qualify; other states returnEAGAIN instead of
+being treated as off. Shutdown skips secure reset only for matching offline+
+zero status, preserves any prior failure latch, and rejects a contradictory
+online/zero state. The top-level callback now reports a failed shutdown rather
+than unconditionally overwriting the software state as offline. Actual-C tests
+cover all raw sequencer values plus24 existing/new power/security scenarios.
+These source changes are build/device pending, not shutdown hardware proof.

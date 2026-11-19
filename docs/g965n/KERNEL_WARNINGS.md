@@ -1,7 +1,8 @@
 # Remaining native36 kernel warnings
 
-Evidence date2026-11-19, one experimental SM-G965N rev26. Both observed native36
-initial/warm boots have zero error-priority lines and zero failed system units.
+Evidence date2026-11-19, one experimental SM-G965N rev26. The initial pair of observed native36
+boots had zero error-priority lines and zero failed units; later trial results
+and residual messages are recorded below.
 This does not establish an error-free kernel or all hardware functions working.
 The complete warning stream is preserved privately rather than suppressed.
 
@@ -36,3 +37,9 @@ level mode for IRQ101/106/472. Explicit LEVEL_HIGH for those exact stock SPIs,
 with a strict migration-aware stock verifier, passed a normal kernel36 reboot
 and subsequent module probe with zero invalid-type/GIC-translate warnings.
 This fixes the hardware description; active CP interrupt delivery is pending.
+
+The chanspec query error was correlated with native P2P deactivation/deletion
+in the previous boot. A source candidate now returns ENODATA for inactive P2P
+client/GO state on star2/BCM4361/MSGBUF before querying firmware; active groups
+and all primary/other-device queries retain the original path. C scope/state
+tests pass. Kernel build, new boot and real group teardown verification pending.

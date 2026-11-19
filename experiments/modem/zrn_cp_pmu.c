@@ -163,12 +163,17 @@ void cal_cp_reset_req_clear(void)	{ RUN(cp_reset_req_clear); }
 void cal_cp_enable_dump_pc_no_pg(void)	{ RUN(cp_dump_pc_on); }
 void cal_cp_disable_dump_pc_no_pg(void)	{ RUN(cp_dump_pc_off); }
 
-/* 1 when the CP has been initialised (the reset sequencer reads 5), else 0 */
+/* Only stable0/off and5/initialised qualify. Transitional values are unknown. */
 int cal_cp_status(void)
 {
 	u32 v = 0;
 	int ret = run(cp_status, ARRAY_SIZE(cp_status), &v);
-	return ret < 0 ? ret : v == 0x5;
+	if (ret)
+		return ret < 0 ? ret : -EIO;
+	if (v == 0 || v == 5)
+		return v == 5;
+	pr_err("zrn-modem: transitional CP sequencer state 0x%x\n", v);
+	return -EAGAIN;
 }
 
 #include <linux/netdevice.h>
