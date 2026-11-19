@@ -4499,3 +4499,24 @@ The cleanup boot restored the Wi-Fi default and left the trial modem
 unloaded. ModemManager and the sensor service were active. Acceleration
 and light readings were available, with no failed units. The kernel
 ring reported 63 warnings and one SSP zero-byte retry.
+
+### 2026-11-20 — Match desktop LTE requests and cancel by data generation
+
+Added an explicit APN match against the guarded radio owner's
+configuration and a generation-scoped cancel operation. Cancel can
+drop a queued connection immediately. Once activation has begun it
+waits for the current modem transition before attempting release.
+The first hardware run found a gap in the traffic probe journal after a
+queued cancellation. Recorded the invalidated generation explicitly.
+The second run verified generation 2 data but exposed the probe's old
+two-generation argument limit. The probe now accepts the positive
+generation range used by the broker.
+
+The third native44 trial rejected a mismatched APN, canceled generation
+1 while queued, and rejected its stale cancel after a later connection.
+Both generations 2 and 3 passed modem-bound DNS and certificate-verified
+HTTPS204. A generation-specific cancel of the established context and a
+regular disconnect each returned to idle after exact release evidence.
+Sensor readings and the existing Wi-Fi route survived the trial.
+Cancel during an outstanding activation acknowledgment and operation
+through GNOME or NetworkManager remain to be checked separately.

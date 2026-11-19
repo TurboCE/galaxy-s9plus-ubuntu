@@ -60,6 +60,15 @@ class S9PDPTests(unittest.TestCase):
             self.assertIsNone(broker.take(1, False))
             self.assertEqual(broker.take(2, True), 'AT+CEREG?')
 
+    def test_bearer_arguments_are_exact_and_bounded(self):
+        patterns = ril.WWANQueryBroker.bearer_arguments
+        for request in (b'connect-ipv4:fixture.apn', b'abort-ipv4:1'):
+            self.assertIsNotNone(patterns.fullmatch(request))
+        for request in (b'connect-ipv4:', b'connect-ipv4:fixture.apn\n',
+                        b'connect-ipv4:' + b'a' * 101, b'abort-ipv4:0',
+                        b'abort-ipv4:01', b'abort-ipv4:1234567890'):
+            self.assertIsNone(patterns.fullmatch(request))
+
     def test_typed_wwan_queries_return_only_validated_status(self):
         self.assertEqual(ril.wwan_query_result('AT+CEREG?',
                          b'AT+CEREG?\r\r\n+CEREG: 0,1,"ABCD","ABCDEF",7\r\nOK\r\n'),

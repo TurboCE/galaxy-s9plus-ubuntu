@@ -81,6 +81,7 @@ class WWANQueryBroker:
                 b'signal-quality': 'AT+CSQ'}
     state_requests = {b'sim-readiness', b'radio-state'}
     bearer_requests = {b'bearer-status', b'connect-ipv4', b'disconnect-ipv4'}
+    bearer_arguments = re.compile(rb'(?:connect-ipv4:[a-zA-Z0-9.-]{1,100}|abort-ipv4:[1-9][0-9]{0,8})')
 
     def __init__(self, invocation, bearer_control=False):
         if not re.fullmatch(r'[a-f0-9]{32}', invocation):
@@ -119,14 +120,15 @@ class WWANQueryBroker:
             return None
         if self.pending is None:
             try:
-                request = self.client.recv(65)
+                request = self.client.recv(129)
             except BlockingIOError:
                 return None
             except OSError:
                 self.finish(error='client-disconnected')
                 return None
             self.pending = self.commands.get(request)
-            if request in self.state_requests or (self.bearer_control and request in self.bearer_requests):
+            if request in self.state_requests or (self.bearer_control and
+                    (request in self.bearer_requests or self.bearer_arguments.fullmatch(request))):
                 self.pending = request
             if self.pending is None:
                 self.finish(error='unsupported-query')
@@ -1000,6 +1002,7 @@ def main():
         cycle_released_at = None
         cycle_used = False
         connect_requested = False
+        abort_pending = False
         stop_requested = False
         at_queue = deque()
         at_active = None
@@ -1092,7 +1095,17 @@ def main():
                 return 'connected'
             if pdp_plan.state == 'failed':
                 return 'failed'
+            if abort_pending:
+                return 'disconnecting'
             return 'connecting'
+
+        def cancel_queued_bearer(reason):
+            nonlocal connect_requested, pdp_generation
+            connect_requested = False
+            pdp_generation += 1
+            print(json.dumps({'pdp_generation': pdp_generation}), flush=True)
+            print(json.dumps({'pdp_cleanup': reason}), flush=True)
+
         def stop(signum, frame):
             nonlocal stop_requested
             stop_requested = True
@@ -1170,6 +1183,7 @@ def main():
                     pdp_plan.observe_link(now, registered=registered, registration_at=registration_at,
                                           sim_ready=sim_ready, at_ready=at_ready and not at_failed)
                 if pdp_plan.state == 'failed':
+                    abort_pending = False
                     if lease:
                         lease.withdraw()
                     cleanup_pdp()
@@ -1186,6 +1200,9 @@ def main():
                     if marker.st_uid != 0 or marker.st_mode & 0o077:
                         raise RuntimeError('Expected an empty root-private PDP cycle request')
                     cycle_used = True
+                    release_bearer()
+                if abort_pending and pdp_plan.state == 'candidate-ip':
+                    abort_pending = False
                     release_bearer()
                 if lease and pdp_plan.state == 'candidate-ip':
                     lease.publish(pdp_generation, pdp_plan.route_config(), now)
@@ -1228,14 +1245,28 @@ def main():
                 broker_command = None
             if isinstance(broker_command, bytes):
                 status = bearer_status()
-                if broker_command == b'bearer-status':
-                    broker.finish(state=status, generation=pdp_generation)
-                elif broker_command == b'connect-ipv4' and status == 'idle':
+                action, _, argument = broker_command.partition(b':')
+                generation = pdp_generation + int(connect_requested)
+                if action == b'bearer-status':
+                    broker.finish(state=status, generation=generation)
+                elif action == b'connect-ipv4' and argument and argument.lower() != args.apn.lower().encode('ascii'):
+                    broker.finish(error='apn-mismatch')
+                elif action == b'connect-ipv4' and status == 'idle':
                     connect_requested = True
                     broker.finish(accepted=True, generation=pdp_generation + 1)
-                elif broker_command == b'disconnect-ipv4' and status == 'connected':
+                elif action == b'disconnect-ipv4' and status == 'connected':
                     release_bearer()
                     broker.finish(accepted=True, generation=pdp_generation)
+                elif action == b'abort-ipv4' and int(argument) != generation:
+                    broker.finish(error='generation-mismatch')
+                elif action == b'abort-ipv4' and status in ('connecting', 'connected'):
+                    if connect_requested:
+                        cancel_queued_bearer('queued-connect-canceled')
+                    elif status == 'connected':
+                        release_bearer()
+                    else:
+                        abort_pending = True
+                    broker.finish(accepted=True, generation=generation)
                 else:
                     broker.finish(error='invalid-bearer-state', state=status)
                 broker_command = None
@@ -1339,7 +1370,9 @@ def main():
                             cycle_released_at = None
                             cycle_observer = None
                             if saw_boot:
-                                connect_requested = False
+                                if connect_requested:
+                                    cancel_queued_bearer('queued-connect-cp-restarted')
+                                abort_pending = False
                             if pdp_plan is not None:
                                 pdp_plan.cp_reset()
                             saw_boot = True

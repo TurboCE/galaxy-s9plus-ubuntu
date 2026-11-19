@@ -332,10 +332,12 @@ def main():
     p.add_argument('--consent-pdp-network-test',action='store_true')
     p.add_argument('--policy-route', action='store_true',
                    help='Verify a temporary source rule and separate modem routing table')
-    p.add_argument('--pdp-generation', type=int, choices=(1, 2))
+    p.add_argument('--pdp-generation', type=int)
     p.add_argument('--wifi-fallback-usb-peer', type=ipaddress.IPv4Address,
                    help='Explicit Wi-Fi interruption trial; requires a direct USB management peer')
     args=p.parse_args();os.umask(0o077)
+    if args.pdp_generation is not None and not 1 <= args.pdp_generation <= 999999999:
+        p.error('Expected a positive PDP generation with at most nine digits')
     if args.wifi_fallback_usb_peer and args.policy_route:
         p.error('Choose a policy probe or the bounded ordinary-app fallback trial')
     if os.geteuid()!=0 or not args.confirm_backup_verified or not args.consent_pdp_network_test:

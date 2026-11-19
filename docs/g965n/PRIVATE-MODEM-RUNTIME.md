@@ -754,6 +754,16 @@ and packet-attach reports. A `connected` state means the modem issued
 qualified IPv4 configuration. The client must use the current lease and
 check actual traffic separately.
 
+A desktop adapter can send `connect-ipv4:<APN>` to require an exact
+case-insensitive match with the radio owner's configured APN. The
+request does not change the configured APN or accept credentials.
+`abort-ipv4:<generation>` applies only to the returned generation. It
+cancels a queued connect immediately. After activation has started,
+it waits for qualification or failure so a setup acknowledgment cannot
+be mistaken for the release acknowledgment. A qualified context is then
+released under the same acknowledgment and inactive-status checks.
+Canceled generation numbers are consumed and recorded as invalidated.
+
 These requests provide the modem side of an adapter. The ModemManager
 device and the NetworkManager handoff still need implementation.
 NetworkManager and the standalone route worker must never own the same
