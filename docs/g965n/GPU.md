@@ -169,6 +169,25 @@ presentation path and had no opening paints above 16.7 ms. They
 therefore did not reproduce the behavior being investigated. The
 accepted Mesa remains active on the physical desktop.
 
+### G3D PLL runtime resume
+
+Native #44 recorded a 260 MHz lock timeout and a 455 MHz rollback
+timeout during the same resume. A later 4,000-frame exact GPU
+readback completed across 40 suspended-to-rendering runs with 442
+power-ons and no new matching PLL/Panfrost error. Each run ended
+at 260 MHz, so this leaves the higher-rate-to-idle transition open.
+
+The reference Exynos9810 CAL identifies the G3D PLL as PLL_1018X.
+Its limits apply to the divided reference (`26 MHz / P`) and the
+VCO (`26 MHz × M / P`); the post-divider S sets the actual output
+rate. That makes the existing 455 and 572 MHz tuples out of range,
+even though the reported output rates are correct. Two candidate
+tuples in range compiled in a separate driver object. The observed
+260 MHz timeout happened with an in-range target, so the clock
+specification audit does not establish why that transition failed.
+[Reference clock tables](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/drivers/soc/samsung/cal-if/exynos9810/cmucal-node.c),
+[reference PLL limits](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/drivers/soc/samsung/cal-if/pll_spec.c).
+
 Kernel#13 additionally corrects the board's ACPM-owned supply description.
 The whole-boot missing-mali-regulator error is absent. Another full33-scene/
 100-frame exact pass reports0 matching errors.50ms sampling observes260/455/

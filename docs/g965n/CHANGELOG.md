@@ -5454,3 +5454,27 @@ meaningful improvement or of physical presentation timing. No
 matching GPU/display kernel fault or failed system unit was found.
 The test sessions exited and the live desktop still mapped its
 original Gallium library. Physical desktop A/B remains pending.
+
+### 2026-11-20 — Isolate a G3D PLL resume failure
+
+The native #44 kernel journal recorded one runtime power-on where
+the 260 MHz PLL did not lock and restoring the 455 MHz setting also
+timed out. The programmed rail read back at 950 mV and runtime power
+gating remained enabled during the subsequent observation. Forty
+GPU readback runs each began after runtime suspend and passed 100
+alternating RGBA/BGRA frames with zero mismatches. Power-on and
+power-off counters increased by 442 and 441, respectively. The
+sampled rate after each run was 260 MHz. No new matching PLL or
+Panfrost fault appeared. This does not cover repeated 455→260 MHz
+transitions.
+
+The reference PLL_1018X specification lists a 2–8 MHz PLL reference
+input and a 600–1200 MHz VCO range. With a 26 MHz oscillator the
+current 455 MHz tuple yields a 1 MHz reference and 455 MHz VCO, and
+the 572 MHz tuple yields a 2 MHz reference and 572 MHz VCO. The
+260 MHz tuple is in range. Calculated replacement tuples for the
+two upper rates yield a 3.25 MHz reference and 910/1144 MHz VCOs,
+respectively, with the same GPU rates and rail policy. Compiled the
+candidate ARM64 driver object in isolation. The intermittent
+260 MHz lock failure's cause and the candidate's hardware behavior
+remain unverified. No device settings changed in this test.
