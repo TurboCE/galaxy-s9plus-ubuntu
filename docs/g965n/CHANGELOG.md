@@ -3147,3 +3147,23 @@ failed units0 and full unfiltered error-priority kernel stream0 at this initial
 post-stage observation. No chanspec/IF_ADD/CallTrace/SError/GPUfault in this bounded
 baseline. P2P group teardown and new modem module/cold path still need separate
 hardware tests; no whole-device or LTE success inferred from a clean baseline.
+
+Native37 owner-assisted Fold7 peer discovery and group connection passed.
+Both source-bound 1MiB transfers matched the deterministic source SHA256;
+reverse receiver verified the expected peer. An explicit active-group current
+channel query succeeded. Primary STA HTTPS204 remained available during and
+after transfer. Owned group/profile/services were removed; post-teardown
+chanspec errors0. One action-frame retry batch remains in the full kernel log,
+so this is bounded channel-state fix evidence, not an error-free Wi-Fi claim.
+A second attempt using the old cached peer failed with peer-not-found and no
+group. Removed only its owned volatile profile/timer, then repeated bounded
+fresh discovery: unique Fold7 name match found. Fresh-peer repeat pending.
+
+Fresh-discovery repeat37 completed: second dedicated group, explicit active
+channel query and both source-bound 1MiB transfers passed with exact hashes.
+The reverse helper initially used a nonexistent filename (operator error, no
+receiver started); corrected to an exclusive private helper, then verified
+1048576bytes/expected source/hash. Preserved that failed unit evidence before
+clearing only its failed state. Removed owned services/profile and Fold7 test
+files. Full boot log still has action-frame retry batch1, chanspec0, IF_ADD
+timeout0; no additional AF error on this repeat. STA HTTPS204, failed units0.

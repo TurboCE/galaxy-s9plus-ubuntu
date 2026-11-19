@@ -1,4 +1,4 @@
-# Remaining native36 kernel warnings
+# Remaining kernel warnings through native37
 
 Evidence date2026-11-19, one experimental SM-G965N rev26. The initial pair of observed native36
 boots had zero error-priority lines and zero failed units; later trial results
@@ -42,4 +42,7 @@ The chanspec query error was correlated with native P2P deactivation/deletion
 in the previous boot. A source candidate now returns ENODATA for inactive P2P
 client/GO state on star2/BCM4361/MSGBUF before querying firmware; active groups
 and all primary/other-device queries retain the original path. C scope/state
-tests pass. Kernel build, new boot and real group teardown verification pending.
+tests pass. Native37 boot, Fold7 group, active channel query and bidirectional
+1MiB hash checks passed. Actual group teardown produced zero chanspec errors,
+with primary STA HTTPS204 preserved; one action-frame retry batch remains.
+A cached-peer repeat failed discovery and is not counted as a connection pass.
