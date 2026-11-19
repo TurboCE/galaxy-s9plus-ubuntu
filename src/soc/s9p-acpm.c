@@ -294,6 +294,12 @@ EXPORT_SYMBOL_GPL(s9p_acpm_is_ready);
 #define S2MPS18_L43CTRL		0x74
 #define LDO_ON_MODE		0xc0
 #define TOUCH_LDO_OFF_MS	2000
+/* Native#28: first I/O at~1s after power-on timed out; a probe at~3.5s
+ * bound successfully. Gate all probes for4s, including our own worker,
+ * rather than deliberately issuing an early transaction and recovering.
+ * This changes readiness timing, not voltage, off time or retry budgets.
+ */
+#define TOUCH_POWER_ON_SETTLE_MS 4000
 #define TOUCH_APM_TRIES		30	/* one per second until the APM answers */
 #define TOUCH_PROBES_PER_CYCLE	12	/* every 2 s: 24 s per LDO cycle */
 #define TOUCH_MAX_CYCLES	3
@@ -331,7 +337,8 @@ static int s9p_touch_ldo_power_cycle(void)
 	if (ret)
 		return ret;
 	s9p_acpm_pmic_read(S2MPS18_L35CTRL, &v);
-	WRITE_ONCE(touch_probe_after, jiffies + HZ);
+	WRITE_ONCE(touch_probe_after,
+		   jiffies + msecs_to_jiffies(TOUCH_POWER_ON_SETTLE_MS));
 	smp_store_release(&touch_rails_cycled, true);
 	pr_info("s9p-acpm: touch LDOs power-cycled (L35=%02x)\n", v);
 	return 0;
@@ -375,8 +382,8 @@ static void s9p_touch_work(struct work_struct *work)
 		}
 		cycles++;
 		probes = 0;
-		/* the controller needs a moment after power-on */
-		next = HZ;
+		/* Use the same power-on readiness gate as the touch driver. */
+		next = msecs_to_jiffies(TOUCH_POWER_ON_SETTLE_MS);
 		goto again;
 	}
 

@@ -2491,3 +2491,16 @@ parity. No device setting, module, firmware or partition was changed by this
 audit. LTE/PDP/voice/SMS, full BT audio/pairing, deployed desktop GPU stability,
 compass backend, camera/GPS/NFC/fingerprint/haptics and suspend parity remain
 unqualified as listed in VALIDATION.
+
+## 2026-11-19 — Touch power-on readiness candidate
+
+Native#28 showed rail power-on at4.106s, an early I2C timeout at5.401s
+and successful input registration at7.589s. The readiness gate and worker
+both waited only1s. Changed both to one explicit4s power-on settle interval,
+covering the observed~3.5s successful interval; off-time, voltage and bounded
+probe/power-cycle budgets unchanged. This is a hardware-motivated timing
+candidate, not a verified fix until new BOOT/repeated boot logs pass.
+Source audit also found SSP TX can return SPI success after flow-control
+retries exhausted with zero bytes acknowledged, while the worker already
+advanced its ring tail. That potential silent-loss path needs a separate
+ACK/queue/error review; the startup retries are not yet declared repaired.
