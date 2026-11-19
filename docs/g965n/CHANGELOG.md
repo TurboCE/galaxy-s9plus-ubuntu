@@ -2411,3 +2411,31 @@ Samsung gamma/HBM parity or automatic dimming. ALS3lux/currentbrightness100
 requires a standard GNOME ambient normalization/light-change trial.
 Added private exact-BOOT brightness-rollback helper (2tests) and read-only
 bounded real ALS/backlight observer; no fake sensor inputs or policy bypass.
+
+Native#28 follow-up: GNOME's ordinary Brightness Set25 produced requested/
+actual4. Three independently wake-timer-guarded DPMS cycles read actual0
+asleep and restored4 awake; sensor service stayed active, no matching new
+panel/fatal/GPU entries. The display later became idle/locked: raw ALS
+continued changing but GNOME released its light claim and retained old3lux.
+This must not be misclassified as a stuck hardware ALS or automatic dimming.
+Normal bounded session idle inhibition and wake were used for the next trial.
+ScreenSaver SimulateUserActivity was absent; IdleMonitor ResetIdletime was
+explicitly test-only and refused, and the GNOME power unit refused manual
+restart. No test/debug mode or lifecycle/polkit restriction was bypassed.
+A normal logind session-unlock signal refreshed the active-session light
+claim; read raw/SensorProxy803lux after owner remotely switched lights on.
+
+A bounded max/min/max/min battery-current comparison was inconclusive for
+optical dimming: medians25.6/31.1/23.0/27.7mA while the session was locked.
+Current is net battery current with charger/background load, not panel power
+or a luminance measurement. Original level/policy restored. No physical
+brightness success inferred from this comparison.
+
+Added originalGPL2 offline tilt-compensated heading geometry with explicit
+separate mounting matrices and quality/overflow/gravity/vertical/receive-age
+gates. Four math regressions pass. Actual oldnorth capture is rejected by
+default (59quality1,1missing closeaccel); diagnostic-only lowquality outputs
+N15.89/E91.72/S182.09/W307.53. These are not a calibrated system backend and
+are not used by the installed Compass app. New initialization's actual
+cardinal/tilted heading and reference magnetic/true-north semantics remain
+pending while owner is away.

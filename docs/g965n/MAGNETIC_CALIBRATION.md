@@ -59,3 +59,28 @@ status3 is not proof of correct magnetic orientation, absolute accuracy or
 tilt compensation. A partially failed initialization stops the runtime;
 there is no automatic reset/retry/zero-calibration fallback. Requalify against
 independent headings and tilted poses before publishing any heading backend.
+
+## Offline heading diagnostic
+
+`experiments/sensors/heading-math.py` implements original vector geometry for
+tilt-compensated **magnetic** heading. It is an offline diagnostic, never a
+system backend or installer. Supply separate explicit accel and magnetic
+mount matrices; the qualified acceleration matrix does not qualify the
+magnetic one. It rejects poor calibration, overflow, acceleration far from
+gravity, an indeterminate horizontal field, nearly vertical phone-top and
+receive batches over250ms apart. Host receive association is not hardware
+timestamp synchronization. Four math/failure regressions pass; they do not
+establish handset accuracy.
+
+On the actual old north capture its normal quality gate accepted no batch
+(59low-quality,1missing nearby accel). The explicit low-accuracy diagnostic
+option produced approximate N15.89/E91.72/S182.09/W307.53degrees using an
+unqualified shared-axis candidate. All results remain `heading_qualified=false`.
+The reference app's magnetic/true-north setting and declination were not
+controlled, so this comparison is not an absolute heading calibration.
+
+After private own-init,280actual records reported status3/overflow0. New
+cardinal and tilted reference measurements are still required. Do not use the
+old quality1 captures to certify the changed initialization, and do not fit
+away their errors merely to reproduce four operator labels. The installed
+Compass frontend still waits for a genuinely qualified backend.

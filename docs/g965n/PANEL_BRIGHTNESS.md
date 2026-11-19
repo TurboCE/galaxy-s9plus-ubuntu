@@ -41,6 +41,33 @@ Check command errors, ordered level changes, zero/off and wake restoration,
 then GNOME's standard brightness and ambient-light integration. Do not replace
 that integration with a second competing brightness daemon.
 
-Host C failure injection passed and kernel#28 built. Native boot, DSIM
-transactions, visible dimming and automatic brightness remain pending at this
-source checkpoint; see CHANGELOG and the validation matrix for later evidence.
+Host C failure injection and kernel#28 build/native boot passed. A seven-step
+16,12,8,4,1,0,16 sweep matched completed command readback. GNOME's normal
+Brightness property was available; setting25percent produced raw4. Three
+DPMS off/on cycles each read actual0 asleep and restored raw4 awake, with
+sensor service active and no matching new panel/fatal/GPU errors. Optical
+dimming, automatic adjustment and full Samsung parity remain unqualified.
+
+`scripts/g965n/backlight-restore.py` saves a private exact-BOOT state. Stage
+the script in a root-owned non-writable directory and save with explicit
+model, actual BOOT hash/bytes, verified-backup confirmation and trial consent.
+Arm an independent timer calling its restore action with the state's actual
+hash **before** the manual sweep. `--keep-ambient-disabled` deliberately
+prevents a recovery maximum from immediately being dimmed again. A successful
+manual cleanup can restore the original ambient policy. The helper does not
+create a unit or run a sweep automatically. Snapshot and command logs remain
+private; no raw logs are needed in Git.
+
+`scripts/g965n/observe-backlight.py` records only real ALS/backlight reads for
+at most600seconds, in an exclusive0600 file. Missing/stale readings are not
+reported as zero. Compare intervals with no manual brightness/DPMS writes:
+actual0 with a nonzero request may mean the display is asleep. During a
+bounded light-change test, use the normal desktop session's idle inhibitor,
+then stop it afterwards. Do not globally disable idle or suspend policies.
+
+GNOME46 uses the user's selected brightness as a relative ambient reference,
+as shown by its [power-manager source](https://gitlab.gnome.org/GNOME/gnome-settings-daemon/-/blob/46.0/plugins/power/gsd-power-manager.c).
+Starting at maximum in a3lux room can leave the result clamped at maximum;
+that observation alone is not a failed ALS driver. Use the existing standard
+brightness UI/API to choose a suitable reference, then validate a real light
+change. Do not inject synthetic lux or add a competing brightness daemon.
