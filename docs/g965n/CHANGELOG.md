@@ -3430,3 +3430,24 @@ path retains low CS against back-power. Voltage mask/reset holds/retry policy
 unchanged. Held diagnostics now include programmed CS/GPS_PWR_EN levels.
 Actual-C tests cover both policies and fail-before-GPIO/pre/post-readback
 errors; pass. Preparing40 build; no native success claim for this candidate.
+
+Kernel40 build-only complete: #40 SMP PREEMPT Thu Nov 19 10:15:51 UTC 2026, sourcebc6915f,
+BOOTf4382c00a1b68d582b4a3fbbed75ed0625b851179037fbd5d448b1f91c383715/27219984bytes.
+Five modules/stock-compared overlay frozen. Preparing fresh guarded recovery/
+backup and BOOT-only update for the powered-standby CS candidate. No reset
+policy or full hardware success inferred from the build.
+
+Fresh40 recovery/model observed stably with a longer bounded transition
+window; backup all nine hashes passed. Six protected partitions unchanged,
+EFS approved metadata only, PARAM bounded reboot-history extension only,
+rollback39/new40 BOOT verified. Guarded BOOT-only update follows; no original
+identity/radio/recovery/bootloader mutation or experimental rail cut.
+
+Native40 BOOT/profile/module staging and actual feeds pass, but powered-
+standby CS hypothesis is NOT confirmed: all100/1000/3000ms observations show
+MCU_RESP1, SHUB_INT0, programmed CS1 and GPS_PWR_EN0; post-wake still1.
+Warning remains, ring error0/warning64, varying accel/ALS0, SSI faultN and
+three services active. Reverted the unproven functional CS/pre-power changes
+to the qualified38/39 control sequence; retained only numeric held-phase
+CS/GPS level observation. No speculative pull/supply-cut experiment follows.
+Preparing41 as the reproducible reverted-control build; reset remains open.

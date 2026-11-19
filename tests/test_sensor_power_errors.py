@@ -36,8 +36,6 @@ static void *zrn_gpios[4];
 static bool supply_cut;
 static int updates,reads,sleeps,parks,restores,enabled,disabled,logs;
 static int update_results[3],read_result,restore_result;
-static int later_read_result;
-static bool parked_cs_inactive;
 static unsigned int update_values[3];
 static u8 read_value;
 #define pr_err(...) ((void)logs++)
@@ -47,10 +45,10 @@ static int s9p_acpm_pmic_update(u8 reg,u8 value,u8 mask) {
  assert(reg==0x6e&&mask==0xc0&&updates<3);update_values[updates]=value;return update_results[updates++];
 }
 static int s9p_acpm_pmic_read(u8 reg,u8 *value) {
- assert(reg==0x6e);reads++;*value=read_value;return reads>1&&later_read_result?later_read_result:read_result;
+ assert(reg==0x6e);reads++;*value=read_value;return read_result;
 }
 static void msleep(unsigned int ms) {assert(ms==20||ms==100||ms==1000);sleeps++;}
-static void hub_pins_park(bool inactive) {parks++;parked_cs_inactive=inactive;}
+static void hub_pins_park(void) {parks++;}
 static int hub_pins_restore(void) {restores++;return restore_result;}
 static void gpiod_set_value(void *gpio,int value) {(void)gpio;if(value)enabled++;else disabled++;}
 static int kstrtoll(const char *s,unsigned int base,long long *value) {
@@ -59,7 +57,7 @@ static int kstrtoll(const char *s,unsigned int base,long long *value) {
 static void reset(void) {
  updates=reads=sleeps=parks=restores=enabled=disabled=logs=0;
  for(int i=0;i<3;i++)update_results[i]=update_values[i]=0;
- read_result=restore_result=later_read_result=0;read_value=0xce;supply_cut=false;parked_cs_inactive=false;
+ read_result=restore_result=0;read_value=0xce;supply_cut=false;
 }
 '''
 CASES=r'''
@@ -86,13 +84,11 @@ int main(void) {
  reset();update_results[0]=3;assert(mcu_power_store(0,0,"1",1)==-EIO&&reads==0);
  reset();read_result=-ETIMEDOUT;assert(mcu_power_store(0,0,"1",1)==-ETIMEDOUT);
  reset();read_value=0;assert(mcu_power_store(0,0,"1",1)==-EIO);
- reset();assert(hub_cycle(1000)==0&&parks==1&&restores==1&&enabled==1&&disabled==1&&updates==2&&reads==2&&parked_cs_inactive);
- reset();update_results[0]=9;assert(hub_cycle(1000)==-EIO&&parks==0&&restores==0&&enabled==0&&disabled==0);
- reset();read_result=-ETIMEDOUT;assert(hub_cycle(1000)==-ETIMEDOUT&&parks==0&&restores==0&&enabled==0);
- reset();update_results[1]=-EIO;assert(hub_cycle(1000)==-EIO&&parks==1&&disabled==1&&enabled==0&&parked_cs_inactive);
- reset();later_read_result=-ETIMEDOUT;assert(hub_cycle(1000)==-ETIMEDOUT&&parks==1&&disabled==1&&enabled==0);
+ reset();assert(hub_cycle(1000)==0&&parks==1&&restores==1&&enabled==1&&disabled==1&&updates==1);
+ reset();update_results[0]=9;assert(hub_cycle(1000)==-EIO&&restores==0&&enabled==0&&disabled==1);
+ reset();read_result=-ETIMEDOUT;assert(hub_cycle(1000)==-ETIMEDOUT&&restores==0&&enabled==0);
  reset();restore_result=-EIO;assert(hub_cycle(1000)==-EIO&&enabled==0);
- reset();supply_cut=true;assert(hub_cycle(1000)==0&&updates==2&&update_values[0]==0&&update_values[1]==0xc0&&enabled==1&&!parked_cs_inactive);
+ reset();supply_cut=true;assert(hub_cycle(1000)==0&&updates==2&&update_values[0]==0&&update_values[1]==0xc0&&enabled==1);
  reset();supply_cut=true;update_results[0]=2;assert(hub_cycle(1000)==-EIO&&updates==1&&reads==0&&sleeps==0&&enabled==0);
  reset();supply_cut=true;update_results[1]=-ETIMEDOUT;assert(hub_cycle(1000)==-ETIMEDOUT&&updates==2&&restores==0&&enabled==0);
  return 0;
