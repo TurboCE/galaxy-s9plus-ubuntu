@@ -4838,3 +4838,31 @@ The enabled LTE service completed its no-SIM cleanup at 69 seconds of
 uptime, just after the first observation, and passed the subsequent
 check. Physical gyro scale/mounting and Wi-Fi Direct peer transfer on
 this boot remain unqualified.
+
+### 2026-11-20 — Native44 Wi-Fi Direct discovery and modem ring bounds
+
+Ran three eight-second NetworkManager discovery cycles over the
+existing Wi-Fi Direct control interface using USB for management.
+Primary Wi-Fi returned HTTPS204 during and after all three cycles,
+with the same connection and station interface index. The P2P
+device returned to disconnected, and no new Wi-Fi/P2P kernel
+warnings or errors appeared. One discovered peer could not be
+identified as the intended Fold7. The native44 group and payload
+paths remain untested.
+
+The SBD driver now checks channel indexes, 16-bit ring fields, and
+the combined descriptor and payload sizes before clearing or
+writing shared memory. Host tests exercised rejected layouts and
+confirmed that the invalid cases leave shared memory untouched.
+The AArch64 module compiled for native #44. The old module,
+configuration, and service were backed up after verification of the
+running BOOT and nine-partition backup.
+
+A distinct S9+ boot loaded the new module, verified by its live
+build ID. All 18 rings fit inside the existing shared IPC region.
+The last data buffer ended at 4,276,224 bytes of 5,242,880, and the
+driver sent PIF_INIT_DONE. The no-SIM service exited cleanly, the
+stock ModemManager stayed active, and Wi-Fi HTTPS204 and five IIO
+devices passed startup checks. The successful path was exercised on
+the handset. Out-of-bounds layouts were tested on the host.
+SIM-present data traffic with this module remains pending.

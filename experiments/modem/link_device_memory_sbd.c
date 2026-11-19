@@ -897,8 +897,8 @@ static void init_ipc_device(struct sbd_link_device *sl, u16 id,
 /**
 @return		the number of actual link channels
 */
-static unsigned int init_ctrl_tables(struct sbd_link_device *sl, int num_iodevs,
-				     struct modem_io_t iodevs[])
+static int init_ctrl_tables(struct sbd_link_device *sl, int num_iodevs,
+			    struct modem_io_t iodevs[])
 {
 	int i;
 	unsigned int id;
@@ -932,6 +932,10 @@ static unsigned int init_ctrl_tables(struct sbd_link_device *sl, int num_iodevs,
 				(void)qos_prio;
 			}
 
+			if (id >= MAX_LINK_CHANNELS || ch < 0 ||
+			    ch >= MAX_SIPC_CHANNELS)
+				return -EINVAL;
+
 			/* Save CH# to LinkID-to-CH conversion table. */
 			sl->id2ch[id] = ch;
 
@@ -957,12 +961,56 @@ static unsigned int init_ctrl_tables(struct sbd_link_device *sl, int num_iodevs,
 	return id;
 }
 
+static int sbd_validate_layout(const struct sbd_link_device *sl)
+{
+	size_t desc_used, desc_left, data_left;
+	unsigned int channel, dir;
+
+	if (!sl->shmem || sl->shmem_size < BUFF_RGN_OFFSET ||
+	    !sl->num_channels || sl->num_channels > MAX_LINK_CHANNELS)
+		return -EINVAL;
+
+	desc_used = sizeof(struct sbd_global_desc) +
+		    sizeof(u16) * ULDL * RDWR * sl->num_channels;
+	if (desc_used > DESC_RGN_SIZE)
+		return -ENOSPC;
+	desc_left = DESC_RGN_SIZE - desc_used;
+	data_left = sl->shmem_size - BUFF_RGN_OFFSET;
+
+	for (channel = 0; channel < sl->num_channels; channel++) {
+		const struct sbd_link_attr *attr = &sl->link_attr[channel];
+
+		for (dir = 0; dir < ULDL; dir++) {
+			unsigned int length = attr->rb_len[dir];
+			unsigned int size = attr->buff_size[dir];
+			size_t desc_bytes, data_bytes;
+
+			/* The shared descriptor stores both fields as u16. */
+			if (length < 2 || length > U16_MAX ||
+			    !size || size > U16_MAX)
+				return -EINVAL;
+
+			desc_bytes = (size_t)length * 2 * sizeof(u32);
+			data_bytes = (size_t)length * size;
+			if (desc_bytes > desc_left || data_bytes > data_left)
+				return -ENOSPC;
+			desc_left -= desc_bytes;
+			data_left -= data_bytes;
+		}
+	}
+	return 0;
+}
+
 int init_sbd_link(struct sbd_link_device *sl)
 {
 	int err;
 
 	if (!sl)
 		return -ENOMEM;
+
+	err = sbd_validate_layout(sl);
+	if (err)
+		return err;
 
 	memset(sl->shmem + DESC_RGN_OFFSET, 0, DESC_RGN_SIZE);
 
@@ -981,6 +1029,7 @@ int create_sbd_link_device(struct link_device *ld, struct sbd_link_device *sl,
 {
 	int i;
 	int num_iodevs;
+	int num_channels;
 	struct modem_io_t *iodevs;
 
 	if (!ld || !sl || !shmem_base)
@@ -999,7 +1048,10 @@ int create_sbd_link_device(struct link_device *ld, struct sbd_link_device *sl,
 	sl->shmem = shmem_base;
 	sl->shmem_size = shmem_size;
 
-	sl->num_channels = init_ctrl_tables(sl, num_iodevs, iodevs);
+	num_channels = init_ctrl_tables(sl, num_iodevs, iodevs);
+	if (num_channels < 0)
+		return num_channels;
+	sl->num_channels = num_channels;
 
 	for (i = 0; i < sl->num_channels; i++)
 		init_ipc_device(sl, i, sbd_id2dev(sl, i));

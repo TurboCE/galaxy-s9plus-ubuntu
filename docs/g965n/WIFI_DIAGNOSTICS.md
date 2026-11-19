@@ -204,3 +204,15 @@ peer-not-found, then fresh NetworkManager Find and connection succeeded.
 Do not reuse a stale peer address or infer all wireless errors are fixed.
 The later native38 initial+warm boots have clean error-priority baselines,
 but that does not substitute for another peer/endurance test on native38.
+
+### Native44 bounded NetworkManager discovery with concurrent Wi-Fi
+
+On the boot with the gyro and proximity profile, ran three 8-second
+discovery cycles through `p2p-peer-observe.py` and the stock
+[NetworkManager Wi-Fi P2P API](https://networkmanager.dev/docs/api/latest/gdbus-org.freedesktop.NetworkManager.Device.WifiP2P.html).
+USB SSH provided the management path. Standard Wi-Fi returned HTTPS204
+during and after every cycle, with the same active station connection
+and interface index. The control device returned to its disconnected
+state and the kernel recorded no new Wi-Fi/P2P warning or error.
+The scan saw one peer; its identity was not verified. Connection and
+payload transfer on native44 still require a confirmed peer.
