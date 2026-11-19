@@ -107,7 +107,7 @@ class RadioLowPowerDrain:
                 'cp_power_off_verified': False}
 
 
-def drain_radio_low_power(send, fds, buffers, nv, capture, seconds=10):
+def drain_radio_low_power(send, fds, buffers, nv, capture, seconds=10, *, pdp_release=None):
     """Keep IPC/RFS open during LPM handshake, then a bounded tail drain.
 
     Only for a cold test which explicitly configured RF. The caller excludes
@@ -115,11 +115,12 @@ def drain_radio_low_power(send, fds, buffers, nv, capture, seconds=10):
     Existing buffered messages are consumed BEFORE the request so a stale LPM
     response cannot acknowledge it. Their RFS requests are still serviced.
     """
+    if not 0 < seconds <= 10:
+        raise ValueError('Bounded radio drain required')
     ipc, rfs, at = fds
-    plan = RadioLowPowerDrain(time.monotonic(), seconds)
     frames = 0
 
-    def consume(fd, allow_confirmation):
+    def consume(fd, observe):
         nonlocal frames
         buffer = buffers[fd]
         header = 6 if fd == rfs else 7
@@ -139,41 +140,50 @@ def drain_radio_low_power(send, fds, buffers, nv, capture, seconds=10):
                 response = nv.handle(message)
                 if os.write(rfs, response) != len(response):
                     raise RuntimeError('Short drain RFS reply')
-            elif allow_confirmation:
-                plan.event(message, time.monotonic())
+            elif observe is not None:
+                observe(message, time.monotonic())
+
+    def read_ready(timeout, observe):
+        ready, _, _ = select.select(fds, [], [], timeout)
+        for fd in ready:
+            chunk = os.read(fd, 65536)
+            if not chunk:
+                raise EOFError('Drain channel closed')
+            if fd != at:
+                buffers[fd].extend(chunk)
+                consume(fd, observe)
+        return bool(ready)
 
     # Consume already queued kernel data without treating it as a response to
     # the request which has not been sent yet. Bound a busy/broken channel too.
     for _ in range(64):
-        ready, _, _ = select.select(fds, [], [], 0)
-        if not ready:
+        if not read_ready(0, None):
             break
-        for fd in ready:
-            chunk = os.read(fd, 65536)
-            if not chunk:
-                raise RuntimeError('Pre-request channel closed')
-            if fd != at:
-                buffers[fd].extend(chunk)
-                consume(fd, False)
     else:
         raise RuntimeError('Pre-request channels did not settle')
     for fd in (ipc, rfs):
-        consume(fd, False)
+        consume(fd, None)
         if buffers[fd]:
             # Do not join an old partial phone-state frame with a new response.
             raise RuntimeError('Cannot quiesce with an incomplete pre-request frame')
+    if pdp_release is not None:
+        context = PDPReleaseObservation(pdp_release[1][1])
+        deadline = time.monotonic() + 3
+        send(*pdp_release)
+        print(json.dumps({'pdp_cleanup': 'deactivation-requested-not-confirmed'}), flush=True)
+        while time.monotonic() < deadline and not context.cp_restarted:
+            read_ready(min(.1, max(0, deadline - time.monotonic())), context.event)
+        print(json.dumps(context.report()), flush=True)
+        if context.cp_restarted:
+            raise RuntimeError('CP restarted during PDP release; skip stale RF command')
+    plan = RadioLowPowerDrain(time.monotonic(), seconds)
     send(*s9_radio_low_power())
     print(json.dumps({'radio_lpm_requested': True, 'physical_reset_requested': False}), flush=True)
     while plan.pending(time.monotonic()):
-        ready, _, _ = select.select(fds, [], [], min(0.2, max(0, plan.deadline - time.monotonic())))
-        for fd in ready:
-            chunk = os.read(fd, 65536)
-            if not chunk:
-                plan.failure = 'channel-closed'
-                break
-            if fd != at:
-                buffers[fd].extend(chunk)
-                consume(fd, True)
+        try:
+            read_ready(min(0.2, max(0, plan.deadline - time.monotonic())), plan.event)
+        except EOFError:
+            plan.failure = 'channel-closed'
     result = plan.result(time.monotonic())
     result['radio_drain_frames'] = frames
     print(json.dumps(result), flush=True)
@@ -497,6 +507,32 @@ def private_s9_status_record(body, cid=1):
               'additional_status', 'throttle_timer_raw')
     return {'pdp_status': {key: status[key] for key in fields},
             'status_values_are_raw': True, 'private_journal_only': True}
+
+
+class PDPReleaseObservation:
+    """Collect raw evidence after the release request and before RF low power."""
+    def __init__(self, cid):
+        self.cid = cid
+        self.results = []
+        self.states = []
+        self.cp_restarted = False
+
+    def event(self, message, _now):
+        command = message[4] << 8 | message[5]
+        if command == 0x0101:
+            self.cp_restarted = True
+        elif command == 0x8001 and len(message) == 12 and message[7:10] == b'\x0d\x04\x03':
+            self.results.append(struct.unpack_from('<H', message, 10)[0])
+        elif command == 0x0D10 and message[6] == 3:
+            try:
+                status = s9_pdp_status(message[7:], self.cid)
+            except ValueError:
+                return
+            self.states.append(status['raw_state'])
+
+    def report(self):
+        return {'pdp_release_ack_codes': self.results, 'pdp_release_raw_states': self.states,
+                'cp_restarted_during_release': self.cp_restarted}
 
 
 class S9PDPPlan:
@@ -870,8 +906,12 @@ def main():
                 print(json.dumps({'radio_lpm_skipped': 'radio-not-requested'}), flush=True)
                 return
             cleanup_scan()
-            cleanup_pdp()
-            drain_radio_low_power(send, fds, buffers, nv, capture)
+            release = None
+            if args.hold_qualified_pdp and pdp_plan is not None and pdp_plan.state == 'candidate-ip':
+                release = pdp_plan.cleanup()
+            else:
+                cleanup_pdp()
+            drain_radio_low_power(send, fds, buffers, nv, capture, pdp_release=release)
 
         if args.quiesce_radio_on_exit:
             # Registered after the descriptor callbacks: drain completes while

@@ -4205,3 +4205,19 @@ Teardown requested PDP deactivation, then verified RF low-power response and
 completed the RFS tail drain. It did not establish explicit PDP deactivation
 acknowledgement or CP power-off. Long-lived startup, application fallback and
 automatic reattachment remain open.
+
+### 2026-11-20 — Observe PDP release before RF teardown
+
+A qualified held context now gets a separate three-second observation
+after its one release request and before RF low-power is requested. The
+observer discards already queued IPC replies, continues servicing RFS,
+records only matching generic result codes and same-CID status codes, and
+stops the RF sequence if the CP restarts. The older best-effort failure
+path is unchanged.
+
+Native44 again verified modem-routed DNS and certificate-verified HTTPS204.
+Release then returned result 0x8000 and context state 3 in the observation
+window, without a CP restart. The later LPM handshake completed separately.
+This qualifies the observed release sequence for the tested CID and firmware.
+A same-session reactivation after release and automatic failure recovery
+have not yet been qualified.

@@ -589,3 +589,9 @@ context. The activation deadline is still enforced until qualification. On
 native44 this was verified by two policy-route DNS/HTTPS probes in the same
 context, with the second 27.1 seconds after initial qualification, beyond
 the 20-second activation limit. There is no automatic retry in this mode.
+
+The qualified held-context teardown can distinguish the PDP release reply
+from the subsequent LPM sequence. On the tested native44 CP, release
+returned generic success 0x8000 and reported state 3 for the same CID
+within three seconds, followed by a separate successful LPM response.
+The reported state is retained as a raw firmware value.

@@ -85,6 +85,31 @@ class QuiesceTests(unittest.TestCase):
             ril.drain_radio_low_power(lambda *r:self.fail('must not send'),fds,
                 {fds[0]:bytearray(b'\x08\x00'),fds[1]:bytearray()},None,None,seconds=0.02)
 
+    def test_release_observation_excludes_stale_replies_and_other_contexts(self):
+        pairs = self.sockets()
+        fds = [pair[0].fileno() for pair in pairs]
+        ipc_peer = pairs[0][1]
+        release = (0x0D04, ril.s9_activate_pdp(enable=False))
+        requests = []
+        ipc_peer.sendall(ipc(0x8001, struct.pack('<BBBH', 0x0D, 4, 3, 0x8001)))
+
+        def send(*request):
+            requests.append(request)
+            if request == release:
+                ipc_peer.sendall(ipc(0x8001, struct.pack('<BBBH', 0x0D, 4, 3, 0x8000)))
+                ipc_peer.sendall(ipc(0x0D10, bytes((2, 7)) + bytes(7)))
+                ipc_peer.sendall(ipc(0x0D10, bytes((1, 3)) + bytes(7)))
+            else:
+                ipc_peer.sendall(ipc(0x0107, b'\x01'))
+
+        with redirect_stdout(io.StringIO()) as log:
+            result = ril.drain_radio_low_power(send, fds, {fd: bytearray() for fd in fds[:2]},
+                                               None, None, seconds=.05, pdp_release=release)
+        self.assertEqual(requests, [release, ril.s9_radio_low_power()])
+        self.assertIn('"pdp_release_ack_codes": [32768]', log.getvalue())
+        self.assertIn('"pdp_release_raw_states": [3]', log.getvalue())
+        self.assertTrue(result['radio_lpm_confirmed'])
+
     def test_existing_online_and_observe_only_rejected_before_io(self):
         for online,observe in ((True,False),(False,True),(True,True)):
             args=SimpleNamespace(quiesce_radio_on_exit=True,attach_online=online,observe_only=observe)
