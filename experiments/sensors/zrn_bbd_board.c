@@ -420,6 +420,14 @@ static int hub_cycle(unsigned int hold_ms)
 			return ret;
 	}
 	msleep(hold_ms);
+	/* Observe standby before restoring AP_SLEEP/SPI and releasing enable.
+	 * A high response after the later wake cannot distinguish a failed hold
+	 * from a chip that entered standby and woke again. Do not change the
+	 * reset policy or infer success from this diagnostic alone.
+	 */
+	pr_info("zrn-bbd: hub held %u ms: MCU_RESP %d, SHUB_INT %d\n",
+		hold_ms, gpiod_get_value(zrn_gpios[ZRN_GPIO_MCU_RESP]),
+		gpiod_get_value(zrn_gpios[ZRN_GPIO_SHUB_INT]));
 	ret = hub_supply_enable();
 	if (ret)
 		return ret;

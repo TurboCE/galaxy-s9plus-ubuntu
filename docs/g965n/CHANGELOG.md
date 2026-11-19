@@ -3379,3 +3379,12 @@ this is runtime policy serialization/cache status, not an unexpected unit edit.
 A normal daemon reload clears NeedDaemonReload; verified effective policy
 remains closed and setup mknod permission revoked. No systemd/portal patch,
 weakened permission or persistent policy change was made.
+
+Native38 remains on three active driver services with no new matching
+SError/CallTrace/Wi-Fi faults. Reset-warning source audit identifies a
+measurement ambiguity: MCU_RESP is checked after AP_SLEEP/SPI restoration,
+enable high and100ms wake. Added numeric MCU_RESP/SHUB_INT observation at the
+end of the existing standby hold, before any restore/re-enable. Holds, rail
+policy, GPIO writes, retry decisions and existing warning remain unchanged.
+The observation alone will not qualify a hard reset. Actual power/error-path
+C test still passes; preparing kernel39 to collect both phases on hardware.
