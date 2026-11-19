@@ -37,23 +37,38 @@ STUBS = r'''
 #define DESC_RGN_OFFSET 2048
 #define DESC_RGN_SIZE (65536 - DESC_RGN_OFFSET)
 #define BUFF_RGN_OFFSET 65536
+#define mif_err(message, error) do { reported = (message); last_error = (error); } while (0)
+#define mif_info(message, rings, end, size) do { \
+    assert((rings) == 2 && (end) == (size)); \
+    reported = (message); \
+    ++summaries; \
+} while (0)
 typedef uint16_t u16;
 typedef uint32_t u32;
 struct sbd_global_desc { unsigned char bytes[512]; };
 struct sbd_link_attr { unsigned int rb_len[ULDL], buff_size[ULDL]; };
 struct sbd_link_device {
     unsigned char *shmem;
-    unsigned int shmem_size, num_channels;
+    unsigned int shmem_size, num_channels, buff_alloc_offset;
     struct sbd_link_attr link_attr[MAX_LINK_CHANNELS];
     int ipc_dev;
 };
-static int initialized;
+static int initialized, init_error, last_error, summaries;
+static const char *reported;
 static void init_desc_alloc(struct sbd_link_device *sl, unsigned int offset)
 { assert(sl && offset == DESC_RGN_OFFSET); }
 static void init_buff_alloc(struct sbd_link_device *sl, unsigned int offset)
-{ assert(sl && offset == BUFF_RGN_OFFSET); }
+{
+    assert(sl && offset == BUFF_RGN_OFFSET);
+    sl->buff_alloc_offset = offset;
+}
 static int init_sbd_ipc(struct sbd_link_device *sl, int ipc_dev, struct sbd_link_attr *attr)
-{ assert(sl && !ipc_dev && attr); initialized++; return 0; }
+{
+    assert(sl && !ipc_dev && attr);
+    ++initialized;
+    sl->buff_alloc_offset += 64;
+    return init_error;
+}
 static void print_sbd_config(struct sbd_link_device *sl) { assert(sl); }
 '''
 
@@ -64,6 +79,7 @@ static unsigned char memory[BUFF_RGN_OFFSET + 64];
 static void check_rejection(struct sbd_link_device *sl, int error)
 {
     assert(init_sbd_link(sl) == error && !initialized);
+    assert(last_error == error && strstr(reported, "layout") && !summaries);
     for (size_t i = 0; i < sizeof(memory); ++i)
         assert(memory[i] == 0xa5);
 }
@@ -102,8 +118,14 @@ int main(void)
 
     sl = valid;
     assert(init_sbd_link(&sl) == 0 && initialized == 1);
+    assert(summaries == 1);
     assert(memory[DESC_RGN_OFFSET - 1] == 0xa5 && memory[DESC_RGN_OFFSET] == 0);
     assert(memory[BUFF_RGN_OFFSET - 1] == 0 && memory[BUFF_RGN_OFFSET] == 0xa5);
+
+    init_error = -ENOMEM;
+    assert(init_sbd_link(&sl) == -ENOMEM && initialized == 2);
+    assert(last_error == -ENOMEM && strstr(reported, "initialization failed"));
+    assert(summaries == 1);
     return 0;
 }
 '''

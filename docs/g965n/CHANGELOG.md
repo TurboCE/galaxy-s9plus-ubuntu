@@ -5016,3 +5016,23 @@ request was logged. The boot journal still contained 105 modem IPC/RFS
 error-priority messages and one SSP error-priority message in the
 observation window. Failed-copy cases ran on the host; a peer transfer
 and SIM-present reconnection were outside this handset trial.
+
+### 2026-11-20 — Distinguish modem SBD setup progress from failures
+
+The preceding no-SIM boot reported 44 ordinary SBD setup and descriptor
+messages as errors. Moved those details to debug logging without
+kernel addresses. Successful initialization now reports the number of
+rings and the final data buffer offset. Layout rejection and ring
+initialization failure each report the original errno. Host tests
+exercise both failure stages and require a summary only on success.
+
+Built against native #44, checked the BOOT and backup, and staged the
+replacement module while saving the original module and service
+configuration. A distinct handset boot confirmed the loaded build ID,
+18 rings and a data buffer end of 4,276,224 within 5,242,880 bytes.
+PIF_INIT_DONE was sent, none of the 44 SBD lines recurred at error
+priority, and 62 other error-priority messages remained. The no-SIM
+service stopped successfully and stock ModemManager was active. Six
+IIO devices were readable, Wi-Fi HTTPS204 passed, a P2P interface was
+present and no units failed. SIM-present traffic and P2P transfer were
+not exercised on this boot.

@@ -44,10 +44,7 @@ static void print_sbd_config(struct sbd_link_device *sl)
 #ifdef DEBUG_MODEM_IF
 	int i;
 
-	pr_err("mif: SBD_IPC {shmem_base:0x%pK shmem_size:%d}\n",
-		sl->shmem, sl->shmem_size);
-
-	pr_err("mif: SBD_IPC {version:%d num_channels:%d rbps_offset:%d}\n",
+	mif_debug("SBD_IPC {version:%d num_channels:%d rbps_offset:%d}\n",
 		sl->g_desc->version, sl->g_desc->num_channels,
 		sl->g_desc->rbps_offset);
 
@@ -56,7 +53,7 @@ static void print_sbd_config(struct sbd_link_device *sl)
 		struct sbd_rb_desc *rbd;
 
 		rbd = &sl->g_desc->rb_desc[i][UL];
-		pr_err("mif: RB_DESC[%-2d][UL](offset:%d) = "
+		mif_debug("RB_DESC[%-2d][UL](offset:%d) = "
 			"{id:%-2d ch:%-3d dir:%s} "
 			"{sbdv_offset:%-5d rb_len:%-3d} "
 			"{buff_size:%-4d payload_offset:%d}\n",
@@ -65,7 +62,7 @@ static void print_sbd_config(struct sbd_link_device *sl)
 			rbd->length, rbd->buff_size, rbd->payload_offset);
 
 		rbd = &sl->g_desc->rb_desc[i][DL];
-		pr_err("mif: RB_DESC[%-2d][DL](offset:%d) = "
+		mif_debug("RB_DESC[%-2d][DL](offset:%d) = "
 			"{id:%-2d ch:%-3d dir:%s} "
 			"{sbdv_offset:%-5d rb_len:%-3d} "
 			"{buff_size:%d payload_offset:%d}\n",
@@ -173,8 +170,8 @@ static int setup_sbd_rb(struct sbd_link_device *sl, struct sbd_ring_buffer *rb,
 	for (i = 0; i < rb->len; i++)
 		rb->buff[i] = rb->buff_rgn + (i * rb->buff_size);
 
-	mif_err("RB[%d:%d][%s] buff_rgn {addr:0x%pK offset:%d size:%lu}\n",
-		rb->id, rb->ch, udl_str(dir), rb->buff_rgn,
+	mif_debug("RB[%d:%d][%s] buff_rgn {offset:%d size:%zu}\n",
+		rb->id, rb->ch, udl_str(dir),
 		calc_offset(rb->buff_rgn, sl->shmem), alloc_size);
 
 	/*
@@ -211,37 +208,21 @@ static void setup_desc_rgn(struct sbd_link_device *sl)
 {
 	size_t size;
 
-#if 1
-	mif_err("SHMEM {base:0x%pK size:%d}\n",
-		sl->shmem, sl->shmem_size);
-#endif
-
 	/*
 	Allocate @g_desc.
 	*/
 	size = sizeof(struct sbd_global_desc);
 	sl->g_desc = (struct sbd_global_desc *)desc_alloc(sl, size);
 
-#if 1
-	mif_err("G_DESC_OFFSET = %d(0x%pK)\n",
-		calc_offset(sl->g_desc, sl->shmem),
-		sl->g_desc);
-
-	mif_err("RB_CH_OFFSET = %d (0x%pK)\n",
-		calc_offset(sl->g_desc->rb_ch, sl->shmem),
-		sl->g_desc->rb_ch);
-
-	mif_err("RBD_PAIR_OFFSET = %d (0x%pK)\n",
-		calc_offset(sl->g_desc->rb_desc, sl->shmem),
-		sl->g_desc->rb_desc);
-#endif
+	mif_debug("G_DESC_OFFSET = %d\n", calc_offset(sl->g_desc, sl->shmem));
+	mif_debug("RB_CH_OFFSET = %d\n",
+		  calc_offset(sl->g_desc->rb_ch, sl->shmem));
+	mif_debug("RBD_PAIR_OFFSET = %d\n",
+		  calc_offset(sl->g_desc->rb_desc, sl->shmem));
 
 	size = sizeof(u16) * ULDL * RDWR * sl->num_channels;
 	sl->rbps = (u16 *)desc_alloc(sl, size);
-#if 1
-	mif_err("RBP_SET_OFFSET = %d (0x%pK)\n",
-		calc_offset(sl->rbps, sl->shmem), sl->rbps);
-#endif
+	mif_debug("RBP_SET_OFFSET = %d\n", calc_offset(sl->rbps, sl->shmem));
 
 	/*
 	Set up @g_desc.
@@ -257,10 +238,6 @@ static void setup_desc_rgn(struct sbd_link_device *sl)
 	sl->wp[UL] = sl->rbps + sl->num_channels * 1;
 	sl->rp[DL] = sl->rbps + sl->num_channels * 2;
 	sl->wp[DL] = sl->rbps + sl->num_channels * 3;
-
-#if 1
-	mif_err("Complete!!\n");
-#endif
 }
 
 static void setup_link_attr(struct sbd_link_attr *link_attr, u16 id, u16 ch,
@@ -1009,8 +986,10 @@ int init_sbd_link(struct sbd_link_device *sl)
 		return -ENOMEM;
 
 	err = sbd_validate_layout(sl);
-	if (err)
+	if (err) {
+		mif_err("Invalid SBD shared-memory layout: %d\n", err);
 		return err;
+	}
 
 	memset(sl->shmem + DESC_RGN_OFFSET, 0, DESC_RGN_SIZE);
 
@@ -1018,10 +997,15 @@ int init_sbd_link(struct sbd_link_device *sl)
 	init_buff_alloc(sl, BUFF_RGN_OFFSET);
 
 	err = init_sbd_ipc(sl, sl->ipc_dev, sl->link_attr);
-	if (!err)
-		print_sbd_config(sl);
+	if (err) {
+		mif_err("SBD ring initialization failed: %d\n", err);
+		return err;
+	}
 
-	return err;
+	mif_info("SBD initialized %u rings, buffer end %u of %u bytes\n",
+		 sl->num_channels * ULDL, sl->buff_alloc_offset, sl->shmem_size);
+	print_sbd_config(sl);
+	return 0;
 }
 
 int create_sbd_link_device(struct link_device *ld, struct sbd_link_device *sl,

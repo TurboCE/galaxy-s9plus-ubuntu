@@ -57,6 +57,13 @@ has no vendor ECT vote table, and the optional ACPM crash-dump region
 remains unavailable. The observed ring still contained 103
 error-priority messages and 67 warnings.
 
+The native44 SBD diagnostics follow-up found 44 error-priority messages
+from ordinary shared-memory ring and descriptor setup. Detailed offsets
+now use debug logging without kernel addresses. The default log reports
+the ring count and end offset on success, or the layout/initialization
+stage and errno on failure. The detailed diagnostics require a debug-enabled
+build on native44. Other SIPC and SSP messages still require review.
+
 The native44 modem controller now distinguishes the verified PMU
 reset configuration from an unsupported external reset GPIO and
 validates both required interrupt numbers before registering either.
