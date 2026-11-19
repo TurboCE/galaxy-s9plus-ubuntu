@@ -4331,3 +4331,28 @@ loss or modem failure. There is no boot-time LTE service installed.
 The distinct cleanup boot restored the Wi-Fi default, modem-off state and
 all three driver services. There were no failed units. The boot ring had
 63 warnings and one error-priority SSP zero-ACK retry, which remains open.
+
+### 2026-11-20 — One-shot LTE startup from systemd at boot
+
+Added a boot-session controller and an opt-in unit example. The controller
+checks the private configuration pin, all launcher sources, the exact
+running SM-G965N BOOT, current backup, qualified stock overlay and module,
+and existing private NV provenance. One arm is consumed before module
+loading and one start is allowed per boot. The launcher keeps its RIL,
+CBD and lease-based route owner in a bounded session with an
+ExecStopPost cleanup. It does not load a second modem onto a running CP.
+
+On native44, the enabled unit started after a distinct normal reboot
+without an SSH start command. It consumed its arm and brought up the
+modem data route. Ordinary nonroot HTTPS204 was verified on Wi-Fi,
+on LTE after Wi-Fi interruption, and again on restored Wi-Fi. An uncached
+system DNS query selected the modem link in the LTE phase. The sensor
+service stayed active. Stopping the controller removed its isolated
+runtime, temporary routes and lease records. The test unit was disabled
+afterward and a normal cleanup reboot was requested. This qualifies
+one-shot guarded boot startup and real IPv4 data, with continuous
+operation and spontaneous packet-data loss recovery still pending.
+
+The cleanup reboot restored the Wi-Fi default, modem-off state and all three
+driver services. Accel and illuminance were readable and no unit failed.
+There were 63 warnings and one error-priority SSP zero-ACK retry.

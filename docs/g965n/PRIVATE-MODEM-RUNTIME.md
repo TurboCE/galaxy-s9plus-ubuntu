@@ -643,3 +643,36 @@ the unit's `ExecStopPost` handler. Native44 verified that systemd removed
 the modem route, address and DNS after actual SIGKILL of the worker. This
 exercises crash cleanup, without testing automatic process restart.
 Persistent operation and unattended radio loss are open.
+
+### Explicit one-shot boot qualification
+
+The [unit example](profiles/lte-boot-test.service.example) shows the exact
+boot ordering and the 175-second supervisor limit used on native44. It is
+not installed by the image build. Use a dedicated root-owned mode 0700
+directory under `/var/lib/g965n-lte/` and keep the runtime profile, APN,
+backup and boot receipts private. Copy these reviewed files into the
+directory:
+
+- From `scripts/g965n/`: `lte-boot-session.py`, `run-ril-test.py`,
+  `run-cbd-test.py`, `vendor-runtime.py`, and `lte-route-owner.py`.
+- From `experiments/modem/`: `ril-lab.py` and `rfs-copy.py`.
+
+The root-owned private `config.json` contains `model` (`SM-G965N`),
+`apn` (the reviewed carrier APN), `kernel_profile` (the absolute
+directory with `startup.json`, `backup.json`, and its qualified
+`package/`), `receipt_sha256`, `backup_sha256`, `guard_sha256`
+(the pin of `package/p2p-control-trial.py`), and `files` (the SHA-256
+map of the seven copied source files). Replace the example unit's
+config digest placeholder with the exact digest of this private file,
+and its directory if needed. The installed kernel, phase-tested module
+and stock overlay must match their existing receipts. Private modem NV
+must already be staged and verified using the normal procedure.
+
+After inspecting and verifying the proposed unit, arm it with the root-owned
+contents `armed\n` in the file named `armed`, enable the unit for one boot
+without `--now`, and reboot in the approved device test. The arm is consumed
+before the controller loads the modem, and an attempt latch prevents a
+second cold start on the same boot. Stop and disable the unit afterward.
+The modem module is left loaded until a normal reboot. Do not unload it
+while the CP is live. Native44 boot-state and unbound traffic probes
+qualified this one-shot path; continuous operation is separate.

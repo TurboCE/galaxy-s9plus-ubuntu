@@ -1,0 +1,16 @@
+[Unit]
+Description=One-shot G965N boot LTE qualification
+After=NetworkManager.service systemd-resolved.service g965n-sensors.service
+Wants=NetworkManager.service systemd-resolved.service
+ConditionPathExists=/var/lib/g965n-lte/boot-test/armed
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /var/lib/g965n-lte/boot-test/lte-boot-session.py --config /var/lib/g965n-lte/boot-test/config.json --config-sha256 REPLACE_WITH_CONFIG_SHA256 --confirm-bounded-boot-trial
+Restart=no
+RuntimeMaxSec=175
+TimeoutStopSec=80
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
