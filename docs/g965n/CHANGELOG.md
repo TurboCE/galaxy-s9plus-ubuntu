@@ -2836,3 +2836,11 @@ header invalid despite an in-range finalLBA; sdd primary+alternate headers valid
 Logical sectors4096bytes. No GUIDs/partition data were printed/published and no
 GPT sector was modified. This remaining metadata warning is not repaired by
 hiding it or by an unreviewed table rewrite.
+
+Final post-warm readback confirms checkedSSI strictY/faultN and no remaining
+trial/recovery timers or idle-test units. A native Power Settings launch was
+requested; its process had ended before the later accessibility snapshot, so
+no additional36 UI-presence result is inferred. The earlier actual native
+checkbox off/on test and owner-confirmed smoothing remain the UI evidence;
+latest36 ambient setting istrue with requested/applied56of401. No debug/log
+mask, forced feature-ID change or GPT rewrite was used to obtain the result.
