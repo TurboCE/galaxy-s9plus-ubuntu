@@ -4356,3 +4356,29 @@ operation and spontaneous packet-data loss recovery still pending.
 The cleanup reboot restored the Wi-Fi default, modem-off state and all three
 driver services. Accel and illuminance were readable and no unit failed.
 There were 63 warnings and one error-priority SSP zero-ACK retry.
+
+### 2026-11-20 — Five-minute LTE startup soak and Ubuntu WWAN prerequisite
+
+The qualified boot controller can explicitly select a 300-second held
+session. The isolated boot companion and route owner are bounded above
+the RIL deadline so the RIL can finish release and drain first. Default
+trial limits remain in place.
+
+Native44 started the extended unit automatically after a distinct boot.
+Modem-bound, uncached DNS and certificate-verified HTTPS204 passed at
+26.0, 135.7 and 270.7 seconds. All three samples had nonzero RX/TX and
+zero interface errors. The same RIL and sensor invocation persisted, and
+the RIL logged 13 RFS command events. Natural expiry produced a successful
+PDP release, acknowledged RF low power, the completed tail drain and
+controller exit. The route, lease and runtime were removed. User-space
+bounded units were disabled after the test. Persistent boot enablement
+and unattended packet loss recovery are still separate work.
+
+For the owner's Ubuntu Mobile Network request, installed and enabled
+Ubuntu ModemManager and its mobile provider database on the actual
+handset, with NetworkManager WWAN enabled. Stock ModemManager 1.23.4
+returned no modems while the SM-G965N native modem module was present.
+The Samsung IPC/AT access nodes are in the miscellaneous subsystem;
+rmnet0 is a data netdev. This confirms a missing native control adapter,
+not missing LTE packet connectivity. GNOME Mobile Network UI control
+has not been qualified. No probe tags were forced onto the raw ports.

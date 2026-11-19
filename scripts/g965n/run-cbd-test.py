@@ -30,12 +30,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--confirm-private-nv-copy', action='store_true', required=True)
     parser.add_argument('--isolated-modem-runtime', action='store_true')
-    parser.add_argument('--seconds', type=int, choices=range(10, 121), default=60)
+    parser.add_argument('--seconds', type=int, choices=(*range(10, 121), 315), default=60)
     parser.add_argument('--runtime-helper', type=Path, default=Path(__file__).with_name('vendor-runtime.py'))
     parser.add_argument('--child', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--expected-receipt-sha256', help=argparse.SUPPRESS)
     parser.add_argument('--trace', action='store_true', help='Private host strace around chroot/exec')
     args = parser.parse_args()
+    if getattr(args, 'seconds', 60) == 315 and not args.isolated_modem_runtime:
+        parser.error('Extended CBD lifetime requires the dedicated isolated modem view')
     if os.geteuid() != 0:
         raise SystemExit('Expected root and the prepared private vendor runtime')
     if b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):

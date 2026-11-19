@@ -64,6 +64,7 @@ def main():
     parser.add_argument('--config', type=Path, required=True)
     parser.add_argument('--config-sha256', required=True)
     parser.add_argument('--confirm-bounded-boot-trial', action='store_true', required=True)
+    parser.add_argument('--soak', action='store_true', help='Run the explicit 300-second qualification')
     args = parser.parse_args()
     if os.geteuid() != 0:
         raise SystemExit('Expected root on SM-G965N')
@@ -141,10 +142,11 @@ def main():
         if stop:
             return
         children = True
+        seconds = 300 if args.soak else 120
         launch = run(sys.executable, str(WORK / 'run-ril-test.py'),
                      '--lab-directory', str(WORK), '--runtime-helper', str(WORK / 'vendor-runtime.py'),
                      '--confirm-private-nv-copy', '--isolated-modem-runtime',
-                     '--apn', cfg['apn'], '--seconds', '120', '--serve-private-rfs-diagnostics',
+                     '--apn', cfg['apn'], '--seconds', str(seconds), '--serve-private-rfs-diagnostics',
                      '--quiesce-radio-on-exit', '--activate-pdp-s9',
                      '--confirm-reviewed-s9-pdp-layout', '--pdp-seconds', '20',
                      '--hold-qualified-pdp', '--export-ipv4-lease', timeout=28, check=False)
@@ -159,7 +161,7 @@ def main():
         owner = [sys.executable, str(WORK / 'lte-route-owner.py'),
                  '--invocation', invocation, '--confirm-guarded-g965n-route']
         run('systemd-run', '--unit=' + ROUTE, '--property=BindsTo=' + RIL,
-            '--property=After=' + RIL, '--property=RuntimeMaxSec=120',
+            '--property=After=' + RIL, '--property=RuntimeMaxSec=' + str(seconds + 15),
             '--property=TimeoutStopSec=20', '--property=NoNewPrivileges=yes',
             '--property=ExecStopPost=' + ' '.join([*owner, '--cleanup']), *owner)
         print('Bounded boot LTE controller started its qualified RIL and route owner.', flush=True)

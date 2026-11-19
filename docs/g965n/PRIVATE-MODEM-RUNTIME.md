@@ -676,3 +676,24 @@ second cold start on the same boot. Stop and disable the unit afterward.
 The modem module is left loaded until a normal reboot. Do not unload it
 while the CP is live. Native44 boot-state and unbound traffic probes
 qualified this one-shot path; continuous operation is separate.
+
+### Longer boot qualification and Ubuntu Mobile Network
+
+For the explicitly bounded extended test, append `--soak` to the guarded
+boot controller, and set the unit's `RuntimeMaxSec=360`. The isolated held
+RIL is limited to 300 seconds, with 315-second outer bounds for the boot
+companion and route worker. Native44 passed actual LTE-bound DNS and TLS
+at 26.0, 135.7 and 270.7 seconds in the same RIL session, then naturally
+released and cleaned up. The normal default remains 120 seconds.
+
+The Ubuntu packages `modemmanager` and `mobile-broadband-provider-info`
+were installed on the test device and ModemManager enabled. Stock
+`mmcli -L` still returns no modems with the native driver loaded.
+[GNOME 46's WWAN panel](https://github.com/GNOME/gnome-control-center/blob/gnome-46/panels/wwan/cc-wwan-panel.c)
+uses supported devices from ModemManager's object manager.
+The [upstream Samsung plugin](https://raw.githubusercontent.com/linux-mobile-broadband/ModemManager/main/src/plugins/samsung/mm-plugin-samsung.c)
+matches a limited set of USB tty/net products. This handset needs a
+Samsung IPC control adapter, along with a handoff of the qualified
+bearer to NetworkManager. Only one owner should issue modem control
+commands or configure the same bearer at a time. The existing LTE
+path is verified independently of the standard desktop panel.

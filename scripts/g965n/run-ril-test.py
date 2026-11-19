@@ -76,7 +76,7 @@ def main():
     parser.add_argument('--runtime-helper', type=Path, default=Path(__file__).with_name('vendor-runtime.py'))
     parser.add_argument('--confirm-private-nv-copy', action='store_true', required=True)
     parser.add_argument('--isolated-modem-runtime', action='store_true')
-    parser.add_argument('--seconds', type=int, choices=range(30, 121), default=90)
+    parser.add_argument('--seconds', type=int, choices=(*range(30, 121), 300), default=90)
     parser.add_argument('--activate-pdp-s9', action='store_true')
     parser.add_argument('--confirm-reviewed-s9-pdp-layout', action='store_true')
     parser.add_argument('--pdp-cid', type=int, choices=(1,), default=1)
@@ -103,6 +103,10 @@ def main():
     args = parser.parse_args()
     hold = getattr(args, 'hold_qualified_pdp', False)
     export_lease = getattr(args, 'export_ipv4_lease', False)
+    soak = getattr(args, 'seconds', 90) == 300
+    if soak and (not export_lease or not hold or not args.isolated_modem_runtime
+                 or args.attach_online or not args.quiesce_radio_on_exit):
+        parser.error('300-second soak requires isolated held IPv4 with cold shutdown cleanup')
     if export_lease and (not hold or not args.isolated_modem_runtime):
         parser.error('IPv4 lease requires an isolated held PDP trial')
     cycle = getattr(args, 'cycle_qualified_pdp', False)
@@ -210,7 +214,8 @@ def main():
         if subprocess.run(['systemctl', 'is-failed', '--quiet', 'g965n-cbd-test']).returncode == 0:
             subprocess.run(['systemctl', 'reset-failed', 'g965n-cbd-test'], check=True)
         cbd = [sys.executable, str(Path(__file__).with_name('run-cbd-test.py')),
-               '--confirm-private-nv-copy', '--runtime-helper', str(args.runtime_helper), '--seconds', '120']
+               '--confirm-private-nv-copy', '--runtime-helper', str(args.runtime_helper),
+               '--seconds', '315' if soak else '120']
         if isolated:
             cbd.append('--isolated-modem-runtime')
         subprocess.run(cbd, check=True)

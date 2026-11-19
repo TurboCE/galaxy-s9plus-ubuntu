@@ -773,7 +773,7 @@ def require_qualified_s9_pdp():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--seconds', type=int, choices=range(10, 181), default=90)
+    parser.add_argument('--seconds', type=int, choices=(*range(10, 181), 300), default=90)
     parser.add_argument('--apn')
     parser.add_argument('--configure-radio', action='store_true')
     parser.add_argument('--isolated-modem-runtime', action='store_true')
@@ -820,6 +820,8 @@ def main():
     if args.export_ipv4_lease and (not args.hold_qualified_pdp or not args.isolated_modem_runtime
                                    or not args.notify_ready):
         parser.error('IPv4 lease requires an isolated, held systemd trial')
+    if args.seconds == 300 and not args.export_ipv4_lease:
+        parser.error('300-second soak requires the qualified IPv4 lease and cold cleanup')
     if b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):
         raise SystemExit('Expected star2lte')
     os.umask(0o077)
