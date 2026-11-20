@@ -4,9 +4,17 @@
 [SheroAbi의 G965F 포팅](https://github.com/SheroAbi/galaxy-s9plus-mainline-linux)을 기반으로
 원본 커널 드라이버, uniLoader, 빌드·설치 코드를 포함합니다.
 
-**G965N에서 Ubuntu 부팅, 화면·터치, CPU 8개, USB SSH, Wi-Fi 인터넷과 GPU 하드웨어 가속을 확인했습니다.**
-LTE·오디오·Bluetooth·카메라·절전은 이 mainline 기준에서 완성되지 않았습니다.
-전체 하드웨어 정상화는 진행 중입니다. [검증표](docs/g965n/VALIDATION.md)를 먼저 확인하세요.
+**G965N에서 Ubuntu 부팅·화면·터치·GPU 가속·Wi-Fi, 실제 음성 입출력과 특정 SIM의 LTE IPv4 통신을 확인했습니다.**
+Bluetooth, 자동 밝기·회전 및 센서 앱 연결도 확인했고, NFC는 실제 대상 읽기와
+재부팅 후 재읽기를 검증했습니다. 항목마다 검증 범위가 다르며 전체 지원 완료가 아닙니다.
+GPS 위치 확정, 진동·알림 LED, 절전·배터리 및 여러 회귀 시험은 남아 있습니다.
+카메라·지문은 미지원이며 현재 작업 범위에서 제외합니다.
+
+**현재 작업 브랜치: `codex/g965n-lte-audio`.**
+[최신 지원·미지원 현황](docs/g965n/STATUS.md)과
+[나중에 이어서 작업하기](docs/g965n/HANDOFF.md)를 먼저 읽으세요.
+세부 하드웨어 증거는 [검증표](docs/g965n/VALIDATION.md)에 있습니다.
+기본 이미지 빌드만으로 현재 실험 기기의 모든 수동 설정이 재현되는 것은 아닙니다.
 
 ## 빌드
 
@@ -15,7 +23,7 @@ Mac/Linux 또는 Windows WSL2의 Bash에서 실행합니다. Docker, Git, Python
 권장합니다. ARM Mac에서도 amd64 도구 환경을 사용하므로 빌드가 더 느릴 수 있습니다.
 
 ```bash
-git clone https://github.com/TurboCE/galaxy-s9plus-ubuntu.git
+git clone --branch codex/g965n-lte-audio https://github.com/TurboCE/galaxy-s9plus-ubuntu.git
 cd galaxy-s9plus-ubuntu
 bash scripts/g965n/build.sh prepare
 
@@ -69,4 +77,5 @@ NVRAM, 개인 백업, 비밀번호, 설치 이미지를 Git에 포함하지 않�
 
 로그인 비밀번호는 빌드 시 직접 정합니다. 기본 최소 길이는 8자이며, 명시적으로 짧은
 비밀번호를 선택하려면 로컬 image.env에 IMAGE_ALLOW_SHORT_PASSWORD=1을 설정할 수 있습니다.
-실험용 LTE·오디오 코드는 codex/g965n-lte-audio 브랜치에 있으며 하드웨어 검증 전입니다.
+실험용 드라이버·서비스와 검증 기록은 codex/g965n-lte-audio 브랜치에 있습니다.
+확인된 개별 동작과 미완료 항목은 최신 지원표를 기준으로 판단하세요.

@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Unit]
+Description=G965N bounded GPS reception test
+Requires=g965n-gnss.socket
+After=g965n-gnss.socket
+
+[Service]
+Type=exec
+User=geoclue
+Group=geoclue
+RuntimeDirectory=g965n-gps-test
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+UMask=0077
+ExecStart=/usr/bin/python3 /usr/local/share/g965n-gps-test/check-fix.py --seconds 300 --summary /run/g965n-gps-test/summary.json
+SuccessExitStatus=2
+RuntimeMaxSec=320
+TimeoutStopSec=10
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX

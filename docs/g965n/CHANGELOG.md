@@ -6606,3 +6606,64 @@ are unrelated and are not marked fixed. Other tag technologies, card writing,
 payments, secure-element functions, emulation and endurance are not qualified.
 The tracked recipe now applies the neard patch; README records clock source,
 installation readiness and the successful hardware scope.
+
+### 2026-11-20 — Wireless GNSS test, desktop tools and resumable support state
+
+The owner excluded camera/fingerprint and authorized continuing other system
+features, requested startup management, GPS testing and a map app, and asked
+for a maintained GitHub status that supports later continuation. Added latest
+STATUS and HANDOFF documents, linked them from README/VALIDATION, corrected
+stale README claims of entirely untested LTE/audio/Bluetooth, and added the
+continuation entry points to AGENTS. Kept historical evidence and the explicit
+fresh-image reproduction gap. Personal Tailscale/ChatGPT configuration and the
+separate document-portal work remain outside this shared setup.
+
+Read-only RTC inspection found the alarm on hwirq63 in edge mode while the
+tracked DT uses IRQ_TYPE_NONE. No RTC or BOOT change was applied. The first
+read-only GPT probe incorrectly assumed 512-byte sectors and found no header;
+its initial command also had an unmatched Python parenthesis and did not run.
+Corrected both and used the actual 4096-byte logical sector size. The primary
+GPT header and entry array CRCs are valid, and its referenced last-LBA backup
+header has no GPT signature. No metadata or partition geometry was written.
+Recorded both investigations as remaining work, not fixes.
+
+The owner reported USB removed and sky-facing placement. Used the handset's
+Wi-Fi SSH destination, confirmed Wi-Fi-bound HTTPS204, and ran a private
+300-second consumer as GeoClue on the existing guarded GNSS source. The UDC
+sysfs state still said configured; retained that discrepancy rather than
+claiming it independently proved cable removal. Fourteen valid NMEA sentences
+arrived around 30 seconds, with GGA/RMC, eight GSA and four vendor sentences.
+The final observation still had 14, zero invalid checksums, zero used satellites,
+GSA fix type1, no GSV and no position fix. No coordinates or raw NMEA were saved.
+UTC injection exists; SUPL/PSDS/LTO and prior-position assistance are not yet
+implemented. Missing assistance may slow acquisition, but does not establish
+the cause of absent continuous data. Added separate next-step investigations.
+
+After the model/BOOT/backup guard passed, installed Ubuntu packages
+gnome-startup-applications and gnome-maps. Added a GPS Test GTK frontend and
+an unprivileged GeoClue test unit, bounded to five minutes, exposing only
+counts/fix flags in a summary. A narrowly scoped Polkit rule lets the selected
+account start/stop only that unit, including SSH; no generic unit management
+or login autostart was enabled. The producer accesses only the existing
+GNSS Unix socket, preserving the root supervisor's hardware/profile checks.
+The app distinguishes old results and unknown satellite visibility when no
+GSV arrives. Maps/network position is not treated as proof of satellite fix.
+
+Service and desktop-file validation passed. Accessibility enumeration confirmed
+real Startup Applications Preferences, Maps and GPS Test windows. The GPS GUI
+showed the actual 14 valid sentences/no-fix state at 242 seconds in an additional
+observation. Normal-user D-Bus start and systemctl start/stop passed without a
+root desktop session. Updated cancellation handling and verified a new
+three-second trial writes final/cancelled, then the unit reports success and
+inactive. The initially written socket-pair test harness incorrectly used a
+tuple as a context manager; corrected it to close both sockets. Five meaningful
+fix/no-fix/checksum/malformed-coordinate/socket-summary tests then passed, as
+did nine initial boundary checks and Python syntax validation. The checked
+summary contains no coordinates or NMEA. Firmware, identities, private logs,
+SSH keys/addresses and personal app settings were not added to Git.
+
+Final app-install health check found no failed units, with sensor, Bluetooth,
+neard and the GNSS socket active. The diagnostic unit was inactive/success
+following cancellation, Wi-Fi HTTPS204 passed and no matching GPU/display
+fault appeared in the current ring buffer. This does not clear unrelated
+boot warnings or qualify a GNSS fix.

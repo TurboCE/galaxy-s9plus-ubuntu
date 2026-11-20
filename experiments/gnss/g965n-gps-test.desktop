@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Desktop Entry]
+Name=GPS Test
+Name[ko]=GPS 수신 시험
+Comment=Check real GNSS reception without storing coordinates
+Exec=python3 /usr/local/share/g965n-gps-test/test-app.py
+Icon=mark-location-symbolic
+Terminal=false
+Type=Application
+Categories=Utility;
