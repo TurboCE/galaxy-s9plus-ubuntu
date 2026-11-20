@@ -11,7 +11,7 @@
 재부팅은 중단했습니다. 최신 적용은 g965n-interactive-boost.service:
 터치/키 입력 후500ms 동안만 표준 CPU QoS, 대기 바닥값349.916/1066MHz로
 복귀. 두 번 실제 DSI 비교와1794MHz 하향 MAX 제약 준수 확인. 현재 부팅에서
-active/enabled이며 다음 부팅 자동 시작은 아직 미검증입니다. 소스/빌드/
+별도 사용자 재부팅 후 자동 시작·현재 boot 소유권·실제 입력 후 상승/복귀를 확인했습니다. 소스/빌드/
 보호 검사/복구는 experiments/interactive-boost/README.md를 보세요.
 이것은 modem vendor bus QoS/ECT 미구현을 해결한 것이 아닙니다.
 
@@ -33,7 +33,7 @@ GPU fault/심각한 커널 패턴/failed unit0이었으며 이는 전체 오류 
 
 로그 후속: keyring PAM 모듈 누락은 패키지 설치/실제 dlopen으로 수정 확인;
 새 로그인은 미검증. RGB0007 --named-regmap은 별도 모듈 빌드·현재 부팅
-적용·세 색 readback·core map 보존·새 중복 오류0 확인. 다음 부팅은 미검증.
+적용 후 별도 사용자 재부팅에서도 자동 구동·세 색 readback·core map 보존·중복 오류0 확인.
 실제 적용 소스/복구는 experiments/pmic/README.md. 전체 ring 재수집의
 초기 헤더 있음/error57/warn68, CPU 차이52+1, hub reset 미확인1, modem
 QoS4는 남습니다. journal에는 초기 헤더 없음. Call trace/SError/PLL/GPIO
@@ -85,7 +85,7 @@ RECOVERY/EFS/CPEFS/RADIO 및 부트로더를 복구 편의상 덮어쓰지 않�
 | 4 (확인) | GPT: `experiments/storage/` | 실제 섹터4096, Samsung 헤더512. 원본 메타데이터를 기기·호스트에 보존하고 비어 있던 보조 영역20KiB만 복원 | 재부팅 경고0, 주 메타데이터 불변, 보조 CRC·25개 엔트리 동일 및6개 보호 파티션 불변 확인. 일반 자동 수리 명령으로 대체하지 않음 |
 | 5 (기본 출력 확인) | 진동·LED: `experiments/pmic/`, `docs/g965n/PMIC_REVIEW.md` | RGB 실제 세 색·15회 읽기 검증·모듈 정지/재시작·재부팅 자동 구동 통과. g965n-led.service, max_brightness1. 진동은 실제26MHz 카운터·GPIO 공급·FF_RUMBLE·IMU 반응·재부팅 통과 | LED/진동 알림 정책과 장기·절전·파형 보정은 미완료. 이전 SIGBUS/의존성 경고는 아래 후속 정정 참고 |
 | 6 | 나침반/센서 | IIO/Qt/표준 앱 데이터 전달은 됨. 방향 정확도 미달 | USB/자석 분리한 기준 방향·기울기 비교 및 보정, 재부팅 후 유지 |
-| 7 | GPU | NEON 유지+입력 후500ms QoS 실제 비교로 초기 지연 감소, 사용자 수준 수용 | 성능 추가 튜닝 중단. 이후 실로그 오류 우선, 서비스 다음 부팅은 미검증 |
+| 7 | GPU | NEON 유지+입력 후500ms QoS 실제 비교로 초기 지연 감소, 사용자 수준 수용 | 성능 추가 튜닝 중단. 이후 실로그 오류 우선, 서비스 별도 재부팅/입력 후 복귀 확인 |
 | 8 | 통신·전원·주변 기능 | 데이터 SIM 망 등록, 복구/이동/IPv6, BT 프로파일, OTG·충전·절전·대기 전력 등 | 항목별 실제 시험. 과거 LTE/WFD 성공을 지우지 않고 최신 빌드의 회귀 증거를 추가 |
 
 ## NFC 회귀를 피하기 위한 기록
@@ -259,3 +259,25 @@ USB SSH 모두 열렸으며 재시도로 정상 접속했습니다. 장기 재�
 다음 우선순위: 잔여 frame-clock dispatch 지연, 실제 provider/주파수 표가
 필요한 modem QoS, 현재 SIM 망 등록, 나침반 정확도, 전원·절전 회귀.
 카메라/지문 제외, GPS는 Wi-Fi 시험 경계를 유지합니다.
+
+
+## 사용자 재부팅 후 드라이버 검증 — 2026-11-20
+
+새 입력 서비스 자동 시작/현재 boot receipt 일치와 실제 커널 uinput Shift
+시험 통과: 최소1499.333/2327MHz 상승 후349.916/1066MHz 복귀, 최대 불변.
+neutral-keyboard-check.c는 독립 QA용이며 임시 입력 모듈/장치와 정리 timer는
+제거했습니다. Mutter 내부 가상 입력의 첫 시험은 커널 핸들러 증거가 아닙니다.
+LED 이름 변경본도 자동 시작·세 색 읽기·core map 유지·부팅 중복 오류0 통과.
+진동100ms/8192 on/auto-off/close-off, Wi-Fi 지정 HTTPS204 및 IIO 값 읽기 확인.
+
+최종 전체 ring1,024줄/error57/warn68, boot header 있음; journal423줄은 초기
+header 없음. CPU 차이52+1, hub reset 미확인1, modem QoS4 유지. 정상 GeoClue
+GPS 세션은 active. 별도 비허용 계정의 소켓 접속을 거절한 failed GNSS
+인스턴스1개는 보존했습니다. user 문서 포털 실패는 별도 WIP 제외 범위입니다.
+현재 상태를 전체 실패 unit0으로 쓰지 마세요. 다음 조사는 KERNEL_WARNINGS.md
+최신 절과 아래 provider 제약을 따릅니다.
+
+PM_DEVFREQ/INTERCONNECT core는 켜졌지만 실제 devfreq는 GPU만 있고 Exynos
+bus/Samsung ICC provider 설정·DT endpoints/ECT 표가 없습니다. CP mailbox
+인덱스→실제 rate 표와 CPU cluster 대응부터 확인하세요. 임의 rate/전압·허브
+failsafe reset 쓰기나 경고만 제거하는 변경은 하지 않았습니다.

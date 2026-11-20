@@ -125,8 +125,11 @@ Rollback uses the preserved module/pin pair through the same guarded lifecycle.
 Native48 evidence: separate module build passed; guarded replacement and all
 three low-current on/off readback checks passed. The new debugfs map
 `3-0066-g965n-rgb` coexists with the unchanged core `3-0066`; new duplicate-map
-errors were0 and LEDs ended off. This name change has not had a separate
-warm-boot test. Earlier LED boot/output evidence below predates this change.
+errors were0 and LEDs ended off. A subsequent owner-initiated warm reboot
+auto-started the named revision: both maps were present, boot duplicate errors0
+and all three low-current readbacks passed again with LEDs off afterward.
+This qualifies name-change startup/output on this device, not cold boot,
+suspend, charging policy or calibrated current/brightness.
 
 After explicit SM-G965N/BOOT/backup checks, stage the two modules, generated
 pins.json and led-control.py in root-owned0700 `/usr/local/lib/g965n-led-trial`

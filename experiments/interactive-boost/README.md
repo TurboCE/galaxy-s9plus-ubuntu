@@ -35,14 +35,26 @@ expiry/retrigger/stale work, jiffies wrap, partial failures and shutdown.
 A separate Shell-main affinity trial worsened grid latency and was restored.
 No affinity, forced performance governor, GPU floor or disabled dock is adopted.
 
-Owner considered current performance sufficient. The guarded service is
-installed/enabled on the current device. No additional reboot was performed
-after that instruction: new-service warm-boot startup is pending, while its
-current-boot operation, stop/expiry and MAX constraint handling were verified.
+Owner considered current performance sufficient. No further tuning was done.
+The owner subsequently rebooted: the guarded service auto-started/enabled,
+its ownership receipt matched the new boot and original idle minima/governors
+were retained. A bounded kernel uinput Shift press/release raised both minima
+to1499.333/2327MHz, returned to349.916/1066MHz after expiry and left maxima
+unchanged. The temporary input module/session and fallback timer were removed.
 The original accepted NEON Mesa profile remains active. The separate tile32
 candidate was rolled back because its synthetic gain did not improve actual
 animation. Suspend/hotplug, long-term thermals and Android battery parity are
 not qualified by these tests.
+
+`neutral-keyboard-check.c` is a separate bounded QA client, not part of runtime
+installation. Compile natively with `cc -O2 -Wall -Wextra -Werror`; it advertises
+a keyboard but emits only Shift press/release after stdin receives `1`. It
+waits at most5s and has a10s process lifetime bound. Root caller must perform
+the existing model/BOOT/backup checks, verify/own a matching temporary uinput
+module if needed, arm an independent cleanup timer, sample both CPU minima/
+maxima and verify idle restoration, then unload only that owned input module.
+It never types text or moves the pointer. A compositor-only virtual-keyboard
+trial did not validate this kernel handler and is not active-boost evidence.
 
 ## Rebuild without installation
 

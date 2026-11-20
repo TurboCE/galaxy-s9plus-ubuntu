@@ -7480,3 +7480,50 @@ PMIC/Mesa rebuild/rollback documentation and current summaries updated. Re-ran
 production input worker/filter ASan/UBSan tests,4 parent-overlay tests,3 timing
 analysis tests,2 Mesa builder tests and source/patch pin/syntax checks: pass.
 Preserved negative tiling/tuning results and explicit pending next-boot evidence.
+
+
+## 2026-11-20 — Owner reboot: input and named RGB persistence qualified
+
+Revalidated SM-G965N/BOOT/protected backups after owner reboot. Input/LED/
+haptic/sensor/Bluetooth auto-started; input ownership receipt matched new boot.
+Idle governors/minima/maxima retained. Named RGB/core maps coexist and boot
+duplicates0; guarded three-color low-current on/off readback passed/all off.
+
+A bounded Mutter virtual-keyboard Shift trial did not raise kernel QoS and is
+not qualified input-handler evidence; closed the temporary session. Added a
+GPL-2.0-only neutral-keyboard-check.c QA client, compiled natively with Werror.
+After exact input-module SHA/vermagic checks and model/backup preflight, used
+a root-private temporary module copy with independent45s unload fallback. Only
+Shift press/release emitted, no text/pointer movement. Actual kernel input
+raised minima1499.333/2327MHz then returned349.916/1066MHz; maxima unchanged.
+Removed temporary device/module and cancelled fallback. No governor, thermal/
+MAX policy, desktop configuration or runtime driver source changes.
+
+Haptic100ms/8192 observed boost/bias/motor1 then0 at auto-stop/close; independent
+rail-cut timer cancelled after success. Wi-Fi-bound HTTPS204; finite standard
+IIO accel/gyro/pressure/proximity raw and ALS/temperature processed reads pass.
+No physical sensor accuracy, full profile or compass buffered-heading replay.
+
+Final private full ring1,024lines/error57/warn68 includes boot header, journal
+423lines lacks early header. CPU variations52+unsupported1, hub reset1, modem
+QoS4 persist; call trace/SError/GPU PLL/GPIO/action-frame/chanspec0. Standby
+held MCU_RESP1 with CS0/GPS_PWR0 and response stayed1 after wake. Source already
+registers shutdown; no missing-shutdown cause established. Did not execute
+unused failsafe reset-register writes without a qualified hardware contract.
+
+Provider review: GPU is sole devfreq device. Generic PM_DEVFREQ/INTERCONNECT
+enabled; Exynos bus/Samsung ICC providers not configured, DT ICC endpoints0/
+ECT node absent. CP index tables/cluster mapping need verified data before
+modem votes; legacy CL0/CL1 comments alone are insufficient. No guessed rate/
+voltage, generic-framework-only fix or warning suppression adopted.
+
+Keyring PAM library missing error did not recur after login. Real keyring/GCR
+services active; two short-lived autostart helper scope races are not missing
+daemons. Automatic-login unlock/GDM/SAP messages persist. Portal remains WIP
+excluded; no account/security/portal settings changed. Location permission true,
+GeoClue and authorized GNSS socket session active. Separate failed GNSS instance
+rejected non-GeoClue peer before hardware startup; kept evidence and ACL. Final
+failed system count1 refers only to that rejected connection, not a receiver
+crash. xgps is available in Ubuntu gpsd-clients, candidate3.25-3ubuntu3.2, not
+installed. It needs a reviewed adapter for the private GNSS path; no package
+install or private NMEA connection was inferred from the user's app question.

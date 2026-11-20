@@ -1,6 +1,33 @@
 # Kernel and service warning review
 
-## Current native48 review — 2026-11-20
+## Owner reboot follow-up — 2026-11-20
+
+The owner rebooted after the log-first fixes. The input service auto-started
+with current-boot ownership. Actual neutral kernel uinput Shift input raised
+minima1499.333/2327MHz and expired to349.916/1066MHz; maxima unchanged.
+Temporary input device/module and cleanup timer were removed. Named RGB also
+auto-started: both maps present, boot duplicate errors0, all three low-current
+on/off readbacks passed/all off. Haptic100ms on/auto-off/close-off passed.
+These observations supersede next-boot-pending statements below only.
+
+Final full ring1,024lines/error57/warn68 retains its boot header; journal423lines
+does not. CPU variations52+1, hub-reset uncertainty1, modem QoS4 persist;
+call trace/SError/GPU PLL/GPIO/action-frame/chanspec patterns0. A separate failed
+GNSS instance was denied because its peer was not GeoClue; this is an enforced
+ACL, not a vendor-receiver crash. Authorized GeoClue GNSS session remains active.
+Preserved the failed instance/logs; do not claim all failed units0. The user's
+document-portal failure remains outside this driver branch's active scope.
+
+Provider inspection: generic PM_DEVFREQ/INTERCONNECT enabled, but actual devfreq
+device is GPU only; Exynos bus/Samsung ICC providers are not configured and
+the current DT lacks ICC endpoints/ECT node. CP frequency-index tables and
+verified cluster mapping are needed before adding modem votes. Existing input
+QoS does not supply them. Hub held MCU_RESP1 with CS0/GPS_PWR0 during standby,
+then remained1 after wake. Source already registers a shutdown callback;
+physical reset is still unconfirmed. No speculative reset-register writes,
+bus clocks, feature masks, capabilities or warning filters were applied.
+
+## Prior native48 log-first snapshot — 2026-11-20
 
 The latest guarded read-only collector retained the Linux boot header and978
 ring lines:57 error-priority lines,68 warning-priority lines. Journal retained

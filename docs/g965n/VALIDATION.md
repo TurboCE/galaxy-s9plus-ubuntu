@@ -475,3 +475,20 @@ Software Center/PackageKit/AppStream and official Chrome ARM64 installed;
 package installation is not browser page/catalog/install-flow qualification.
 Owner moved the ChatGPT white-page investigation to another context; stopped
 that investigation without clearing profiles or changing login/autostart.
+
+
+Native48 owner warm reboot: exact model/BOOT/protected backup preflight passed;
+input service auto-started/enabled, receipt matches new boot. Kernel uinput
+neutral Shift raised minima1499.333/2327MHz, restored349.916/1066MHz, maxima
+unchanged. QA native Werror compile passed, temporary input module/device/timer
+removed. Earlier compositor virtual input was not kernel-handler pass evidence.
+Named RGB auto-start: both maps present, boot duplicates0, three on/off readbacks
+passed/all off. Haptic100ms/8192 on/auto-off/close-off, Wi-Fi-bound HTTPS204 and
+finite standard IIO reads passed. Accuracy/cold boot/suspend not requalified.
+
+Full ring1,024lines/error57/warn68; journal423lines lacks early header. CPU52+1,
+hub reset1, modem QoS4 persist; call trace/SError/PLL/GPIO/action/chanspec0.
+No real modem bus provider/ECT table: no speculative clock patch installed.
+Location enabled, authorized GeoClue GNSS session active. One failed GNSS
+instance rejected a non-GeoClue peer as designed; preserved, not a receiver
+crash or an all-failed-units-zero result. Document portal remains excluded WIP.
