@@ -70,3 +70,29 @@ worked. An NFC radio must still bind before an application can poll
 or read tags.
 
 [Linux NFC userspace interface](https://docs.kernel.org/networking/nfc.html)
+
+## Start the shared configuration at boot
+
+On the verified #48 NFC-bus BOOT, install `start-shared.py` and the
+matching `zrn-bt.ko`, `nfc.ko` and `nci.ko` in a root-owned private
+directory such as `/usr/local/lib/g965n-native-nfc`. Place the three
+module SHA-256 digests in `pins.json` using keys `zrn-bt`, `nfc` and
+`nci`. Retain the original `g965n-bluetooth.service` BOOT/package
+verification command when overriding the legacy module load.
+
+The tested systemd service drop-in clears `ExecStartPre` and re-adds
+that existing verifier. It clears `ExecStart`, then uses these settings.
+
+```ini
+ExecStart=/usr/bin/python3 /usr/local/lib/g965n-native-nfc/start-shared.py start
+ExecStopPost=/usr/bin/python3 /usr/local/lib/g965n-native-nfc/start-shared.py stop
+RuntimeDirectory=g965n-native-nfc
+RuntimeDirectoryMode=0700
+```
+
+The helper instantiates the sole expander client, verifies the native
+driver, loads the pinned modules and locates the actual Bluetooth UART.
+The stop hook removes only the Bluetooth module loaded by that service.
+The expander and NFC core stay available to other consumers. A normal
+reboot verified this setup. The S3NRN82 did not answer CORE_RESET, so
+no radio or tag reader is exposed by this setup.

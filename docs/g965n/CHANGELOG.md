@@ -6322,3 +6322,33 @@ S3NRN82 I²C driver and its power/clock path remain separate work.
 The temporary Bluetooth unit, native GPIO client and NFC core
 modules are live in this boot. No BOOT or persistent startup
 configuration was changed by this trial.
+
+### 2026-11-20 — Start the shared NFC stack on reboot and probe S3NRN82
+
+Installed a guarded Bluetooth service drop-in and root-private pinned
+modules after checking SM-G965N, exact BOOT and its complete backup.
+The helper binds the standard PCAL6524 driver, loads the NFC core and
+the native-expander Bluetooth module, and finds the live UART rather
+than assuming ttySAC0. A distinct warm boot verified the expander,
+NFC/NCI modules, and a powered BlueZ adapter without i2c-96.
+Wi-Fi HTTPS204 and active sensor services were confirmed.
+
+The revision 26 vendor source identifies PCAL6524 lines 11 and 9 for
+VEN and FIRM/wake, GPA1 line 2 for data IRQ and GPA2 line 6 for CLK_REQ.
+It selects TCXO for PMU CLKOUT1 and uses S2MPS18 LDO38 at 1.8 V.
+A first direct trial used the disabled GPIO v1 ioctl. Switched to the
+kernel's GPIO v2 ABI. Verified the stock 1.8 V register selector,
+briefly forced LDO38 on, enabled the NFC clock gate and applied the
+stock VEN/wake order. Writes to I²C address 0x27 returned ENXIO.
+An isolated trial that restored the stock 200 MHz USI08 input also
+returned ENXIO. VEN/FIRM readbacks followed the requested states,
+while CLK_REQ and the data IRQ stayed low. The temporary GPIO, clock
+and rail changes were restored. Physical voltage and TCXO waveform
+at the chip were not measured.
+
+Compiled an ARM64 S3NRN82 I²C-to-NCI driver candidate. Its guarded
+CORE_RESET check also returned ENXIO on the handset, so it rejected
+registration. Removed the temporary I²C client and unloaded that
+driver. The handset exposes zero NFC radios. The driver candidate
+stays in local experiment storage pending a working transport.
+Persistent Bluetooth, shared GPIO and the NFC core remain in service.
