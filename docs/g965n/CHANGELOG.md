@@ -6352,3 +6352,25 @@ registration. Removed the temporary I²C client and unloaded that
 driver. The handset exposes zero NFC radios. The driver candidate
 stays in local experiment storage pending a working transport.
 Persistent Bluetooth, shared GPIO and the NFC core remain in service.
+
+### 2026-11-20 — Repeat NFC controller response checks
+
+Rechecked VEN/FIRM, data IRQ and CLK_REQ against the handset's own
+revision 26 BOOT tree. Its phandle numbering differs from the public
+reference, but the resolved GPIO bank and line assignments agree.
+Normal mode and a firmware-mode query both returned ENXIO at 0x27.
+Neither CLK_REQ nor the data IRQ rose during the bounded observations.
+
+A separate normal-mode trial retained the inherited 50 MHz USI08 input
+and lengthened the bus clock period by four. The initial timing-register
+check used the HS rather than FS register and failed its assertion
+before changing it. Corrected to the driver-defined FS3 offset 0x68.
+The slower transfer also returned ENXIO. Restored and read back the
+USI08 divider (3), FS3 timing (0x00240000), CLKOUT1 (1) and LDO38
+(0xac). BlueZ was powered, audio and sensors active, Wi-Fi HTTPS204
+passed and no systemd units were failed.
+
+No NFC radio or tag read was verified. These checks do not establish
+that the chip receives its physical supply or reference clock. Further
+progress requires resolving chip power/clock delivery or obtaining a
+working stock NFC baseline on this exact damaged handset.
