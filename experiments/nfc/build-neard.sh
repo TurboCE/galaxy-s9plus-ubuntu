@@ -4,10 +4,12 @@
 set -eu
 : "${1:?Pass a new build directory}"
 revision=f4b6db9ec482208079f684a0ed6762fd37371d2b
+patch_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 test ! -e "$1"
 git clone https://github.com/linux-nfc/neard.git "$1"
 git -C "$1" checkout --detach "$revision"
 test "$(git -C "$1" rev-parse HEAD)" = "$revision"
+patch --batch --forward --fuzz=0 -d "$1" -p1 < "$patch_dir/neard-active-tag-poweroff.patch"
 meson setup "$1/build" "$1" --prefix=/usr/local \
   -Dsystemd=enabled -Dp2p=false -Dese=false -Dtools=true -Dtest=true
 meson compile -C "$1/build" -j2

@@ -19,6 +19,7 @@
 #define CLKOUT1 0xa0c
 #define CLKOUT1_MASK (GENMASK(13, 8) | BIT(0))
 #define RESET_DELAY_MS 150
+#define PROP_FW_CFG 0x28
 
 /* Pinned Samsung Exynos9810 sources define this board's LDO38 and CLKOUT1. */
 extern int s9p_acpm_pmic_read(u8 reg, u8 *value);
@@ -195,10 +196,39 @@ static int g965n_send(struct nci_dev *nci, struct sk_buff *skb)
 	return ret;
 }
 
+static int clock_config_response(struct nci_dev *nci, struct sk_buff *skb)
+{
+	if (!skb->len)
+		return -EPROTO;
+	nci_req_complete(nci, skb->data[0]);
+	return 0;
+}
+
+static int g965n_init(struct nci_dev *nci)
+{
+	/* Owner's SM-G965N vendor config: FW_CFG_CLK_SPEED=0x12.
+	 * Samsung's HAL sends this single-byte command before CORE_RESET.
+	 * This configures the running controller; no firmware image is uploaded.
+	 */
+	const u8 clock = 0x12;
+
+	return nci_prop_cmd(nci, PROP_FW_CFG, sizeof(clock), &clock);
+}
+
+static const struct nci_driver_ops g965n_prop_ops[] = {
+	{
+		.opcode = nci_opcode_pack(NCI_GID_PROPRIETARY, PROP_FW_CFG),
+		.rsp = clock_config_response,
+	},
+};
+
 static const struct nci_ops g965n_ops = {
+	.init = g965n_init,
 	.open = g965n_open,
 	.close = g965n_close,
 	.send = g965n_send,
+	.prop_ops = g965n_prop_ops,
+	.n_prop_ops = ARRAY_SIZE(g965n_prop_ops),
 };
 
 static struct gpiod_lookup_table nfc_pins = {

@@ -74,7 +74,10 @@ class Settings(Gtk.Application):
             self.scan.set_sensitive(powered)
             self.scan.set_label('태그 검색 중지' if polling else '태그 검색 시작')
             self.polling = polling
-            self.status.set_text('태그를 검색하고 있습니다.' if polling else
+            tags = [interfaces['org.neard.Tag'] for interfaces in objects.values()
+                    if 'org.neard.Tag' in interfaces]
+            self.status.set_text('NFC 태그를 인식했습니다.' if tags else
+                                 '태그를 검색하고 있습니다.' if polling else
                                  'NFC가 켜져 있습니다.' if powered else 'NFC가 꺼져 있습니다.')
             text = []
             for interfaces in objects.values():
@@ -85,6 +88,7 @@ class Settings(Gtk.Application):
                         if isinstance(value, str) and value:
                             text.append(value[:4096])
             self.records.set_text('\n'.join(text) if text else
+                                  '태그는 인식됐지만 표시할 NDEF 데이터가 없습니다.' if tags else
                                   '태그를 휴대폰 뒷면에 대세요. 태그에 따라 읽을 수 있는 정보가 다릅니다.')
         except (GLib.Error, RuntimeError) as error:
             self.status.set_text(str(error))

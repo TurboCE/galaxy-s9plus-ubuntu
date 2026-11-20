@@ -138,4 +138,44 @@ frontend runs as the desktop user and provides power and scanning
 controls over neard. It displays NDEF text and URI records when neard
 reads a tag. It does not automatically open a URI. GNOME Settings has
 no integrated NFC page in this installation, so the launcher is separate.
-Actual tag content needs an on-device tag and remains unverified.
+The initial service-only setup did not qualify a physical tag; the later
+on-device trial and required corrections are recorded below.
+
+## Qualified clock initialization and active-tag shutdown
+
+The first physical card trial did not detect a target despite successful
+CORE_INIT and RF_DISCOVER responses. The owner's stock vendor configuration
+sets `FW_CFG_CLK_SPEED=0x12`. Samsung's published
+[HAL clock initialization](https://github.com/LineageOS/android_hardware_samsung_nfc/blob/61bc89fa5fb6b6c3fa47f99f9aaf6cf7967fc061/halimpl/src/hal_nci.cc)
+sends vendor opcode 0x28 with this one-byte value before CORE_RESET.
+The controller module now implements that sequence through the Linux NCI
+proprietary-command API and checks the response status. No firmware image or
+RF-register blob is uploaded. The RF files and vendor firmware remain private.
+
+After this correction the owner confirmed card recognition; neard published
+one tag and four records. Three full power-down/up/read cycles each returned
+one tag and four records. This verifies that specific target and NDEF path,
+not all supported protocols, payment operation or secure-element use.
+
+The active-tag trial exposed an upstream neard power-down failure: it retained
+the initiator socket and NFC_CMD_DEV_DOWN returned EBUSY. The tracked
+`neard-active-tag-poweroff.patch` disconnects that socket and cancels its
+presence timer first. It also formats negative errno correctly. The build
+recipe applies the patch to the pinned upstream source; upstream GPLv2 notices
+and attribution are retained. The three NDEF/SNEP test suites pass.
+
+An initial warm reboot also exposed a service race: a simple Bluetooth service
+can be marked started before its helper has loaded NFC. neard then failed to
+find the NFC generic-netlink family. Install `wait-ready.py` as a root-owned
+file under `/usr/local/lib/g965n-native-nfc` and add this to neard's existing
+drop-in, preserving the Unit/Install sections documented above:
+
+```ini
+[Service]
+ExecStartPre=/usr/bin/python3 /usr/local/lib/g965n-native-nfc/wait-ready.py
+```
+
+The gate waits at most 30 seconds for the actual controller's bound driver
+and child NFC radio. It does not change device state. Keep the installed
+controller module's digest current in `pins.json`, preserve a private rollback,
+and retain the existing exact-model/BOOT/backup checks during deployment.

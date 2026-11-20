@@ -5,13 +5,16 @@ original firmware G965NKSU5FVA2. Target is parity with the hardware features
 supported by the reference LineageOS build, not just desktop startup.
 A build or a driver node is not sufficient evidence of a working function.
 
-Latest #48 log audit: early kernel ring-buffer warnings remain, including
+The pre-NFC-clock-fix #48 log audit found early kernel ring-buffer warnings, including
 two RTC IRQ63 type warnings with traces, CPU feature variation/taint,
 unsupported NFC vendor notifications and Bluetooth transmit-power commands,
 missing RGB/haptic nodes and alternate-GPT fallback. The system journal
 omits part of early boot. No new warning appeared in the last 15 minutes,
 no unit was failed, and no real panic/Oops/BUG or matching GPU/display fault
 was observed. This is a quiet runtime observation, not a clean-boot claim.
+The subsequent NFC clock fix eliminated the observed vendor notification in
+its verified warm boot; the RTC/CPU/GPT and other unrelated warnings are not
+marked fixed by that NFC test.
 
 Owner-confirmed baseline: audio output, microphone, Wi-Fi, Wi-Fi Direct and
 Bluetooth have already worked in actual use, as clarified by the owner. Retain
@@ -131,6 +134,7 @@ priority; LTE remains the current focus.
 | #48 standard Ubuntu mobile data | On a distinct warm boot with the verified modem receipt, ModemManager registered the SIM on its home network and NetworkManager connected rmnet0 as GSM. An uncached IPv4 DNS lookup selected rmnet0, followed by TLS-verified HTTPS204 bound to it. LTE counters increased by RX10/TX13 with zero interface errors; separately bound Wi-Fi HTTPS204 also passed. | End-to-end IPv4 cellular data via Ubuntu Mobile Network verified on this boot. Mobility, IPv6, voice and SMS remain open. |
 | Replacement data USIM on #48 NFC trial | The previous running RIL reported SIM not ready after the tray change. The modem detected the replacement after restart. Native boots with refreshed provenance exposed the SIM to Ubuntu and reported EPS searching, nonzero signal and no packet attachment. A separate 60-second warm-boot observation found no cellular bearer; Wi-Fi HTTPS204 passed. | SIM enumeration verified. Carrier registration and IPv4/IPv6 data with the replacement SIM remain open. The earlier confirmed IPv4 trial used a different SIM. |
 | #48 NFC desktop service and controls | Pinned upstream neard built and passed all three NDEF/SNEP suites. Its standard ObjectManager exposes nfc0. Ordinary-user D-Bus power and polling commands passed before and after a service restart. A real GTK frontend exercised checkbox/button handlers and all six visible status checks passed. | Power and polling controls installed and verified in a separate NFC launcher. NDEF parsing suites passed upstream fixtures. Physical tag detection and content remain unverified. |
+| #48 physical NFC target and persistent clock fix | The initial owner card trial detected nothing. Implemented the stock single-byte vendor clock configuration (0x28, value 0x12) before CORE_RESET. The owner then confirmed recognition and neard published one tag/four records. After an active-tag socket-release fix, three full power cycles each read one tag/four records and final power-off succeeded. The first reboot exposed neard starting before the NFC netlink family; a bounded actual-radio readiness gate fixed that race. A second distinct warm boot automatically started neard and Bluetooth; ordinary-user polling again read one tag/four records, BlueZ was powered and Wi-Fi HTTPS204 passed, with no failed units. | Physical tag detection, NDEF records, repeated active-tag power cycling and warm-boot NFC/Bluetooth coexistence verified for this target. Current boot had zero matching unsupported 0xf3f, receive-error or failed-send messages. No card identifier or record contents retained in Git. Other tag protocols, write operations, payments, emulation and secure elements remain unqualified. |
 | Kernel health reporting | Updated analyzer matched one hub standby warning, one PLL lock failure, one PLL rollback failure, 23 GPIO warnings and four modem QoS notices in the live #44 kernel buffer and journal. Only the kernel buffer retained the boot header. | Warning detection and separate source counts verified. The report still shows open hardware issues. |
 | Screen-only background operation | Native #44 running handler matched the repository. Two 8.2 s software display-off intervals, Mutter mode off and CRTC inactive, six IIO reads every ~250 ms and Wi-Fi HTTPS204. Original display and lock state restored, boot and handler process unchanged. | Display-only background operation verified. Physical power-key behavior and Android comparison of battery drain remain pending. |
 

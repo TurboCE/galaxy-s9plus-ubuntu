@@ -6548,3 +6548,61 @@ The BBD timeout keyword line reports the configured ten-second wait and is
 not, by itself, proof that the wait expired. Current use is quiet, but this is
 not a warning-free boot or complete feature qualification. No device setting,
 partition or driver was changed during this audit.
+
+### 2026-11-20 — Qualify a physical NFC target and fix clock/startup lifecycle
+
+The owner prepared a credit card with contactless/transport support. Started
+ordinary-user neard polling and a bounded, private observation of tag/record
+counts and property names only. The initial physical placement produced no
+RF discovery or tag. Standard command responses alone had not qualified RF.
+Compared the stock vendor configuration with Samsung's published HAL at
+LineageOS android_hardware_samsung_nfc revision
+61bc89fa5fb6b6c3fa47f99f9aaf6cf7967fc061. The owner configuration specifies
+FW_CFG_CLK_SPEED=0x12 and that HAL sends a one-byte vendor command 0x28 before
+CORE_RESET. Implemented it in the Linux NCI init callback with an explicit
+proprietary response handler. No firmware image, RF-register file or secure
+state was uploaded. No proprietary binary was added to the repository.
+
+The first module build selected the host compiler and failed on ARM64 options.
+Rebuilt with the ARM64 cross compiler, the matching NFC kernel configuration
+and the preserved full kernel/NFC symbol tables. After exact model, current
+BOOT, backup and candidate-hash verification, powered down NFC and hot-loaded
+only the trial controller module. Bluetooth remained active. The clock command
+completed; RF_DISCOVER response latency fell from roughly 444 ms to 10 ms and
+the immediate unsupported vendor notification did not recur. The owner then
+confirmed recognition. neard exposed one physical tag and four records. Neither
+UID nor record values were retained in the summary or committed.
+
+The first repeat test failed to power off while the card stayed present:
+neard returned EBUSY because it retained its initiator socket. Added the tracked
+GPLv2 patch to release that socket and its presence timer before power-down,
+and corrected its negative-errno error formatting. The upstream source and
+Intel notices remain intact. The daemon built successfully. Its first test run
+failed because previous root-owned test logs prevented ordinary-user writes;
+corrected ownership of only those test log files, then all three upstream
+NDEF/SNEP suites passed. Preserved the original daemon privately and installed
+the candidate. With the owner holding the target in place, three complete
+power-off/on/poll/read cycles each returned one tag and four records. A final
+power-off with the tag still active succeeded.
+
+Rechecked the model/BOOT/backup guard and saved the original installed controller
+and startup pins privately. Installed the qualified clock module with its
+matching hash. The first distinct warm boot exposed a service readiness race:
+neard was ordered after the simple Bluetooth unit, but started before the
+helper had loaded the NFC generic-netlink family and failed. Bluetooth and
+nfc0 subsequently registered. Added a bounded read-only readiness gate for the
+actual controller driver and child NFC radio to neard's ExecStartPre. It does
+not write hardware. Installed a frontend update that explicitly distinguishes
+a detected tag with no NDEF records from no target.
+
+The gate passed on the running device. After a second distinct warm reboot,
+neard and Bluetooth started automatically, BlueZ was powered, and no unit was
+failed. An ordinary-user power-on and poll again read one tag and four records.
+The installed controller matched its startup pin. Wi-Fi-bound HTTPS204 passed;
+this boot had zero unsupported-0xf3f notifications, NFC receive errors or failed
+NCI sends, and no matching neard failure/critical log. NFC UI was reopened and
+the owner was told the card could be removed. The earlier RTC/CPU/GPT warnings
+are unrelated and are not marked fixed. Other tag technologies, card writing,
+payments, secure-element functions, emulation and endurance are not qualified.
+The tracked recipe now applies the neard patch; README records clock source,
+installation readiness and the successful hardware scope.

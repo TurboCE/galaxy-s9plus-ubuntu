@@ -1,0 +1,28 @@
+--- a/src/adapter.c
++++ b/src/adapter.c
+@@ -237,6 +237,16 @@
+ 	struct near_adapter *adapter = data;
+ 	int err;
+ 
++	/* Release the initiator socket before NFC_CMD_DEV_DOWN. The kernel
++	 * refuses power-down while a tag remains activated by that socket. */
++	if (!powered && adapter->tag_link) {
++		if (adapter->presence_timeout > 0) {
++			g_source_remove(adapter->presence_timeout);
++			adapter->presence_timeout = 0;
++		}
++		near_adapter_disconnect(adapter->idx);
++	}
++
+ 	err = __near_netlink_adapter_enable(adapter->idx, powered);
+ 	if (err < 0) {
+ 		if (err == -EALREADY) {
+@@ -253,7 +263,7 @@
+ 		g_dbus_pending_property_error(id,
+ 						NFC_ERROR_INTERFACE ".Failed",
+ 						"%s",
+-						strerror(err));
++						strerror(-err));
+ 
+ 		return;
+ 	}
