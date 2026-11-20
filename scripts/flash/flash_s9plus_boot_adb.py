@@ -43,8 +43,39 @@ SERIAL = find_serial()
 BOOT = "/dev/block/platform/11120000.ufs/by-name/BOOT"
 
 
-def adb(*args):
-    return subprocess.check_output([str(ADB), "-s", SERIAL, *args], text=True).strip()
+def adb(*args, timeout=30):
+    return subprocess.check_output([str(ADB), "-s", SERIAL, *args], text=True,
+                                   timeout=timeout).strip()
+
+
+def upload_boot(image, remote, expected):
+    # A selected TWRP transport can stall in the sync service before creating
+    # the file. Raw exec-in works on the qualified recovery. Older recoveries
+    # have discarded exec-in data, so neither transport is trusted without SHA.
+    try:
+        if adb("shell", f"sha256sum {remote}").split()[0] == expected:
+            print("Reusing the checksum-verified temporary BOOT image", flush=True)
+            return
+    except (subprocess.SubprocessError, IndexError):
+        pass
+    try:
+        with image.open('rb') as stream:
+            subprocess.run([str(ADB), '-s', SERIAL, 'exec-in', f'cat > {remote}'],
+                           stdin=stream, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                           check=True, timeout=90)
+        # This recovery can leave subsequent shell channels stalled after raw
+        # stdin closes. Reset only the selected transport before any write.
+        adb('reconnect', timeout=15)
+        adb('wait-for-recovery', timeout=30)
+        if adb('shell', f'sha256sum {remote}').split()[0] == expected:
+            print('Raw temporary BOOT upload SHA256 verified', flush=True)
+            return
+    except (subprocess.SubprocessError, IndexError):
+        pass
+    print('Raw upload unavailable; trying bounded legacy sync transfer', flush=True)
+    adb('push', str(image), remote, timeout=90)
+    require(adb('shell', f'sha256sum {remote}').split()[0] == expected,
+            'USB copy checksum mismatch; no partition write performed')
 
 
 image = Path(sys.argv[1]).resolve()
@@ -59,10 +90,9 @@ require(adb("shell", f"readlink -f {BOOT}") == "/dev/block/sda10", "BOOT mapping
 require(len(blob) <= int(adb("shell", f"blockdev --getsize64 {BOOT}")), "Image does not fit")
 expected = hashlib.sha256(blob).hexdigest()
 remote = "/tmp/s9plus-native-boot.img"
-print(adb("push", str(image), remote))
-require(adb("shell", f"sha256sum {remote}").split()[0] == expected, "USB copy checksum mismatch")
-print(adb("shell", f"dd if={remote} of={BOOT} bs=1048576 && sync"))
-actual = adb("shell", f"head -c {len(blob)} {BOOT} | sha256sum").split()[0]
+upload_boot(image, remote, expected)
+print(adb("shell", f"dd if={remote} of={BOOT} bs=1048576 && sync", timeout=120))
+actual = adb("shell", f"head -c {len(blob)} {BOOT} | sha256sum", timeout=60).split()[0]
 require(actual == expected, "BOOT readback checksum mismatch; left in recovery")
 print(f"BOOT_READBACK_VERIFIED sha256={expected} bytes={len(blob)}", flush=True)
 print(adb("reboot"))

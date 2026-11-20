@@ -310,3 +310,16 @@ MCU_RESP1. The unproven functional40 control change was reverted in41; only
 read-only pin observations remain. Fresh IIO feeds do not qualify hard reset.
 Native41 adds two actual ABOX startup errors; preserve them as unresolved
 even though the later bounded playback/capture flow and all services pass.
+
+
+Native48 RTC IRQ-only DT correction (2026-11-20): exactly two inner-DTB flag
+bytes changed from NONE to LEVEL_HIGH; same kernel Image/module ABI. A fresh
+nine-partition TWRP backup passed and BOOT-only write/readback succeeded after
+the previous snapshot correctly failed the EFS identity check. RECOVERY, EFS,
+CPEFS, RADIO, DTB and DTBO full hashes matched the fresh snapshot on native boot.
+Initial boot and separate warm reboot: invalid RTC IRQ warning0/call trace0,
+clock advanced, awake RTC_AF alarm delivered and cleared, HCTOSYS0, retained
+RTC time. Sensor/audio/Bluetooth/cover services active, BT powered, NFC
+node/neard present, seven IIO devices, sound card and Wi-Fi HTTPS204. This
+qualifies RTC awake/warm-reboot operation, not cold power retention or suspend
+wake, nor a repeat of physical NFC/audio/profile tests. GPS regression pending.

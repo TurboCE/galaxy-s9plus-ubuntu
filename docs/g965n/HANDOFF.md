@@ -31,7 +31,7 @@ RECOVERY/EFS/CPEFS/RADIO 및 부트로더를 복구 편의상 덮어쓰지 않�
 현재 기기의 주요 상태 위치(내용은 비공개):
 
 - `/var/lib/g965n-sensors/profile.json` 및 `profile.sha256`: 센서 supervisor·정확한 BOOT/백업 참조.
-  최근 NFC용 receipt 루트는 `kernel48-nfc`였으나 프로필을 기준으로 조회합니다.
+  최근 RTC용 receipt 루트는 `kernel48-rtc-irq`이며 프로필을 기준으로 조회합니다.
 - `/var/lib/g965n-lte/desktop/config.json`: 모뎀 프로그램 핀. 파일 해시를 바꾸면
   해당 unit의 config-sha256도 갱신해야 합니다. APN/신원 정보는 출력·커밋하지 않습니다.
 - `/usr/local/lib/g965n-native-nfc/pins.json`: Bluetooth/NFC 모듈 핀.
@@ -45,8 +45,8 @@ RECOVERY/EFS/CPEFS/RADIO 및 부트로더를 복구 편의상 덮어쓰지 않�
 |---|---|---|---|
 | 1 | GPS 후속 회귀: `experiments/gnss/` | gpsd NdkSensorsInfo 충돌을 private config의 hal SensorsEnable=false로 수정. 창가 재시험 300초/4,448문장/오류0에서 3D fix, 사용 위성8. GeoClue가 1.2초 이내 위치·보고 정확도3m 전달. 기본 수신/연결 문제 수정 확인 | 기본 fix는 확인됨. 추가 야외 이동/냉간 부팅/절전 복귀·장기 정확도·캐시 만료/오프라인 실제 회귀가 남음 |
 | 2 | GPS 보조 데이터 | 순정 gps_psds.conf의 4day/v5 LTO를 HTTPS로 수신. 24h 캐시·4day Last-Modified 제한·해시·원본 설정 일치 검사. XTRA init/inject 모두0, 124,383바이트가 수신기 저장 파일과 일치. hourly 갱신 timer 연결 | 보조 데이터를 사용한 실제 fix는 확인됨. 보조 유무의 첫 fix 시간 A/B 비교는 안 함. SUPL/이전 위치 주입 미구현 |
-| 3 (다음) | RTC: `experiments/rtc/` | DT의 IRQ_TYPE_NONE 때문에 경고. generic IRQ sysfs는 edge라 표시했지만 실제 GICD_ICFGR의 IRQ63/64 필드 값은1이고 bit1=0(level). generic 표시만으로 EDGE_RISING을 적용하면 안 됨. LEVEL_HIGH로 실제 설정을 명시하는 후보 준비 | BOOT-only 가드 적용 후 경고 없음, 시계 진행·깨어 있을 때 알람·재부팅 회귀 통과 |
-| 4 | GPT | `/dev/sda` 논리 섹터 4096. primary header/array CRC 정상, 마지막 backup header 없음. 512바이트 가정의 첫 진단은 잘못된 가정이었음 | 먼저 원본 메타데이터/기하 보존 백업·쓰기 영향 검토. 수리 시 파티션 시작/끝·GUID·보호 파티션 보존 및 재부팅 검증. 검사 없이 자동 `sgdisk -e` 실행 금지 |
+| 3 (확인) | RTC: `experiments/rtc/` | DT의 IRQ_TYPE_NONE 때문에 경고. generic IRQ sysfs는 edge라 표시했지만 실제 GICD_ICFGR의 IRQ63/64 필드 값은1이고 bit1=0(level). generic 표시만으로 EDGE_RISING을 적용하면 안 됨. LEVEL_HIGH 적용 후 초기 부팅·별도 재부팅에서 경고/호출 추적0, 시계 진행·실제 알람·시간 유지 통과. 서비스 receipt 이관 및 재시작 확인 | 기본 회귀 완료. 냉간 전원·절전 깨우기·자동 시각 동기화는 미검증 |
+| 4 (다음) | GPT | `/dev/sda` 논리 섹터 4096. primary header/array CRC 정상, 마지막 backup header 없음. 512바이트 가정의 첫 진단은 잘못된 가정이었음 | 먼저 원본 메타데이터/기하 보존 백업·쓰기 영향 검토. 수리 시 파티션 시작/끝·GUID·보호 파티션 보존 및 재부팅 검증. 검사 없이 자동 `sgdisk -e` 실행 금지 |
 | 5 | 진동·LED: `experiments/pmic/`, `docs/g965n/PMIC_REVIEW.md` | 소스 수정 후보 있음. PWM 실클럭/핀·모터 전원·색상 전류 한계가 빠짐 | 보수적 실제 출력·정지·재부팅·오류 시 복원 확인 후 표준 input/LED 인터페이스·알림 연동 |
 | 6 | 나침반/센서 | IIO/Qt/표준 앱 데이터 전달은 됨. 방향 정확도 미달 | USB/자석 분리한 기준 방향·기울기 비교 및 보정, 재부팅 후 유지 |
 | 7 | GPU | 기본 가속/클럭 회귀는 통과한 이력. GNOME 실제 화면 애니메이션 버벅임 남음 | 실제 출력의 프레임 시간·장시간 부하 개선. 가상 모니터 성능만으로 통과하지 않음 |

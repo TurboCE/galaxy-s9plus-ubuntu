@@ -6745,3 +6745,56 @@ states were archived privately and reset; their journal/debug evidence was
 retained. This cleanup is separate from the hardware correction. The normal
 receiver run uses no temporary log-capture environment, and Wi-Fi connectivity
 was checked again. RTC-only BOOT preparation is a separate following change.
+
+
+## 2026-11-20 — RTC IRQ candidate and guarded recovery transfer investigation
+
+Prepared a BOOT-only trial changing the two RTC interrupt flags from NONE to
+LEVEL_HIGH. Direct GIC distributor inspection showed level delivery; the generic
+IRQ sysfs edge label was not sufficient evidence. The build tool checks the
+actual inner FDT and permits exactly two changed bytes in the existing wrapper.
+No kernel Image, ramdisk, outer DT, bootloader or protected partition is changed
+by this candidate. Hardware qualification is pending.
+
+Recovery sync upload stalled before creating its temporary image. Cancelled the
+selected upload before BOOT write. Raw exec-in transferred the complete image
+and matched SHA256, but left subsequent recovery shell channels stalled until
+a selected-device reconnect. Added bounded raw transfer, reconnect, checksum
+verification and bounded legacy fallback to the BOOT uploader. Four isolated
+transport tests pass, including rejection of corrupt/discarded transfers.
+
+The next guarded installer stopped because EFS no longer matched the earlier
+snapshot; PARAM also differed during read-only review, while BOOT and the other
+seven partitions matched. Repeated EFS reads were stable and EFS was not mounted
+in recovery. The cause of the intervening metadata change is not established.
+No protected partition was restored and no identity check was bypassed. Taking
+a new complete nine-partition backup before any further BOOT update.
+
+
+Fresh snapshot comparison localized EFS differences to ext4 superblock metadata
+(mount/write time, mount count and written-byte counter fields); PARAM differed
+in one block. No private field contents are included here. All nine new backup
+files passed byte-count and SHA checks. The guarded installer then passed EFS
+identity checks, reused only the checksum-matching temporary BOOT image, wrote
+BOOT and verified its readback before rebooting. The native trial booted.
+
+Migrated sensor/audio/Bluetooth/cover/LTE receipt pins only after checking the
+new BOOT and full RECOVERY/EFS/CPEFS/RADIO/DTB/DTBO hashes against the fresh
+snapshot. Native Bluetooth drop-in pins were included. All four driver services
+became active. Live RTC flags are (0,31,4,0,32,4); invalid IRQ warnings and call
+traces were both0. RTC advanced and a four-second awake alarm reached /dev/rtc0;
+its alarm was cleared and the system clock was not changed.
+
+A separate warm reboot retained/advanced RTC time and again had0 invalid IRQ
+warnings and0 call traces. The first repeat command referenced a temporary file
+removed by reboot, so it did not execute the alarm check; copied the public
+verify-awake.py and reran successfully. Driver services, NFC device/neard,
+Bluetooth powered, seven IIO devices and one sound card returned. Wi-Fi-bound
+HTTPS returned204. Physical tag/audio/profile tests were not repeated here.
+The public awake checker retains an existing alarm, uses an explicit bounded
+trial and does not disable safety checks under python -O.
+
+The remaining bbd_enable_lk timeout:10 sec line is informational watchdog
+scheduling in bbd.c, not evidence that its timer expired. Preserve it and
+separate it from real timeout failures. GPT fallback and missing haptic wiring
+remain unresolved; no GPT/PMIC write has been performed in this RTC step.

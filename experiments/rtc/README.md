@@ -46,3 +46,53 @@ An alarm triggered while the handset was awake and delivered an event
 through `/dev/rtc0`. The clock also retained its advancing time across a separate warm reboot,
 and systemd timedated exposed the same hardware time. Wake from suspend or
 shutdown requires a separate hardware test.
+
+
+## RTC interrupt warning correction (native #48)
+
+The reference node left the alarm/tick flags at IRQ_TYPE_NONE. Read-only
+inspection of the actual GIC distributor showed both inputs configured as
+level interrupts. Explicit LEVEL_HIGH (4) preserves that hardware behavior;
+the generic IRQ descriptor's earlier sysfs edge label was misleading.
+The source patch now supplies LEVEL_HIGH for both SPI31 and SPI32.
+
+For an existing qualified #48 private BOOT and its exact inner DTB:
+
+```sh
+python3 experiments/rtc/build-irq-trial.py \
+  --boot "$PRIVATE_BOOT" --dtb "$PRIVATE_INNER_DTB" --output "$NEW_PRIVATE_OUTPUT"
+```
+
+The output directory must be new. This tool checks the real FDT and allows
+exactly two interrupt flag bytes to change; Image, ramdisk and outer DT remain
+identical. It builds only and never writes the device. Do not publish the
+resulting image without separately reviewing all embedded redistribution rights.
+Copy the candidate into dist/ and use scripts/g965n/install.py with a fresh
+verified nine-partition recovery backup and explicit BOOT-only authorization.
+An EFS mismatch is a refusal, not a reason to disable identity checks.
+
+On the native trial, migrate guarded service receipts using the explicit
+private candidate and the fresh backup manifest:
+
+```sh
+sudo python3 experiments/rtc/migrate-services.py \
+  --old-root /var/lib/g965n-sensors/kernel48-nfc \
+  --new-root /var/lib/g965n-sensors/kernel48-rtc-irq \
+  --backup-manifest "$PRIVATE_BACKUP_MANIFEST" --boot "$PRIVATE_CANDIDATE" \
+  --confirm-sm-g965n-rtc-boot-only
+sudo python3 experiments/rtc/verify-awake.py
+```
+
+Migration refuses a different kernel release, unexpected receipt/config pins,
+changed protected partitions or an existing destination. It keeps prior service
+settings; do not rerun against a partially created destination without reviewing
+its failure. The alarm check preserves an existing alarm by refusing to proceed,
+uses one four-second alarm, and clears its alarm in a finally block. It does not
+qualify suspend wake or cold power retention.
+
+Hardware verification on 2026-11-20: initial boot and a separate warm reboot
+retained the RTC time, advanced the counter, delivered the awake alarm and
+showed no invalid-IRQ warning or kernel call trace. Audio, Bluetooth, cover and
+sensor services returned after migration and after reboot. Wi-Fi HTTPS returned
+204. NFC enumerated and neard started; this is startup regression evidence,
+not a new physical tag-reading trial.
