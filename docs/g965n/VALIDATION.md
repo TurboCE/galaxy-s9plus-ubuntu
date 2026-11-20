@@ -492,3 +492,16 @@ No real modem bus provider/ECT table: no speculative clock patch installed.
 Location enabled, authorized GeoClue GNSS session active. One failed GNSS
 instance rejected a non-GeoClue peer as designed; preserved, not a receiver
 crash or an all-failed-units-zero result. Document portal remains excluded WIP.
+
+
+xgps integration native48: package installation, ordinary-user launch, live
+NMEA221/TPV160 records and loopback-only GPSD listener verified after startup
+delay. GeoClue peer ACL retained, viewer has no command path to HAL. New bridge
+boot persistence and outdoor satellite/fix accuracy remain untested.
+
+Final xgps check: connected-port2948 window confirmed through accessibility,
+ordinary-user launcher active,145 live TPV messages received with mode1 (no
+position fix). Stock launcher was shadowed only by a per-user xgps.desktop
+pointing to the connected wrapper; package launcher preserved. The bridge
+restart disconnected an earlier viewer; launched a new connected window and
+verified delivery after receiver startup. No satellite-fix claim.

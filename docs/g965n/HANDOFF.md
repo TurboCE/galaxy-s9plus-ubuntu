@@ -281,3 +281,18 @@ PM_DEVFREQ/INTERCONNECT core는 켜졌지만 실제 devfreq는 GPU만 있고 Exy
 bus/Samsung ICC provider 설정·DT endpoints/ECT 표가 없습니다. CP mailbox
 인덱스→실제 rate 표와 CPU cluster 대응부터 확인하세요. 임의 rate/전압·허브
 failsafe reset 쓰기나 경고만 제거하는 변경은 하지 않았습니다.
+
+
+xgps 연결 후속: GNSS README의 xgps 절을 참고. /usr/local/bin/g965n-xgps가
+일반 사용자 GeoClue client를 유지하며 GPSD2948로 접속합니다. g965n-xgps
+서비스는 private PTY/루프백 전용. serve.py 비차단 tap은 viewer 없이도 기존
+GeoClue를 유지하며 viewer 명령을 HAL로 보내지 않습니다. 실제 NMEA/TPV 전달
+확인, 위성 fix/실외 정확도와 새 서비스 재부팅은 미검증. 원본 helper는 기기에
+비공개 백업. GeoClue 전용 NMEA 소켓 권한을 열거나 직접 진단 접속하지 마세요.
+
+Final xgps check: connected-port2948 window confirmed through accessibility,
+ordinary-user launcher active,145 live TPV messages received with mode1 (no
+position fix). Stock launcher was shadowed only by a per-user xgps.desktop
+pointing to the connected wrapper; package launcher preserved. The bridge
+restart disconnected an earlier viewer; launched a new connected window and
+verified delivery after receiver startup. No satellite-fix claim.

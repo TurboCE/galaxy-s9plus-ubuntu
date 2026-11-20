@@ -256,3 +256,42 @@ to this diagnostic ID and UID. This check shares GeoClue's source with Maps;
 do not run the direct NMEA GPS Test unit at the same time. Keep normal location
 preferences enabled. Cold reboot, suspend/resume, moving outdoor accuracy and
 the real effect of assistance expiry remain separate hardware regressions.
+
+## xgps satellite diagnostic viewer
+
+`xgps-bridge.py` and `xgps-launch.py` are GPL-2.0-only integration helpers.
+Install Ubuntu `gpsd-clients` and `gpsd` (no firmware redistribution). After
+model/current BOOT/protected-backup checks, privately back up installed serve.py.
+Install this revision of serve.py and xgps-bridge.py in the existing root-private
+GNSS directory. Install xgps-launch.py as executable /usr/local/bin/g965n-xgps;
+install g965n-xgps.service separately and enable/start it. Builds never install
+or flash these files. Retain original permissions and the GeoClue-only peer ACL.
+
+The updated serve.py copies received NMEA to a nonblocking root-private datagram
+socket; a missing/slow viewer cannot block GeoClue. The bridge accepts only root
+sender credentials, feeds a private PTY and starts stock GPSD on loopback port2948.
+GPSD -b disables receiver probing; all PTY output is discarded, so viewer
+commands cannot reach the vendor HAL. Raw NMEA/coordinates are never logged.
+Local GPSD clients can read location when the authorized location session is
+active; port2948 must remain loopback-only. No remote TCP listener is required.
+
+Authorize desktop ID g965n-xgps for the intended desktop UID in a GeoClue
+conf.d file (allowed=true, system=false, users=<desktop UID>). Its application
+launcher runs /usr/local/bin/g965n-xgps as that ordinary user. The wrapper holds
+an authorized GeoClue client only while xgps runs, respecting desktop location
+permission. Restart GeoClue once to read the new source/helper and application
+policy; do not connect a diagnostic directly to its restricted NMEA socket.
+
+Native48 installation: stock packages3.25-3ubuntu3.2 installed; ordinary-user
+window launched. Live receiver NMEA and GPSD TPV messages reached the viewer
+backend after initial receiver startup delay. Satellite availability/fix depend
+on reception; this is not a new outdoor accuracy qualification. Root-only
+rollback copy retained. To remove integration, close the viewer, stop/disable
+only g965n-xgps, restore previous serve.py, remove the owned launcher/application
+policy and restart GeoClue. Preserve existing GNSS/sensor configuration.
+
+The installed menu uses a per-user xgps.desktop override pointing to the
+connected wrapper; the stock package launcher is preserved. Final connected
+port2948 window verified via accessibility and145 live TPV records received,
+mode1 (no fix). A bridge restart disconnects existing xgps clients; reopen
+the viewer afterward. New bridge startup after a reboot remains untested.

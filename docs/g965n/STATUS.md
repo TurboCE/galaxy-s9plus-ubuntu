@@ -89,3 +89,15 @@ Wi-Fi 지정 HTTPS204 확인. GPS 기본 위치 서비스 켜짐, GeoClue와 정
 수신 세션 실행 중. 별도 GNSS 실패 기록1건은 GeoClue 전용 소켓의 비허용
 계정 접속 거절이며 정상 세션은 유지됩니다. 전체 실패 unit0으로 표현하지
 않습니다. 모뎀 QoS·허브 물리 리셋·CPU 기능 차이는 별도 미완료입니다.
+
+
+xgps 설치·연결: 앱 목록의 GPS 위성 상태 (xgps)에서 실행. 기존 GeoClue
+위치 서비스와 읽기 전용 공유하며 실제 NMEA/TPV 전달 확인. 실내 위치 확정과
+위성 신호 수신은 별도이며 새 연결 서비스의 재부팅 자동 구동은 미검증입니다.
+
+Final xgps check: connected-port2948 window confirmed through accessibility,
+ordinary-user launcher active,145 live TPV messages received with mode1 (no
+position fix). Stock launcher was shadowed only by a per-user xgps.desktop
+pointing to the connected wrapper; package launcher preserved. The bridge
+restart disconnected an earlier viewer; launched a new connected window and
+verified delivery after receiver startup. No satellite-fix claim.

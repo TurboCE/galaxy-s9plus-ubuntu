@@ -1,0 +1,13 @@
+[Unit]
+Description=Read-only local GPS diagnostics bridge
+After=g965n-gnss.socket
+[Service]
+Type=simple
+UMask=0077
+RuntimeDirectory=g965n-xgps
+RuntimeDirectoryMode=0700
+ExecStart=/usr/bin/python3 /usr/local/lib/g965n-gnss/xgps-bridge.py
+Restart=on-failure
+RestartSec=5
+[Install]
+WantedBy=multi-user.target

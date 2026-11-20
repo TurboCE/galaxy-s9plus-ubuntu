@@ -7527,3 +7527,27 @@ failed system count1 refers only to that rejected connection, not a receiver
 crash. xgps is available in Ubuntu gpsd-clients, candidate3.25-3ubuntu3.2, not
 installed. It needs a reviewed adapter for the private GNSS path; no package
 install or private NMEA connection was inferred from the user's app question.
+
+
+## 2026-11-20 — Install and connect xgps
+
+After model/BOOT/protected-backup preflight, installed Ubuntu gpsd-clients/gpsd
+3.25-3ubuntu3.2, preserving prior GNSS helper privately. Added optional nonblocking
+root-private NMEA diagnostic fanout, credential-checked PTY bridge and loopback-only
+GPSD2948; no receiver commands return to HAL, raw positions/logs not saved. Added
+ordinary-user xgps launcher holding an authorized GeoClue client and application
+menu entry GPS 위성 상태 (xgps). Bridge enabled for startup; next reboot untested.
+Restarted only GeoClue to adopt helper/policy; sensors remained running. Initial
+25s GPSD query had only handshake responses during receiver startup. Subsequent
+live query received221 NMEA and160 TPV records. This proves actual data delivery,
+not a satellite fix or outdoor accuracy. Optional packet-count logging contains
+no location. Closed/reopened only the task-owned viewer following bridge restart.
+Other-context app edits preserved separately; no firmware, credentials or private
+backups published. Installation/rollback documented in GNSS README.
+
+Final xgps check: connected-port2948 window confirmed through accessibility,
+ordinary-user launcher active,145 live TPV messages received with mode1 (no
+position fix). Stock launcher was shadowed only by a per-user xgps.desktop
+pointing to the connected wrapper; package launcher preserved. The bridge
+restart disconnected an earlier viewer; launched a new connected window and
+verified delivery after receiver startup. No satellite-fix claim.

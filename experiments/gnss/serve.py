@@ -293,6 +293,12 @@ def serve():
                             raise RuntimeError('GNSS worker exited unsuccessfully')
                         break
                     peer.sendall(chunk)
+                    # Optional read-only diagnostic fanout. Never wait for a viewer
+                    # or forward its commands back into the receiver/GeoClue.
+                    with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as tap:
+                        tap.setblocking(False)
+                        with contextlib.suppress(OSError):
+                            tap.sendto(chunk, '/run/g965n-xgps/nmea.sock')
                     frames += chunk.count(b'\n')
             except (BrokenPipeError, ConnectionResetError, TimeoutError):
                 pass
