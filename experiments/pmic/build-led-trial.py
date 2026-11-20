@@ -17,6 +17,7 @@ def main():
     p.add_argument('--kernel-source', type=Path, required=True)
     p.add_argument('--kernel-out', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
+    p.add_argument('--named-regmap', action='store_true', help='Apply reviewed unique RGB regmap identity')
     args = p.parse_args()
     here = Path(__file__).resolve().parent
     pins = json.loads((here / 'LED_TRIAL.json').read_text())
@@ -37,6 +38,14 @@ def main():
                     '-i', str(patch)], check=True)
     if digest(staged) != pins['output_sha256']:
         raise RuntimeError('Unexpected patched source')
+    if args.named_regmap:
+        named = json.loads((here / 'LED_REGMAP_NAME.json').read_text())
+        extra = here / '0007-g965n-rgb-regmap-name.patch'
+        if digest(staged) != named['input_sha256'] or digest(extra) != named['patch_sha256']:
+            raise RuntimeError('Unreviewed RGB regmap-name source/patch')
+        subprocess.run(['patch', '--batch', '--fuzz=0', '-p1', '-d', str(target), '-i', str(extra)], check=True)
+        if digest(staged) != named['output_sha256']:
+            raise RuntimeError('Unexpected named regmap output')
     (target / 'leds-g965n-trial.c').write_bytes(staged.read_bytes())
     (target / 'Makefile').write_text('obj-m += leds-g965n-trial.o\n')
     subprocess.run(['make', '-s', '-C', str(source), 'O=' + str(out),

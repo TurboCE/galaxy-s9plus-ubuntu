@@ -107,6 +107,27 @@ creates a new directory and does not modify kernel source or flash a handset.
 It copies the matching standard led-class-multicolor dependency. Changed ABI
 or source requires a separate review, not bypassing hashes.
 
+### Give the RGB register map its own identity
+
+The qualified follow-up adds `--named-regmap` to the same build command.
+`LED_REGMAP_NAME.json` pins patch0007 and its input/output after0004. It adds
+only `regmap_config.name="g965n-rgb"`: RGB still uses its original relative
+register offsets on PMIC I2C0x66. Do not substitute the PMIC core's register
+map or the separate I2C0x69 charger map. No current/access/voltage setting
+changes. The ordinary builder still only produces modules in a new directory.
+
+After the existing model/BOOT/protected-backup checks, preserve both the old
+LED module and its private pins. Stop only g965n-led.service, replace the
+reviewed LED module/pin together, and restart/test with led-control.py below.
+The existing multicolor dependency and PMIC/charger parent remain untouched.
+Rollback uses the preserved module/pin pair through the same guarded lifecycle.
+
+Native48 evidence: separate module build passed; guarded replacement and all
+three low-current on/off readback checks passed. The new debugfs map
+`3-0066-g965n-rgb` coexists with the unchanged core `3-0066`; new duplicate-map
+errors were0 and LEDs ended off. This name change has not had a separate
+warm-boot test. Earlier LED boot/output evidence below predates this change.
+
 After explicit SM-G965N/BOOT/backup checks, stage the two modules, generated
 pins.json and led-control.py in root-owned0700 `/usr/local/lib/g965n-led-trial`
 with files0600. The control script checks the current sensor profile/BOOT and

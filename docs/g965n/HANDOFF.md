@@ -5,6 +5,42 @@
 [VALIDATION](VALIDATION.md)과 [CHANGELOG](CHANGELOG.md)에서 확인하세요.
 이전 행의 pending을 후속 성공 이력보다 우선하지 마세요.
 
+## 최신 요청 — 성능 추가 조정 중단, 로그 오류 우선
+
+사용자가 현재 성능이 충분하다고 수용했습니다. 추가 성능 변경과 그 목적의
+재부팅은 중단했습니다. 최신 적용은 g965n-interactive-boost.service:
+터치/키 입력 후500ms 동안만 표준 CPU QoS, 대기 바닥값349.916/1066MHz로
+복귀. 두 번 실제 DSI 비교와1794MHz 하향 MAX 제약 준수 확인. 현재 부팅에서
+active/enabled이며 다음 부팅 자동 시작은 아직 미검증입니다. 소스/빌드/
+보호 검사/복구는 experiments/interactive-boost/README.md를 보세요.
+이것은 modem vendor bus QoS/ECT 미구현을 해결한 것이 아닙니다.
+
+실효성 없던 성능 시험은 모두 복구했습니다: CPU governor schedutil,
+전체 CPU affinity0..7, GPU min260MHz/poll50ms, Ubuntu Dock 활성.
+타일 변환 후보는 GPU 정확도는 통과했지만 지연 개선이 없어 child profile을
+복구했습니다. 기존 physical-neon48-final만 accepted 상태로 유지됩니다.
+QA MAX·임시 키보드 모듈과 미래 시험 timer는 제거/중지 확인했습니다.
+최종3초 표본에서 idle CPU 최소349.916/1066MHz 복귀도 확인했습니다.
+GPU fault/심각한 커널 패턴/failed unit0이었으며 이는 전체 오류 없음 주장이 아닙니다.
+
+후속 요청: Software Center/PackageKit/AppStream 및 공식 ARM64 Chrome 설치
+완료. 설치 완료와 실제 GUI/앱 설치 흐름 검증은 구분합니다. 사용자가 ChatGPT
+흰 화면 조사를 다른 컨텍스트로 넘기며 여기서는 중단하라고 했습니다. 앱 종료,
+프로필 초기화·로그아웃·개인 자동 시작 설정 삭제는 하지 않았습니다. 앱 UI
+조사를 재개하지 말고 원래 커널/시스템 로그 작업에 집중하세요. 개인 앱 설정,
+프로필·계정·바이너리는 공용 Git에 넣지 않습니다. 문서 포털 별도 WIP·카메라·
+지문은 기존 제외 범위를 유지합니다.
+
+로그 후속: keyring PAM 모듈 누락은 패키지 설치/실제 dlopen으로 수정 확인;
+새 로그인은 미검증. RGB0007 --named-regmap은 별도 모듈 빌드·현재 부팅
+적용·세 색 readback·core map 보존·새 중복 오류0 확인. 다음 부팅은 미검증.
+실제 적용 소스/복구는 experiments/pmic/README.md. 전체 ring 재수집의
+초기 헤더 있음/error57/warn68, CPU 차이52+1, hub reset 미확인1, modem
+QoS4는 남습니다. journal에는 초기 헤더 없음. Call trace/SError/PLL/GPIO
+대상 패턴0, 실패 unit0. SAP/GDM/keyring 자동 로그인 경고의 구분·다음 조사
+경로는 KERNEL_WARNINGS.md 최신 절에 기록했습니다. 경고 제거만을 위해
+CPU strict mask·BT 권한·자동 로그인 또는 포털 설정을 바꾸지 마세요.
+
 ## 현재 요청과 경계
 
 카메라·지문을 제외한 드라이버/시스템 기능을 진행합니다. 문서 포털의
@@ -49,7 +85,7 @@ RECOVERY/EFS/CPEFS/RADIO 및 부트로더를 복구 편의상 덮어쓰지 않�
 | 4 (확인) | GPT: `experiments/storage/` | 실제 섹터4096, Samsung 헤더512. 원본 메타데이터를 기기·호스트에 보존하고 비어 있던 보조 영역20KiB만 복원 | 재부팅 경고0, 주 메타데이터 불변, 보조 CRC·25개 엔트리 동일 및6개 보호 파티션 불변 확인. 일반 자동 수리 명령으로 대체하지 않음 |
 | 5 (기본 출력 확인) | 진동·LED: `experiments/pmic/`, `docs/g965n/PMIC_REVIEW.md` | RGB 실제 세 색·15회 읽기 검증·모듈 정지/재시작·재부팅 자동 구동 통과. g965n-led.service, max_brightness1. 진동은 실제26MHz 카운터·GPIO 공급·FF_RUMBLE·IMU 반응·재부팅 통과 | LED/진동 알림 정책과 장기·절전·파형 보정은 미완료. 이전 SIGBUS/의존성 경고는 아래 후속 정정 참고 |
 | 6 | 나침반/센서 | IIO/Qt/표준 앱 데이터 전달은 됨. 방향 정확도 미달 | USB/자석 분리한 기준 방향·기울기 비교 및 보정, 재부팅 후 유지 |
-| 7 | GPU | 실제 DSI NEON A/B/A에서 paint 지연 감소, child overlay 재부팅 유지 확인. frame-clock dispatch 지연은 남음 | 새 clean 빌드 검증, 실제 출력의 전체 프레임 지연·장시간 부하 개선 |
+| 7 | GPU | NEON 유지+입력 후500ms QoS 실제 비교로 초기 지연 감소, 사용자 수준 수용 | 성능 추가 튜닝 중단. 이후 실로그 오류 우선, 서비스 다음 부팅은 미검증 |
 | 8 | 통신·전원·주변 기능 | 데이터 SIM 망 등록, 복구/이동/IPv6, BT 프로파일, OTG·충전·절전·대기 전력 등 | 항목별 실제 시험. 과거 LTE/WFD 성공을 지우지 않고 최신 빌드의 회귀 증거를 추가 |
 
 ## NFC 회귀를 피하기 위한 기록

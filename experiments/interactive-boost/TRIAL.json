@@ -1,0 +1,14 @@
+{
+  "module_symvers_sha256": "45d68e3278f2498bb2d187c86b86c2803417d2c4dbcccbe096caf268dd6422e2",
+  "source_sha256": {
+    "g965n-interactive-boost.c": "7183bee38da18851e260ab84a024a1fe41c164164df507587af705bbaaa89df8",
+    "Makefile": "68418b998a6f2a93f140f849e0d72a4cfe8c726d42f433d7ab5c40af3c9344ea",
+    "g965n-qos-cap-test.c": "5bfd2508aa4f39602bf642596de0e38c69b8ecbc4de3991d0c763d748644ce39"
+  },
+  "bounds": {
+    "hold_ms": 500,
+    "little_max_khz": 1499333,
+    "big_max_khz": 2327000
+  },
+  "default_enabled": false
+}

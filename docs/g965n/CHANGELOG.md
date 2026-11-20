@@ -7215,3 +7215,268 @@ Serious kernel patterns0 and failed system units0. Existing qualified Mesa
 Shell overlay stable mapping confirmed separately; clean-built Mesa remains
 an isolated tested candidate. This supersedes only idle-power warm-boot pending
 entries above, not all profiles/suspend/notification policy qualifications.
+
+## 2026-11-20 — Residual physical animation latency investigation
+
+Fresh SM-G965N/kernel48/protected-backup guard passed. Current qualified NEON
+Shell allows CPUs0..7; policy4 CPUs4..7 schedutil min1066/max2327MHz, policy0
+CPUs0..3 schedutil min349.916/max1499.333MHz. Both advertise only performance
+and schedutil. Started fresh actual-DSI overview/grid profiling with the same
+three fixed Cairo surfaces and configured shortcuts, capturing all opening
+operation marks rather than only paint/dispatch. Earlier captures remain
+private and unmodified. Original screen/lock state preserved in a separate
+private trial directory. No clock/governor/affinity setting changed yet.
+
+Fresh NEON control1 reproduced actual DSI opening dispatch p95
+17.732/23.776/17.566ms (picker/grid/repeated picker), while paint p95 was
+10.492/11.033/10.569ms.24 transitions with60/56/61 opening dispatch samples.
+No compiler was running. Prepared a separately protected original-governor
+snapshot/restore program and armed an independent180s root restoration before
+switching the two existing CPU policies temporarily from schedutil to their
+advertised performance governor. No max frequency/voltage/thermal/GPU change.
+Performance capture runs the same fixed scene/shortcuts; no persistent policy
+adoption is implied. Detailed Sysprof traces remain private.
+
+The bounded all-CPU performance capture completed24 transitions and restored
+both governors to schedutil, cancelling the independent restoration timer.
+Dispatch p95 was10.240/18.279/17.253ms, paint10.747/10.873/10.557ms;
+maximum dispatch still27.260/27.872/26.713ms. This intervention helps portions
+of dispatch but does not eliminate long frames; no permanent fast-governor
+policy was installed. Started separate main-thread userspace perf sampling,
+using the existing native perf tool and private frame-pointer stacks, on the
+restored governor policy. Sampling is separate from timing comparisons.
+
+Main-thread perf sampling on restored governors captured24 transitions. Opening
+samples were86 picker and105 grid. Mesa was only3 top-frame samples for picker,
+18 for grid (3 tiled-image helper hits); GJS/SpiderMonkey/GLib/GObject work was
+distributed. This does not identify a new single dominant Mesa function.
+Temporary main-thread util_min768 produced mixed results: dispatch p95
+17.422/23.307/10.759ms; maxima25.053/28.775/22.419ms, app-grid over-budget
+count9 versus control7. Restored original clamp0; no persistent clamp adopted.
+CPU capacity was already asymmetric (little368/big1024), with the existing
+measured DT calibration, so no missing-topology patch was invented. Began a
+separate bounded all-Shell-thread big-cluster affinity trial with per-thread
+original affinity/start-time snapshots and an independent180s restoration.
+No CPU frequency bounds/governors or other apps' affinity changed.
+
+The all-thread big affinity trial was not a consistent improvement: dispatch
+p95 22.216/21.638/17.700ms, grid max36.427ms. Restored each existing thread's
+original affinity/start-time match and cancelled fallback; no affinity policy
+adopted. Current logical monitor is scale2, physical1440x2960 at59.986Hz, so
+no incorrect scale1 topology workaround was applied. GPU simple_ondemand polls
+at50ms, current/min260MHz and validated states260/455/572MHz. Started a separate
+bounded455MHz-floor trial after the NEON correction; this repeats the older
+pre-NEON hypothesis under the changed bottleneck. Independent180s restore
+returns min260MHz/poll50ms. No voltage/max-clock/thermal override.
+
+GPU455-floor trial did not consistently repair latency: dispatch p95
+17.284/19.532/17.735ms and max28.747/29.383/40.370ms, including two picker
+paints above16.7ms. Restored260MHz min and50ms poll; no persistent floor.
+Started bounded Ubuntu Dock extension isolation with normal gnome-extensions
+API and an independent180s re-enable timer. This is a root-cause experiment,
+not permission to permanently remove the dock or disable general animations.
+
+Dock isolation was also inconsistent (dispatch p95 14.546/24.166/23.056ms;
+grid max30.022ms); restored the extension. Installed GNOME Shell and libmutter
+already match configured Ubuntu updates/security candidates, so no speculative
+package upgrade was performed. Idle CPU sampling showed no heavy background
+compiler/indexer bottleneck (largest sampled process2% of one core).
+
+Prepared separate MIT-derived AArch64 little-endian NEON32-bit tiled-image
+candidate, restricted to existing aligned/non-depth/stencil fast path. Original
+source notices retained in the source/adjacent MIT notice. Exact scalar-loop
+comparison passed2,688 store/load cases with tile offsets, row padding,
+source/destination guards, including permissive skew cases in the scalar shim;
+ASan/UBSan and optimized native tests both passed. Early O2 scalar helper lacked
+the production forced-inlining contract, so its10x microbenchmark was discarded.
+Reran at O3 with forced-inline scalar helper and compiler memory barriers:
+0.913172s scalar versus0.234384s vector in the synthetic1024-square loop.
+This is not an integrated scene/performance success. Started isolated native
+rebuild of the actual tiled object/archive/Gallium in a new complete build copy;
+original source/runtime libraries are preserved, no desktop change yet.
+
+First isolated tiling build guard refused two absolute read-only linker inputs
+(dri.sym/dri.dyn) before creating any copy. Reviewed/rebased only those inputs
+into the new tree; then object/archive/Gallium rebuild passed. Candidate actual
+GPU readback passed100 frames/6,553,600 bytes/zero mismatches and256MiB live
+textures on the candidate Gallium. Added a parent-overlay inventory reader that
+parses only pinned wrapper literals (never executes user wrapper code), checks
+five coherent inputs/local links and requires child drop-in sorting after the
+parent. Enabled a separate four-minute child overlay without modifying the
+qualified NEON parent. Initial host fixture used unresolved macOS temp paths;
+resolved the fixture root and reran four tests (valid parse, wrapper drift,
+output drift, escaping link) successfully.
+
+Actual DSI tiling trial did not establish a scene improvement: dispatch p95
+17.536/22.842/21.596ms, grid paint p95 13.185ms/max17.309ms and dispatch
+max38.462ms. Explicitly removed the child and verified the prior NEON mappings.
+No tiling optimization accepted as a desktop fix. Restored control2 dispatch
+p95 18.182/18.813/21.937ms; no JS_/GJS_/MOZ_ runtime overrides were set.
+
+Prepared a separately disabled-by-default star2lte input-frequency QoS module.
+It uses only standard cpufreq policy min requests on the two already-qualified
+policies, caps targets at the current policy max (within1499.333/2327MHz),
+raises for500ms after touch-position or keyboard-press events, and has no idle
+polling or frequency floor. Thermal/max policy remains authoritative. Handler
+filters out FF/sensor-only inputs and does not record keys/coordinates. Worker/
+release paths are serialized and exit cancels work/removes both requests.
+Cross-build against the qualified native48 ABI passed; hardware trial pending.
+
+First input-QoS qualification failed: no floor change was observed. The shell
+wrapper initially continued to the exploratory benchmark after the Python
+assertion, so that first boost-labelled capture is invalid as an active-boost
+comparison. Unloaded the module and switched subsequent wrappers to set -eu.
+A separate diagnostic preserved unchanged input-time policy values privately.
+Found current input core iterates device IDs while id->flags (not driver_info),
+so the initial wildcard terminated before attachment. Replaced it with explicit
+EV_KEY/EV_ABS flags plus existing capability filters. Added the actual ID table
+to host tests, alongside production worker expiry/retrigger/stale-work/jiffies-
+wrap/partial-failure/shutdown checks; ASan/UBSan passed. Rebuilt separately.
+
+Corrected hardware qualification observed policy min/max1499.333/1499.333 and
+2327/2327MHz after the real virtual-keyboard event, then original min349.916/
+1066MHz after expiry. Guarded load and independent180s unload fallback. First
+qualified active-input capture24 transitions: dispatch p95 17.090/17.811/
+10.333ms, medians5.548/10.062/5.516ms; app-grid max19.062ms versus restored
+control2 max28.059ms. Picker max34.463ms remains. Unloaded module/restored floors
+and cancelled fallback. These initial results justify repeat A/B measurement,
+not a claim of all long frames removed. Running restored control3 then a second
+qualified input-boost capture before considering persistence.
+
+Restored control3 followed by a second qualified input-boost run reproduced
+an improvement in app-grid worst dispatch34.768→24.547ms (first pair
+28.059→19.062ms). Controls' picker/grid/repeat medians were7.463/12.542/
+7.308ms versus repeat boost6.075/10.798/6.141ms. All idle floors restored
+on unload. Not all dispatches meet16.7ms.
+
+Added per-opening analysis because pooled p95 near four startup outliers is
+sensitive to whether a scene has61 or62 frame samples. This can exaggerate a
+p95 improvement. Four-opening median of app-grid peak durations was26.215/
+23.921/22.837ms in the three controls and18.280/21.199ms in the two active
+boost runs. Median app-grid first-completion notification71.353/76.967/
+76.093ms versus62.571/72.299ms. Notification gaps are compositor event timing,
+not photometric/scanout FPS. Started one additional bounded comparison with
+only the Shell main thread on CPUs4..7 (workers unchanged), plus the qualified
+input boost, with separate180s affinity/boost restoration timers.
+
+The combined main-thread-affinity trial worsened app-grid dispatch p95 to
+27.769ms/max36.543ms and12 over-budget marks. Restored main affinity and
+unloaded the trial; no affinity override installed. Kept only the repeatably
+beneficial bounded input-QoS approach for current-boot adoption.
+
+Refined initialization to target the lesser of CPU-info max and the qualified
+1499.333/2327MHz ceilings, allowing standard MAX constraints to take precedence
+instead of permanently latching a transient boot cap. Rebuilt all module/QA
+sources through the source/ABI-pinned builder. Installed a new root-private
+checksum/ABI/model/backup guarded controller and service, after verifying exact
+staged source/module bytes; no existing user files or partition were replaced.
+
+Actual lower-MAX QA loaded only a1794MHz big-policy maximum request. A keyboard
+event under the adopted boost yielded min/max1499.333/1499.333 and1794/1794MHz,
+then idle349.916/1066MHz after expiry. Removed QA request/helper and temporary
+keyboard: prior maxima1499.333/2327MHz returned. Independent QA/unload fallbacks
+cancelled after success. Enabled the guarded current-device service. No raw
+clock/voltage write or CPU/GPU maximum increase. Native MAX constraints were
+verified, not high-temperature accuracy or whole-device energy savings.
+
+Owner then said current performance was sufficient. Stopped additional tuning
+and did not perform the planned further reboot. The new service is active and
+enabled in this boot; its next-boot startup remains unverified. Final read-only
+cleanup/health review and documentation follow; no further tuning is authorized
+by that acceptance. Negative/invalid trials remain recorded to avoid repetition.
+
+
+Final current-boot read-only review: adopted input service active/enabled,
+CPU governors schedutil, main affinity0..7, original NEON parent accepted and
+tiling child rolled back, Dock restored, QA MAX/temporary keyboard unloaded.
+First sample caught elevated input-time minima; a separate3-second follow-up
+observed only the original349.916/1066MHz minima. Do not call an input-time
+snapshot a stuck idle floor. No future trial timers remained. Failed system
+units0, serious kernel patterns0 and matching GPU faults0. Full startup of this
+new service on a future reboot is intentionally pending after owner acceptance.
+
+Owner then requested a software center and Chrome, followed by log-error-first
+priority. Started installing stock gnome-software (APT backend, without adding
+snap) after fresh model/BOOT/protected-backup preflight. Official Google support
+now documents Linux ARM64 packages; initiated direct official ARM64 Chrome
+package download, architecture/name verification and separate apt installation.
+These are requested app installs, not default image contents. Package binaries,
+private apt logs and personal app settings remain outside Git. Outcome pending.
+
+## 2026-11-20 — Log-first follow-up: missing PAM module and RGB regmap identity
+
+Error-priority boot journal grouped58 kernel entries (mostly legacy modem
+normal-state messages at error priority),12 GDM,2 Bluetooth SAP and one user
+im-launch scope failure. Real missing pam_gnome_keyring.so was repeated after
+session restarts. Installed stock libpam-gnome-keyring/gnome-keyring and actual
+native PAM library dlopen passed. No PAM password policy, password, keyring
+contents, login/session or document-portal source was altered; fresh GDM login
+replay is not verified without another login. Kept other records for investigation
+rather than globally suppressing error priority.
+
+App requests: gnome-software46.0 and PackageKit/appstream backend installed;
+No snap was added. Official Google ARM64 Chrome158.0.8127.36 package downloaded
+and architecture/name checked before apt installation. It is not included in
+public image recipes and no proprietary binary/profile/log is committed. Initial
+plain launch did not remain running; a new-tab check used an inappropriate
+10s subprocess lifetime and timed out, so its UI outcome is unverified. Moved
+subsequent launch to a normal-user manager scope and retained sandbox/profiles.
+Actual GUI navigation remains a separate check; process counts alone are not
+accepted as rendered-page evidence.
+
+The regmap collision is the separate relative-offset RGB map on the *same*
+I2C0x66 device as the top PMIC; the separate charger is0x69 and is not replaced.
+Added only regmap_config.name="g965n-rgb" in a separately pinned0007 patch.
+No register addresses, offsets, current limits, access masks or charger/haptic
+configuration change. Optional build-led-trial.py --named-regmap applies0007
+on the existing0004 result; fresh ABI-pinned build passed. After model/BOOT/
+protected-backup preflight preserved old module/pin, stopped only LED service,
+installed the checked module and restarted. Three low-current actual register
+on/off tests passed, all LEDs off. Named debugfs3-0066-g965n-rgb exists alongside
+preserved core3-0066, new duplicate-error count0. Original boot message remains
+historical. No reboot or kernel image write was needed; next boot of this name
+change has not been tested.
+
+A delegated personal-app request also added exactly one enabled GNOME ChatGPT
+autostart item reusing the one existing ChatGPT launcher. Configuration/profile
+paths stay private and are not public defaults. No new profile or auto-login
+setting changed. Current-session launch/login startup verification still pending;
+no logout/reboot is performed for that test.
+
+## 2026-11-20 — Resume hardware/system work; retain complete warning evidence
+
+Owner reported a white ChatGPT window, then explicitly stopped that investigation
+to continue it in another context. Stopped personal-app/UI investigation here;
+did not close existing apps/tabs, erase profiles, change login, remove the
+enabled personal autostart or claim the white page repaired. Software Center,
+PackageKit/AppStream and official ARM64 Chrome packages are installed, but
+rendered-page/catalog/install-flow verification is not complete. Personal
+app configuration/binaries remain excluded from public recipes and Git.
+
+Fresh exact-device/BOOT/protected-backup preflight passed. Reused the checked-in
+read-only kernel-health collector without changing drivers/settings. Private
+collection retained full boot header/978 ring lines/error57/warn68; journal378
+lines lacked its initial header. A journal-only CPU-warning query misleadingly
+returned0; complete ring shows52 register variations plus1 unsupported notice.
+This is collection coverage, not a repaired architecture warning. Hub reset
+unconfirmed1 and modem vendor bus QoS4 remain. Call trace/SError/GPU PLL failure/
+rollback/GPIO-direction counts0; separate serious-kernel/GPU-fault queries0.
+Failed system units0; adopted input/LED/haptic/Bluetooth services active.
+
+Existing automatic login is enabled and no password is supplied to keyring PAM.
+The library is now present/loadable, but this is distinct from the remaining
+keyring unlock warning. No empty keyring password, password reset, auto-login
+change or login replay was used. BlueZ5.72 adapter1/poweredtrue; SAP interface
+absent. Stock experimental mode is off. Upstream SAP dummy initialization can
+fail before RFCOMM socket setup and returns-1, so the displayed EPERM alone
+does not justify CAP_NET_RAW or a claim that the controller failed. Real SIM
+APDU bridging is unimplemented; no dummy SAP service was enabled as a fix.
+GDM46.2 upstream remote-display factory subscribes to the shared display store
+then asserts remote type; this matches the observed assertion text, but the
+installed Ubuntu patch stack/reproduction needs separate verification. Kept
+the local working session and did not restart GDM or disable remote features.
+
+PMIC/Mesa rebuild/rollback documentation and current summaries updated. Re-ran
+production input worker/filter ASan/UBSan tests,4 parent-overlay tests,3 timing
+analysis tests,2 Mesa builder tests and source/patch pin/syntax checks: pass.
+Preserved negative tiling/tuning results and explicit pending next-boot evidence.

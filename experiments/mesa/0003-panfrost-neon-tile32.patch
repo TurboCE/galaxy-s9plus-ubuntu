@@ -1,0 +1,56 @@
+--- a/src/panfrost/shared/pan_tiling.c
++++ b/src/panfrost/shared/pan_tiling.c
+@@ -28,0 +29,3 @@
++#if defined(__aarch64__) && defined(__ARM_NEON) && defined(__AARCH64EL__)
++#include <arm_neon.h>
++#endif
+@@ -304,0 +308,37 @@
++   }
++
++#if defined(__aarch64__) && defined(__ARM_NEON) && defined(__AARCH64EL__)
++/* Adjacent pixel pairs share contiguous eight-byte tiled spans. Preserve
++ * the Y-dependent reversal within each pair while moving four pixels at once.
++ * The caller restricts this path to aligned, non-interleaved 32-bit pixels.
++ */
++static void
++pan_access_tiled_image_32_neon(void *dst, void *src, unsigned sx, unsigned sy,
++                              unsigned w, unsigned h, uint32_t dst_stride,
++                              uint32_t src_stride, bool is_store)
++{
++   uint8_t *tile_start = (uint8_t *)dst + (sx / 16) * 1024;
++   for (unsigned row = 0; row < h; ++row) {
++      unsigned y = sy + row;
++      uint8_t *tiles = tile_start + (y / 16) * dst_stride;
++      uint8_t *linear = (uint8_t *)src + row * src_stride;
++      unsigned expanded_y = bit_duplication[y & 15] << 2;
++      for (unsigned x = 0; x < w; x += 4) {
++         uint8_t *tile = tiles + (x / 16) * 1024;
++         unsigned col = x & 15;
++         unsigned lo = (expanded_y ^ (space_4[col] << 2)) & ~4u;
++         unsigned hi = (expanded_y ^ (space_4[col + 2] << 2)) & ~4u;
++         uint8x16_t pixels;
++         if (is_store) {
++            pixels = vld1q_u8(linear + x * 4);
++            if (y & 1)
++               pixels = vreinterpretq_u8_u32(vrev64q_u32(vreinterpretq_u32_u8(pixels)));
++            vst1_u8(tile + lo, vget_low_u8(pixels));
++            vst1_u8(tile + hi, vget_high_u8(pixels));
++         } else {
++            pixels = vcombine_u8(vld1_u8(tile + lo), vld1_u8(tile + hi));
++            if (y & 1)
++               pixels = vreinterpretq_u8_u32(vrev64q_u32(vreinterpretq_u32_u8(pixels)));
++            vst1q_u8(linear + x * 4, pixels);
++         }
++      }
+@@ -305,0 +346,2 @@
++}
++#endif
+@@ -323,0 +366,8 @@
++#if defined(__aarch64__) && defined(__ARM_NEON) && defined(__AARCH64EL__)
++   if (bpp == 32 && interleave == PAN_INTERLEAVE_NONE) {
++      pan_access_tiled_image_32_neon(dst, src, sx, sy, w, h,
++                                   dst_stride, src_stride, is_store);
++      return;
++   }
++#endif
++

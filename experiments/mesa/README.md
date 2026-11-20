@@ -165,8 +165,10 @@ resulting source file/tree hashes are verified. Neither build nor verify
 installs libraries, restarts the desktop, writes partitions or flashes.
 Old receipts pin the previous builder: preserve them and use a new directory.
 The qualified running binary was incrementally rebuilt in an isolated copy;
-clean source preparation/configure passed and a separate full clean build is
-in progress. Its output must receive a new hardware trial before adoption.
+clean source preparation/configure and the full1325-step rebuild passed.
+The clean output separately passed100-frame/6,553,600-byte exact readback and
+256MiB textures with actual Panfrost mappings. The running Shell retains its
+previously qualified overlay; clean-build readback is not its adoption proof.
 
 ### Exact RGBA/BGRA readback
 
@@ -184,3 +186,35 @@ Check reported renderer and mapped Gallium path against the expected build,
 not just exit status. Qualified incremental candidate passed200 frames,
 13,107,200 bytes and256MiB live textures with zero mismatches. This offscreen
 test checks pixel correctness/pressure, not actual scanout FPS.
+
+## Rejected tile32 candidate and residual opening analysis
+
+Patch0003 targets the aligned32-bit, non-depth/stencil tiled-image path on
+little-endian ARM64 NEON. Original notices are preserved in the source and
+[LICENSE.pan_tiling.MIT](LICENSE.pan_tiling.MIT). `TILE32_TRIAL.json` pins the
+exact source and patch. `test_tile32.py --mesa-source /path/to/mesa-25.2.8`
+compares the actual scalar/candidate loops:2,688 store/load cases, offsets,
+padding and guard bytes passed both ASan/UBSan and optimized ARM64 execution.
+
+`build-tile32.py --baseline-build /path/to/qualified-build --output /new/copy`
+rebuilds three final Ninja targets in a new complete ordinary-user build copy.
+It does not install or restart a desktop. The baseline must be a locally
+reviewed build, including its generated commands; it is not a sandbox for an
+untrusted build tree. The clean builder's optional `--variant neon-tile32`
+also pins/prepares all three patches, but its complete fresh build remains
+unverified. Use the qualified `neon` variant for the accepted configuration.
+
+Candidate GPU readback100frames/6,553,600bytes and256MiB passed. Synthetic
+tiling improved, but the real DSI scene showed no consistent latency gain;
+the child trial was explicitly rolled back and original NEON mappings verified.
+Do not adopt this patch as an animation fix. `physical-session.py` can inventory
+a hash-checked accepted parent overlay without executing its wrapper, and
+requires the child override to sort after it. Four parsing/drift/escape tests
+passed. Parent libraries and settings are preserved on child rollback.
+
+`analyze-opening.py --events /private/events.json --marks /private/marks.tsv`
+reports each of four openings per scene. Three tests cover incomplete captures
+and pooled-percentile sample-count artifacts. Completion notifications are
+compositor events, not scanout or photometric FPS. For the separately qualified
+500ms CPU-frequency hint, see [interactive boost](../interactive-boost/README.md).
+The owner accepted current performance; no further tuning/reboot was performed.

@@ -1,4 +1,54 @@
-# Remaining kernel warnings through native44
+# Kernel and service warning review
+
+## Current native48 review — 2026-11-20
+
+The latest guarded read-only collector retained the Linux boot header and978
+ring lines:57 error-priority lines,68 warning-priority lines. Journal retained
+378 lines without the initial header. Its missing CPU messages are a coverage
+gap, not a fix. Raw logs remain private; no severity or log filter was changed.
+Failed system units0 and separate serious-kernel/GPU-fault pattern counts0.
+
+| Item | Actual evidence / next step |
+|---|---|
+| GPU PLL/GPIO/RTC/GPT regressions | Current targeted failures0; Call trace and SError0. Preserve qualified clock/IRQ fixes; no further animation tuning after owner acceptance. Pattern absence is not complete hardware qualification. |
+| RGB regmap duplicate name | Separate relative-offset RGB map needed its own name on I2C0x66. Patch0007 adds only that name. Actual guarded module replacement, three channel readbacks, existing core map preservation and new duplicate count0 passed. New map name is present. Next boot of this revision remains unverified. See PMIC README. |
+| Missing keyring PAM module | Stock Ubuntu package installation and actual dlopen passed. Fresh password-login replay is pending; existing automatic login still supplies no password and logs keyring unlock failure. Do not empty/reset the keyring or change login as a warning workaround. |
+| CPU feature sanity |52 register variations and1 unsupported notice remain. Earlier source audit found lower-safe sanitized common capability values and CTR trap/emulation; no evidence justifies weakening strict masks or exposing unsupported instructions. Cache geometry was separately repaired on43 and is not the remaining CPU-feature issue. |
+| Sensor-hub reset |1 MCU_RESP reset-unconfirmed warning remains. Fresh feeds and prior sensor evidence do not verify physical reset/cold boot. Diagnose handshake/reset with independent evidence; preserve checked transport. |
+| Vendor modem bus QoS |4 notices remain. This compatibility stub requires real interconnect/frequency providers before implementation. The new input CPU-frequency hint does not implement modem bus votes. |
+| Bluetooth SAP |Adapter powered, SAP interface absent, initialization failed. Upstream default SAP build uses a dummy backend; no real modem APDU bridge is implemented. See source reasoning below; do not add capabilities or expose a dummy service to remove this message. |
+| Bluetooth optional plugins/config directory |Experimental audio plugin messages and0755-versus-stock0555 configuration-directory warning remain. They do not establish controller failure. No live Bluetooth restart or security-policy change was performed merely to clear historical warnings. Profile-specific qualification remains separate. |
+| GDM remote-display assertion |Observed on added/removed callbacks while the local session works. Upstream46.2 has a shared-store/type-check path matching the text; installed Ubuntu patch stack and controlled reproduction still need verification. No GDM restart, Wayland disable or remote-feature removal was used. |
+
+The57 error-priority kernel lines include normal vendor modem startup/status
+messages. Retain the original priorities and inspect source/context instead of
+treating line count as either57 separate hardware failures or a clean boot.
+
+### SAP source reasoning
+
+BlueZ5.72 [build selection](https://github.com/bluez/bluez/blob/5.72/Makefile.plugins)
+selects sap-dummy.c. Its
+[initialization](https://github.com/bluez/bluez/blob/5.72/profiles/sap/sap-dummy.c)
+registers an experimental test interface; the
+[D-Bus helper](https://github.com/bluez/bluez/blob/5.72/gdbus/object.c)
+rejects an interface with no enabled members. The
+[server](https://github.com/bluez/bluez/blob/5.72/profiles/sap/server.c)
+returns-1 on this failure before opening its RFCOMM socket. Thus the generic
+EPERM text alone is not evidence of a missing socket capability. This is an
+upstream-source explanation consistent with the installed nonexperimental
+daemon, not proof of an implemented or tested SIM-sharing feature. Preserve
+the installed daemon and security policy until exact distro-source review.
+
+### GDM source reasoning
+
+The upstream46.2
+[remote-display factory](https://github.com/GNOME/gdm/blob/46.2/daemon/gdm-remote-display-factory.c)
+listens to shared-store add/remove events and requires remote-display type.
+That path matches the observed assertion wording. It does not by itself prove
+the installed Ubuntu binary contains exactly that source or justify replacing
+GDM during a working hardware session.
+
+## Historical observations through native44
 
 Evidence date2026-11-19, one experimental SM-G965N rev26. The initial pair of observed native36
 boots had zero error-priority lines and zero failed units; later trial results

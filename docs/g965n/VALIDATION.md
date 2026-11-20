@@ -430,3 +430,48 @@ feedback user daemon active, actual idle0/0/0 before first rumble. Guarded
 Serious kernel patterns0/failed units0. Existing qualified Shell overlay stable.
 First early Wi-Fi SSH timeout recovered on retry; no long-term network claim.
 This supersedes new haptic module reboot-pending entry above only.
+
+
+Native48 residual animation review: three restored controls, two qualified
+input-QoS comparisons,24 actual DSI transitions each. Per-opening app-grid peak
+median controls26.215/23.921/22.837ms versus18.280/21.199ms; grid worst paired
+28.059→19.062 and34.768→24.547ms. Long picker frames remain. Pooled p95 is
+sample-count-sensitive; added per-opening analyzer and synthetic tests to avoid
+false improvements. Notifications are event timing, not scanout/photometric FPS.
+
+Actual input raised349.916/1066→1499.333/2327MHz for500ms then restored.
+Separate QA MAX1794MHz remained authoritative during boost, with min/max1794
+and original idle minima after expiry; QA removed and prior max2327 returned.
+Adopted guarded current-device service active/enabled, next boot unverified.
+Owner says current performance sufficient, so no additional tuning/reboot.
+Other trials restored: governors/affinity/GPU min/poll/dock; tiling child removed.
+Tiling helper passed2,688 exact native cases and100-frame GPU readback/256MiB,
+but did not improve full scene latency and was not adopted. First boost run
+with zero-flags ID table did not attach and is invalid performance evidence;
+explicit EV_KEY/EV_ABS ID flags fixed attachment, real input proof and production
+worker/ID-table fault/expiry/wrap tests passed. Final3s minima349.916/1066,
+GPU/serious kernel patterns0, failed units0. Whole energy/suspend and zero long
+frames are not qualified. Follow-up priority is observed logs, not more tuning.
+
+
+Native48 log-first follow-up: missing keyring PAM library installed from Ubuntu
+packages; actual native dlopen passed, fresh GDM login not replayed. Separate
+RGB0007 named-regmap build and guarded module replacement passed all three
+low-current register readbacks; core map preserved, named RGB map present,
+new duplicate errors0 and LEDs off. This module revision has not had a separate
+boot test. Existing LED boot evidence is retained at its original scope.
+
+Final guarded read-only full-ring collection retained boot header,978lines,
+error-priority57/warnings68; journal378lines lacked early header. Actual CPU
+register differences52+unsupported notice1, hub reset unconfirmed1, modem
+vendor QoS4. Call trace/SError/GPU PLL lock/rollback/GPIO direction warning0;
+separate severe-kernel/GPU-fault searches0, failed system units0. Bluetooth
+adapter1/poweredtrue but SAP interface absent. GDM remote-display assertions
+and automatic-login keyring warning remain. No all-feature/clean-boot claim.
+Host production input-QoS ASan/UBSan test,4 overlay inventory tests,3 opening
+analysis tests,2 Mesa builder tests and source/patch pin checks passed.
+
+Software Center/PackageKit/AppStream and official Chrome ARM64 installed;
+package installation is not browser page/catalog/install-flow qualification.
+Owner moved the ChatGPT white-page investigation to another context; stopped
+that investigation without clearing profiles or changing login/autostart.

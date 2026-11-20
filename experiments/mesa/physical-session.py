@@ -7,6 +7,7 @@ changes the accepted parent profile files. An independent root timer restores
 it unless explicit keep supplies real physical A/B and post-startup evidence.
 """
 import argparse
+import ast
 import fcntl
 import hashlib
 import importlib.util
@@ -96,6 +97,37 @@ def restore(directory, automatic=False):
         print('Physical trial removed; accepted compositor library mapping restored')
 
 
+def accepted_overlay_inventory(accepted, baseline):
+    """Read constants from the hash-checked wrapper; never execute user code."""
+    require(Path(accepted['candidate_build']).resolve() == baseline,
+            'Overlay baseline does not match its accepted build')
+    wrapper = next(Path(n) for n in accepted['files'] if Path(n).name == 'shell.py')
+    require(sha(wrapper) == accepted['files'][str(wrapper)], 'Accepted wrapper changed')
+    constants = {}
+    for node in ast.parse(wrapper.read_text()).body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            if node.targets[0].id in ('files', 'links'):
+                constants[node.targets[0].id] = ast.literal_eval(node.value)
+    require(set(constants) == {'files', 'links'}, 'Missing pinned wrapper inventory')
+    outputs = {}
+    for name, expected in constants['files'].items():
+        path = Path(name)
+        if not path.is_relative_to(baseline):
+            require(path.name == 'vendor.json' and str(path) in accepted['files'] and
+                    expected == accepted['files'][str(path)], 'Unexpected wrapper input')
+            continue
+        require(path.resolve().is_relative_to(baseline) and sha(path) == expected,
+                'Accepted overlay output drifted')
+        outputs[name] = expected
+    require(len(outputs) == 5, 'Unexpected coherent output inventory')
+    for name, target in constants['links'].items():
+        path = Path(name)
+        require(path.is_relative_to(baseline) and path.is_symlink() and
+                os.readlink(path) == target and path.resolve().is_relative_to(baseline),
+                'Accepted overlay link drifted')
+    return {'phase': 'built', 'outputs': outputs, 'runtime_links': constants['links']}
+
+
 def apply(args):
     boot = guard_device()
     require(pwd.getpwnam('ubuntu').pw_uid == 1000, 'Expected selected desktop user')
@@ -110,11 +142,13 @@ def apply(args):
     baseline = args.baseline_build.resolve()
     candidate = args.candidate_build.resolve()
     require(baseline != candidate, 'Distinct build copies required')
-    original = helper.verify_build(baseline)
     accepted = helper.load_state(args.accepted_state)
     require(accepted.get('accepted') and not accepted.get('rolled_back'), 'No accepted baseline')
     for name, expected in accepted['files'].items():
         require(sha(Path(name)) == expected, 'Accepted profile changed; no replacement attempted')
+    original = (accepted_overlay_inventory(accepted, baseline)
+                if accepted.get('scope') == 'gnome-shell-overlay'
+                else helper.verify_build(baseline))
     evidence = helper.wait_stable_shell(baseline)
     require(evidence['desktop_recovered'], 'Baseline compositor not stable')
     clone = {'phase': 'built', 'outputs': {}, 'runtime_links': {}}
@@ -137,6 +171,10 @@ def apply(args):
     text = next(v for p, v in planned.items() if '.service.d' in str(p))
     dropin = Path('/home/ubuntu/.config/systemd/user/org.gnome.Shell@wayland.service.d') / (
         '99-g965n-' + args.state.name + '.conf')
+    if accepted.get('scope') == 'gnome-shell-overlay':
+        parent_dropins = [Path(n).name for n in accepted['files'] if '.service.d' in n]
+        require(parent_dropins and dropin.name > max(parent_dropins),
+                'Child override must sort after its accepted parent')
     files[dropin] = text
     for p in files:
         helper.safe_new(p)
@@ -144,6 +182,8 @@ def apply(args):
         for previous in ROOT.glob('physical-*'):
             protected(previous, directory=True)
             protected(previous / 'state.json')
+            if previous == args.accepted_state and accepted.get('scope') == 'gnome-shell-overlay':
+                continue
             require(json.loads((previous / 'state.json').read_text()).get('rolled_back'),
                     'Another physical experiment is active')
         require(not args.state.exists(), 'Existing experiment state preserved')

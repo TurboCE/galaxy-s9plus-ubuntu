@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Unit]
+Description=SM-G965N bounded input frequency hint
+After=local-fs.target g965n-sensors.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /usr/local/lib/g965n-interactive-boost/control.py start --confirm-sm-g965n-backed-up-interactive-trial
+ExecStop=/usr/bin/python3 /usr/local/lib/g965n-interactive-boost/control.py stop --confirm-sm-g965n-backed-up-interactive-trial
+[Install]
+WantedBy=multi-user.target

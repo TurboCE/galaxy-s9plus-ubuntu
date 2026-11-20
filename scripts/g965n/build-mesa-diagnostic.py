@@ -25,12 +25,16 @@ MESON_VERSION = '1.4.1'
 PATCH = ROOT / 'experiments/mesa/0001-panfrost-check-explicit-modifier-support.patch'
 PATCH_SHA = 'cddfef5672d8fb927cb2ab15ea6753d931e04b49da504bfde94b10cc212b4bbc'
 NEON_PATCH = ROOT / 'experiments/mesa/0002-mesa-neon-ubyte4-swizzle.patch'
+TILE_PATCH = ROOT / 'experiments/mesa/0003-panfrost-neon-tile32.patch'
+TILE_PATCH_SHA = '42e7ca68a115a74504ae7ad09e1a775cd92a40675a08e73c0a378fc6efdd133b'
+TILE_SOURCE_SHA = {'input': '52a59ca79214b1e1f96aa7bd23d071c1e93a03b956717cb95f875c40ed6b299e', 'output': '014ff51d653cd0d4f1d6ba41548e75cde042cf04940e570b587ad1060216c844'}
 NEON_PATCH_SHA = 'cd95fe92bc4e78dab8caaad98fb9741006cb994036963a16c75d68d7d147b65e'
 FORMAT_SHA = {'baseline': '43db67a2f1e33f38931bb4be82506689c000651c0f6d986e457ed5ca98d8405c',
               'neon': '1d8367b70698a89f47f64201021591cc38db450a1d1364cb0cd5fdd1c8a5288f'}
 RESOURCE_SHA = {'baseline': '445916b95a284b4f49d76491d60143754976bc7deacabbf4df3bfc56ad7f7eeb',
                 'patched': 'ba87b87903b99dc75848c4a297fb0cbee5008ef126a0357caa6677068808d605',
-                'neon': 'ba87b87903b99dc75848c4a297fb0cbee5008ef126a0357caa6677068808d605'}
+                'neon': 'ba87b87903b99dc75848c4a297fb0cbee5008ef126a0357caa6677068808d605',
+                'neon-tile32': 'ba87b87903b99dc75848c4a297fb0cbee5008ef126a0357caa6677068808d605'}
 OPTIONS = ['--buildtype=debugoptimized', '--wrap-mode=nodownload', '-Dplatforms=wayland',
            '-Degl-native-platform=wayland', '-Dgallium-drivers=panfrost', '-Dvulkan-drivers=',
            '-Dglx=disabled', '-Dglvnd=enabled', '-Degl=enabled', '-Dgbm=enabled',
@@ -89,13 +93,16 @@ def save(path, value):
 
 
 def inputs(variant):
-    if variant in ('patched', 'neon') and (PATCH_SHA is None or digest(PATCH) != PATCH_SHA):
+    if variant in ('patched', 'neon', 'neon-tile32') and (PATCH_SHA is None or digest(PATCH) != PATCH_SHA):
         raise RuntimeError('The reviewed diagnostic patch hash is not pinned or has drifted')
-    if variant == 'neon' and digest(NEON_PATCH) != NEON_PATCH_SHA:
+    if variant in ('neon', 'neon-tile32') and digest(NEON_PATCH) != NEON_PATCH_SHA:
         raise RuntimeError('The reviewed NEON patch drifted')
+    if variant == 'neon-tile32' and digest(TILE_PATCH) != TILE_PATCH_SHA:
+        raise RuntimeError('The reviewed tile patch drifted')
     return {'source_url': SOURCE_URL, 'source_sha256': SOURCE_SHA, 'variant': variant,
-            'patch_sha256': PATCH_SHA if variant in ('patched', 'neon') else None,
-            'neon_patch_sha256': NEON_PATCH_SHA if variant == 'neon' else None,
+            'patch_sha256': PATCH_SHA if variant in ('patched', 'neon', 'neon-tile32') else None,
+            'tile_patch_sha256': TILE_PATCH_SHA if variant == 'neon-tile32' else None,
+            'neon_patch_sha256': NEON_PATCH_SHA if variant in ('neon', 'neon-tile32') else None,
             'builder_sha256': digest(Path(__file__).resolve()), 'meson_version': MESON_VERSION,
             'meson_options': OPTIONS, 'system': platform.system(), 'machine': platform.machine()}
 
@@ -181,7 +188,7 @@ def make_launcher(root, receipt):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('action', choices=['prepare', 'configure', 'build', 'verify', 'self-test'])
-    p.add_argument('--variant', choices=['baseline', 'patched', 'neon'])
+    p.add_argument('--variant', choices=['baseline', 'patched', 'neon', 'neon-tile32'])
     p.add_argument('--work-dir', type=Path)
     p.add_argument('--mesa-archive', type=Path)
     p.add_argument('--meson', type=Path)
@@ -212,10 +219,10 @@ def main():
             resource = root / ('mesa-' + VERSION) / 'src/gallium/drivers/panfrost/pan_resource.c'
             if digest(resource) != RESOURCE_SHA['baseline']:
                 raise RuntimeError('Pristine pan_resource.c does not match the reviewed source')
-            if args.variant in ('patched', 'neon'):
+            if args.variant in ('patched', 'neon', 'neon-tile32'):
                 subprocess.run(['patch', '--fuzz=0', '--batch', '--forward', '-p1', '-i', str(PATCH)],
                                cwd=root / ('mesa-' + VERSION), check=True, env=clean_build_env())
-            if args.variant == 'neon':
+            if args.variant in ('neon', 'neon-tile32'):
                 format_source = root / ('mesa-' + VERSION) / 'src/mesa/main/format_utils.c'
                 if digest(format_source) != FORMAT_SHA['baseline']:
                     raise RuntimeError('Pristine format_utils.c drifted')
@@ -223,6 +230,14 @@ def main():
                                cwd=root / ('mesa-' + VERSION), check=True, env=clean_build_env())
                 if digest(format_source) != FORMAT_SHA['neon']:
                     raise RuntimeError('NEON source output drifted')
+            if args.variant == 'neon-tile32':
+                tile_source = root / ('mesa-' + VERSION) / 'src/panfrost/shared/pan_tiling.c'
+                if digest(tile_source) != TILE_SOURCE_SHA['input']:
+                    raise RuntimeError('Pristine tiling source drifted')
+                subprocess.run(['patch', '--fuzz=0', '--batch', '--forward', '-p1', '-i', str(TILE_PATCH)],
+                               cwd=root / ('mesa-' + VERSION), check=True, env=clean_build_env())
+                if digest(tile_source) != TILE_SOURCE_SHA['output']:
+                    raise RuntimeError('Tiling patch output drifted')
             if digest(resource) != RESOURCE_SHA[args.variant]:
                 raise RuntimeError('Diagnostic patch output does not match the reviewed source')
             receipt = {'inputs': expected, 'source_tree_sha256': tree_digest(root / ('mesa-' + VERSION)), 'phase': 'prepared'}
