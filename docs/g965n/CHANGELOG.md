@@ -5999,3 +5999,16 @@ including periodic reads to catch a level change without an interrupt.
 The owner clarified that the stimulus was a magnet at the earpiece.
 The accessory input recorded three rising and three falling interrupts
 with matching levels. The flip-cover input stayed high in that trial.
+
+During the follow-up magnet sweep, GPA3 line 6 recorded five falling
+and five rising edges, each with a matching GPIO level. The line came
+back high with the magnet away. The distinct GPA0 accessory input
+also toggled. These were magnet stimulus results, with no physical
+flip cover fitted.
+
+Built and installed the opt-in G965N GPIO keys module after verifying
+the model, active #47 BOOT and backup receipt. The module exposes the
+active-low GPA3 input as Linux `EV_SW/SW_LID`. The input device appeared
+with the standard udev `power-switch` tag and logind read open. Enabled
+its exact-BOOT service for future startup. The system's existing
+logind lid action is `ignore`. No partition or lid policy was changed.
