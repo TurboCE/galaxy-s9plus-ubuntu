@@ -6013,6 +6013,19 @@ with the standard udev `power-switch` tag and logind read open. Enabled
 its exact-BOOT service for future startup. The system's existing
 logind lid action is `ignore`. No partition or lid policy was changed.
 
+### 2026-11-20 — Qualify native flip-cover transitions
+
+The reply to the first native-input test arrived after its 95-second
+observer had exited. A new event observer saw no transitions on the
+first repeat. During a subsequent slow magnet sweep, sampled the
+bound GPIO level and interrupt count while reading the native input
+events. GPA3 line 6 changed level and the interrupt counter advanced.
+The stock input emitted eleven close/open pairs, and logind logged
+the matching transitions. The final state was open with the magnet
+removed. This qualifies the real GPIO to evdev to logind path under
+magnet stimulus. A fitted cover and screen/suspend action were not
+tested. The configured lid action is `ignore`.
+
 ### 2026-11-20 — Install on-demand GPS as a standard GeoClue source
 
 The owner requested registering the GPS module without requiring a
