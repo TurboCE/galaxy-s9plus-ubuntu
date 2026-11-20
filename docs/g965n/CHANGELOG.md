@@ -6403,3 +6403,30 @@ identifier or secure-element operation was recorded.
 This corrects the prior suggestion that physical power/clock
 measurement was the necessary next step. The active-low definition
 in the available stock source resolved the initial nonresponse.
+
+### 2026-11-20 — Complete Qt acceleration and qualify repeated NFC lifecycle
+
+The owner was away, so continued tests that require no physical
+movement. The native acceleration IIO source already powered GNOME
+orientation but the local Qt backend lacked QAccelerometer.
+Added the backend using the exported scale and mount matrix, then
+installed the compiled ARM64 plug-in after the running BOOT/model
+and backup guard. Preserved the prior library and settings locally.
+The global default settings now select the native acceleration
+backend in newly opened Qt applications.
+
+The actual installed Sensor Explorer QML and model returned
+timestamped X/Y/Z around -0.15, -0.14 and 9.53 m/s². A rendered
+Properties screenshot displayed the live acceleration values. The
+existing tilt, proximity, gyro, pressure and compass backends also
+delivered samples. Enabling QAccelerometer allowed the standard Qt
+generic rotation backend to report gravity-derived pitch and roll.
+Its yaw remains zero. No physical motion accuracy claim is made.
+
+Separately, ten native NFC activation, poll, cancellation and power
+down cycles passed. Two complete Bluetooth service stop/start cycles
+removed the owned module and restarted on the actual UART with a
+powered BlueZ adapter. nfc0 and its shared PCAL6524 stayed registered.
+The user was away, so no physical tag detection or content test was
+performed. The last NFC lifecycle test left the radio powered down
+and available for the next application.

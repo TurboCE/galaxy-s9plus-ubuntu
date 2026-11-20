@@ -127,3 +127,14 @@ its own source and configuration under GPL-2.0-only.
 
 [qt-plugin]: https://github.com/qt/qtsensors/blob/5.15/src/sensors/qsensorplugin.h
 [qt-tilt]: https://github.com/qt/qtsensors/blob/5.15/src/sensors/qtiltsensor.cpp
+
+
+Native #48 follow-up adds `QAccelerometer=g965n.accelerometer` to
+the Qt 5 default settings. The backend reads the actual acceleration
+scale and mount matrix and returns X/Y/Z in m/s². The standard Qt
+`generic.rotation` and `generic.tilt` backends can also consume this
+acceleration source. The generic rotation backend derives pitch and
+roll from gravity and does not supply a measured compass yaw.
+Rebuild and install the same plug-in, merge the accelerometer entry,
+and reopen Qt applications. The actual Sensor Explorer displayed
+live three-axis acceleration and generic rotation on #48.

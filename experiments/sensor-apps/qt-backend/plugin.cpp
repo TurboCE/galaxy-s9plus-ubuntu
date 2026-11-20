@@ -5,6 +5,7 @@
 #include <QtCore/QTimer>
 #include <QtCore/QtMath>
 #include <QtNetwork/QLocalSocket>
+#include <QtSensors/QAccelerometer>
 #include <QtSensors/QCompass>
 #include <QtSensors/QGyroscope>
 #include <QtSensors/QPressureSensor>
@@ -135,6 +136,27 @@ protected:
 
 private:
     QTimer timer;
+};
+
+class AccelerationBackend : public PollBackend<QAccelerometerReading>
+{
+public:
+    explicit AccelerationBackend(QSensor *sensor)
+        : PollBackend(sensor, "g965n-ssp-accel") {}
+
+private:
+    bool sample() override
+    {
+        std::array<double, 3> axes;
+        double scale;
+        if (!device.readAxes("in_accel", axes) || !device.mountAcceleration(axes)
+            || !device.read("in_accel_scale", scale) || scale <= 0)
+            return false;
+        reading.setX(axes[0] * scale);
+        reading.setY(axes[1] * scale);
+        reading.setZ(axes[2] * scale);
+        return true;
+    }
 };
 
 class TiltBackend : public PollBackend<QTiltReading>
@@ -305,6 +327,7 @@ class SensorPlugin : public QObject, public QSensorPluginInterface, public QSens
 public:
     void registerSensors() override
     {
+        QSensorManager::registerBackend(QAccelerometer::type, "g965n.accelerometer", this);
         QSensorManager::registerBackend(QTiltSensor::type, "g965n.tilt", this);
         QSensorManager::registerBackend(QProximitySensor::type, "g965n.proximity", this);
         QSensorManager::registerBackend(QGyroscope::type, "g965n.gyroscope", this);
@@ -315,6 +338,8 @@ public:
     QSensorBackend *createBackend(QSensor *sensor) override
     {
         const auto id = sensor->identifier();
+        if (id == "g965n.accelerometer")
+            return new AccelerationBackend(sensor);
         if (id == "g965n.tilt")
             return new TiltBackend(sensor);
         if (id == "g965n.proximity")
