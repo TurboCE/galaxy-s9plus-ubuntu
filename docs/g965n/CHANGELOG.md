@@ -5844,3 +5844,27 @@ uses the existing heading math and rejects incomplete or out-of-range
 reference evidence. Host tests passed, including stale-angle
 withdrawal. Stopped the full kernel build after the direction trial
 failed. No candidate image was installed or claimed to boot.
+
+### 2026-11-20 — Enable experimental compass on native #47
+
+The owner requested enabling the standard compass before finishing
+calibration and authorized a BOOT-only update. Added explicit experimental
+profile support and retained the verified profile option. The trial accepts
+SSP quality 1 and above with valid geometry, recent gravity data and no
+overflow. Bounded calibration capture can now run alongside heading output.
+
+Built the full ARM64 kernel and buffered IIO bridge, verified the packaged
+image contents, entered TWRP and verified a fresh nine-partition backup
+against the running #46 BOOT. Wrote BOOT only and matched its readback.
+Native #47 accepted USB SSH. Verified the exact new bridge and migrated
+the existing kernel pins with their previous service settings saved.
+
+The new IIO compass reported the stock `iio-buffer-compass` udev type
+and 0.001 degree scale. As the GeoClue service account, claimed the
+compass through Ubuntu's installed Sensor Proxy and read five real,
+changing headings around 63°. Repeated the same check after a distinct
+warm boot. All seven IIO sensors were present, the sensor, audio and
+Bluetooth services were active, and Wi-Fi HTTPS returned 204. The
+pre-existing no-SIM desktop LTE startup failure was still present.
+A temporary live Wayland window read the same standard heading.
+Physical reference accuracy and tilt calibration remain open.

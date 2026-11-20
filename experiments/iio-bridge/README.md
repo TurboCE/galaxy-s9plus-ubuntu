@@ -127,6 +127,18 @@ path requires real SSP quality 2 or 3, no overflow, and recent matching
 gravity data. After two seconds without a usable angle, the broker
 withdraws the registered device until a new valid heading arrives.
 
+For calibration on the development handset, the operator may explicitly
+replace the `evidence` pin with `experimental: true` and a candidate
+`magnetic_matrix`. This sends measured headings with SSP quality at least
+1 through the same Ubuntu API. Apps receive them immediately and can use
+them as a calibration aid. Direction and tilt accuracy are unqualified
+until the experimental profile is replaced with verified evidence.
+The existing bounded private capture can run alongside either heading
+profile and end without withdrawing the active heading channel.
+The native #47 G965N trial used matrix `[0,1,0,1,0,0,0,0,-1]` with the
+handset's own pinned initialization. The matrix is suitable for reproducing
+the experimental data path. It is not qualified for direction accuracy.
+
 ## Real IIO semantics and freshness
 
 No IIO device is registered until that sensor's first valid real frame. This

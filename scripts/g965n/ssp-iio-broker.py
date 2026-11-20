@@ -3,6 +3,7 @@
 """One verified SSP reader feeding real IIO devices; no synthetic samples."""
 import argparse
 import fcntl
+from functools import partial
 import hashlib
 import importlib.util
 import json
@@ -89,10 +90,16 @@ def heading_policy(profile):
     if 'heading' not in profile:
         return None
     policy = profile['heading']
-    if (not isinstance(policy, dict) or set(policy) != {'evidence', 'geometry'} or
-            not profile['accel']['enabled'] or magnetic_capture_policy(profile) is not None or
+    if (not isinstance(policy, dict) or not profile['accel']['enabled'] or
             magnetic_initialization(profile) is None):
-        raise ValueError('Heading requires qualified acceleration and private magnetic initialization')
+        raise ValueError('Heading requires verified acceleration and private magnetic initialization')
+    if set(policy) == {'experimental', 'geometry', 'magnetic_matrix'} and policy['experimental'] is True:
+        geometry = load_module(policy['geometry'], 'g965n_heading_geometry')
+        matrix = policy['magnetic_matrix']
+        geometry.mounted((0, 0, 0), matrix)
+        return partial(geometry.diagnostic_heading, minimum_accuracy=1), matrix
+    if set(policy) != {'evidence', 'geometry'}:
+        raise ValueError('Select verified heading evidence or explicitly opt into experimental heading')
     evidence = json.loads(pinned(policy['evidence']))
     if any(evidence.get(key) != value for key, value in {
             'model': 'SM-G965N', 'accel_matrix': profile['accel']['mount_matrix'],
@@ -451,15 +458,16 @@ def run(profile, ssp, ready_fd, stop_fd):
                 probe.pump(.05)
                 now = time.monotonic()
                 if capture is not None and not capture.record(probe.samples, now):
-                    ssp.disable_sensors(probe, [4])
-                    enabled.remove(4)
-                    selected.remove(4)
-                    seen.discard(4)
-                    probe.samples[4] = []
+                    if heading is None:
+                        ssp.disable_sensors(probe, [4])
+                        enabled.remove(4)
+                        selected.remove(4)
+                        seen.discard(4)
+                        probe.samples[4] = []
                     capture.close()
                     capture = None
                     print(json.dumps({'magnetic_capture_completed': True,
-                                      'magnetic_sensor_removed': True}), flush=True)
+                                      'magnetic_sensor_removed': heading is None}), flush=True)
                 if heading is not None:
                     heading.publish(probe.samples, now, feed)
                 last_accel = publish_actual(probe, selected, feed, seen, last_accel, now)

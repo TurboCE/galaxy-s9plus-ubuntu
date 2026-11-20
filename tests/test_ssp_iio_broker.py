@@ -131,6 +131,22 @@ class BrokerTests(unittest.TestCase):
                         with self.assertRaisesRegex(ValueError,'cardinal and tilted'):
                             b.heading_policy(profile)
 
+    def test_experimental_heading_requires_explicit_opt_in_and_rejects_overflow(self):
+        matrix = [1,0,0,0,1,0,0,0,1]
+        geometry = types.SimpleNamespace(**runpy.run_path(str(ROOT/'experiments/sensors/heading-math.py')))
+        profile = {'accel':{'enabled':True,'mount_matrix':matrix},
+                   'heading':{'experimental':True,'geometry':{},'magnetic_matrix':matrix}}
+        with patch.object(b,'magnetic_initialization',return_value={}),patch.object(b,'load_module',return_value=geometry):
+            experimental = b.HeadingFeed(b.heading_policy(profile), matrix)
+            feed = unittest.mock.Mock()
+            experimental.publish({0:[(0,0,4096)],4:[(0,40,30,1,0)]},1,feed)
+            experimental.publish({0:[(0,0,4096)],4:[(0,40,30,3,1)]},1.1,feed)
+            feed.publish.assert_called_once_with(8,(0,0,0))
+            for value in (False,1,'true'):
+                profile['heading']['experimental'] = value
+                with self.assertRaisesRegex(ValueError,'explicitly opt into experimental'):
+                    b.heading_policy(profile)
+
     def test_initial_not_ready_is_bounded_receive_only_wait(self):
         ready=unittest.mock.Mock(side_effect=[RuntimeError('Hub transport not ready; no sensor enabled'),None])
         ssp=types.SimpleNamespace(require_transport_ready=ready)
