@@ -6213,3 +6213,34 @@ the native secure SPI/biometric path. NFC tag reads, camera streaming
 and fingerprint enrollment remain pending. No controller bus was driven
 during this inventory. The mobile modem remained connected, Wi-Fi
 HTTPS204 passed and audio, Bluetooth, cover and sensor services were active.
+
+### 2026-11-20 — Build the two NFC-related PERIC1 I²C buses
+
+Compared the public revision 26 reference to the device tree from the
+owner's checksum-verified SM-G965N stock BOOT backup. Initial extraction
+used the newer backup schema and assumed the DTBH chip field contained
+the SoC product number. Checked the legacy manifest structure and the
+actual Samsung table identifier, then selected the unique revision 26
+entry. The owner tree confirms the NFC device at address 0x27 on
+0x108e0000 and the PCAL6524 at address 0x22 on 0x10930000. The first bus
+uses USI08 in I²C mode. The second uses the USI10 dedicated I²C clock
+and does not need the adjacent USI mode select.
+
+Use the vendor register tables to distinguish the PERIC1 bus and IP
+parents, the full USI08 gates, and the USI10 dedicated gates. Built an
+isolated DTB candidate with both AutoV9 controllers and no I²C child
+devices. Did not add an unverified CLKREQ option write to the dedicated
+controller. Verified both ranges, IRQs, stock pin groups, actual pinctrl
+references and exact clock-table additions. The 200 MHz fixed input
+follows the stock request and still needs measurement on hardware.
+
+Rebuilt uniLoader and unpacked the private candidate BOOT to verify the
+same #48 Linux Image, outer DT and ramdisk with only the new inner DTB.
+The handset continued running its existing #48 BOOT and reported a
+connected mobile interface. No controller register, regulator or flash
+partition was touched during this review. The PCAL6524 GPIO reset is
+identified as GPG3 line 6; its supply and safe reset policy remain
+separate from the bus candidate.
+
+- [Stock Exynos9810 clock registers](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/drivers/soc/samsung/cal-if/exynos9810/cmucal-sfr.c)
+- [Stock Exynos9810 clock mapping](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/include/dt-bindings/clock/exynos9810.h)
