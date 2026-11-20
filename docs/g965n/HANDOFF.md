@@ -182,3 +182,21 @@ heading.sock 중계를 사용하세요. 정확도 보정은 여전히 별도 미
 CPU capability 차이 안내9. QoS는 g965n_compat.h의 실제 미구현 안내이므로
 표시만 숨기지 말고 실제 interconnect/frequency provider가 있어야 구현하세요.
 clean build 마지막 진행202/1325, 실패 컴파일 표시0, 실행 중입니다.
+
+
+## 최신 후속: 진동 대기 전원 수정
+
+feedbackd를 설치·연결해 실제 표준 API100ms 출력을 세 번 확인했습니다.
+원래 드라이버는 장치를 열어 둔 서비스 때문에 boost/bias가 계속 켜졌습니다.
+서비스를 멈추고0006 idle-power 패치를 적용한 모듈만 교체해 해결했습니다.
+현재 feedbackd가 열고 있어도 idle boost0/bias0/motor0, 출력 시1/1/1,
+자동 종료 시0/0/0. 기존 guarded100ms/8192 검사도 새 idle-aware 도구로 통과.
+user g965n-feedbackd.service는 enabled/active입니다. 보편적인 GNOME
+알림·키보드 자동 피드백은 연결하지 않았으며 명시적 libfeedback 호출만 검증했습니다.
+
+소스/핀/빌드/배치/복구: experiments/pmic/feedback/README.md,
+HAPTIC_IDLE_POWER.json, builder --idle-power. 기존0005 모듈·test·두 pin의
+복구본은 기기의 feedback48/pre-idle-module 비공개 경로에 보존했습니다.
+되돌릴 때 feedbackd부터 중지/비활성화하고 기존 모듈과 도구·핀을 같이 복구하세요.
+새 모듈 재부팅 검증은 아직 남아 있습니다. 실행 중인 clean Mesa 빌드를
+중단시키지 않고 완료·별도 시험 후 함께 진행하세요. 마지막978/1325/실패표시0.

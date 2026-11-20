@@ -7,7 +7,7 @@
   "board_sources": {
     "g965n-pwm-board.c": "d212e59b782a673faf03b19ac1d9ae9801acebfed2785ffd5e88eb36e988d7dd",
     "g965n-haptic-board.c": "3bbe78f207c99033bc73bf4c14378810f04cbd35abdd74500316f96f86fc63aa",
-    "haptic-test.c": "9fe1a4d0f5597c4179f84dccb351972fb21334c799d97b2a9a5302fad8087557",
+    "haptic-test.c": "de8626c7fa0d6d6d603a7cc4eba463eea0a69135d09a863c20b6c5537336212d",
     "measure-pwm-counter.c": "2b7da41491fec4183f19670c1fdc80107c740beb63502719a196364b030aad2f",
     "read-fvmap32.c": "5fa888e0a998785c1882e85f4af94c4bba103d639a5d339337a268fc95b33abd",
     "read-motor-pins32.c": "7e43b0775a30c93af00dac7fbbf81168f18bc702cabdb2887c6882a295d08e5c"

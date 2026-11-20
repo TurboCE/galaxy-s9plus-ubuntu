@@ -258,3 +258,11 @@ uses pwm_sclk for counter arithmetic; the pinned
 [clock provider](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/drivers/clk/samsung/clk-exynos9810.c)
 registers its 1:1 oscillator path. Original driver notices remain in the
 input source and derivative haptic patch. No original firmware blob is shared.
+
+### Persistent standard feedback clients
+
+The later MAX77705-only idle-power patch fixes the real supply/bias remaining
+on while a standard feedback daemon keeps evdev open. Use the separately pinned
+`--idle-power` recipe and matching idle-aware diagnostic; the original variant
+is preserved. See [standard feedback integration](feedback/README.md) for actual
+100ms API tests, bounded theme, configuration, limitations and rollback.

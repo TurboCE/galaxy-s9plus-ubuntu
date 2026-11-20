@@ -1,0 +1,89 @@
+{
+  "name": "g965n-bounded",
+  "profiles": [
+    {
+      "name": "full",
+      "feedbacks": [
+        {
+          "event-name": "g965n-haptic-test",
+          "type": "VibraRumble",
+          "duration": 100,
+          "count": 1,
+          "pause": 0
+        },
+        {
+          "event-name": "message-new-instant",
+          "type": "VibraRumble",
+          "duration": 100,
+          "count": 1,
+          "pause": 0
+        },
+        {
+          "event-name": "message-new-sms",
+          "type": "VibraRumble",
+          "duration": 100,
+          "count": 1,
+          "pause": 0
+        },
+        {
+          "event-name": "message-new-email",
+          "type": "VibraRumble",
+          "duration": 100,
+          "count": 1,
+          "pause": 0
+        },
+        {
+          "event-name": "bell-terminal",
+          "type": "VibraRumble",
+          "duration": 100,
+          "count": 1,
+          "pause": 0
+        }
+      ]
+    },
+    {
+      "name": "quiet",
+      "feedbacks": [
+        {
+          "event-name": "g965n-haptic-test",
+          "type": "VibraRumble",
+          "duration": 100,
+          "count": 1,
+          "pause": 0
+        },
+        {
+          "event-name": "message-new-instant",
+          "type": "VibraRumble",
+          "duration": 100,
+          "count": 1,
+          "pause": 0
+        },
+        {
+          "event-name": "message-new-sms",
+          "type": "VibraRumble",
+          "duration": 100,
+          "count": 1,
+          "pause": 0
+        },
+        {
+          "event-name": "message-new-email",
+          "type": "VibraRumble",
+          "duration": 100,
+          "count": 1,
+          "pause": 0
+        },
+        {
+          "event-name": "bell-terminal",
+          "type": "VibraRumble",
+          "duration": 100,
+          "count": 1,
+          "pause": 0
+        }
+      ]
+    },
+    {
+      "name": "silent",
+      "feedbacks": []
+    }
+  ]
+}

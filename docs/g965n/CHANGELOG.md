@@ -7109,3 +7109,77 @@ policy; no invented frequency table or warning suppression was added.
 Clean user build remains active at202/1325 with failed compile markers0.
 No new binary was installed. These observations supersede earlier idle state
 only for this current modem query, not the previously verified LTE trials.
+
+## 2026-11-20 — Remaining-warning review and standard feedback investigation
+
+Rechecked current native48 and background Mesa clean build:394/1325, unit
+active and no compile failure markers, failed system units0. Current kernel
+warning review found only the previously recorded missing RGB/haptic child DT
+nodes, four missing vendor QoS notices and Bluetooth advertised transmit-power
+quirk among targeted driver error/warning patterns. Pinned hci_sync.c explicitly
+logs HCI_QUIRK_BROKEN_READ_TRANSMIT_POWER in its known-quirk report; btbcm.c
+already applies it on star2lte. It is not a new command timeout to hide.
+
+Ubuntu feedbackd was absent. After current SM-G965N/BOOT/protected-backup
+preflight, started installing the stock no-recommends feedbackd package with
+private apt log, to investigate standard haptic consumers. No new udev match,
+notification hook or vibration theme is enabled yet; package installation is
+not evidence of real feedback output. Desktop integration qualification pending.
+
+
+## 2026-11-20 — Persistent-client haptic idle-power bug fixed on hardware
+
+Installed Ubuntu feedbackd0.2.1-1build2 (normal package license unchanged).
+Reviewed its original Ubuntu source locally; initial Debian0.2.1 source URL
+returned404, then the Ubuntu original archive succeeded. No upstream binary,
+source archive, identifiers or private measurements enter Git. New dedicated
+udev match and user D-Bus/unit use only this board's rumble input and an own
+no-parent theme: single100ms events, full/quiet, silent empty; no periodic or
+LED pattern. fbd-theme-validate passed. Original driver's standard fbcli trial
+returned0 and observed motor on then off, but actual idle state with persistent
+evdev open was boost1/bias1/MOTOR_EN0. Disabled/stopped feedbackd immediately;
+closing it returned all0. Do not call that earlier idle state power-off.
+
+Added0006 patch, scoped to MAX77705: evdev open no longer powers hardware;
+actual playback enables bias/supply, successful stop disables PWM/supply/bias.
+Enable failures unwind, PMIC stop failure still disables PWM and real supply,
+and power-off failures retain state for close retry and produce error logging.
+Other PMIC variants keep their original policy. HAPTIC_IDLE_POWER.json pins
+input/patch/output; builder --idle-power applies it separately from the original
+0005 variant. Original notices preserved. Actual extracted production functions
+passed ASan/UBSan:100 held-open cycles, repeated enable/close, injected bias/
+supply/PWM/start/stop errors and retry cleanup. Initial module build passed;
+added explicit power-on error reporting and rebuilt before any device use.
+
+After fresh model/BOOT/protected backup preflight, preserved old installed
+module and pin privately, stopped feedbackd/haptic, replaced only the haptic
+consumer module and its checksum, and restarted guarded haptic service. No
+BOOT/firmware/identity partition changed. With feedbackd holding evdev open,
+idle was boost0/bias0/MOTOR_EN0. Three real standard fbcli calls each returned0,
+observed boost1/bias1/MOTOR_EN1 and then all0 automatically while the same daemon
+remained active. Each trial had a separate4s root rail-cut fallback cancelled
+only after success. Raw register-timing samples remain private.
+
+Updated bounded diagnostic compile-time idle expectation for this variant,
+preserved/replaced the installed test binary and its program pin, and passed
+guarded100ms/8192 rumble: actual on, automatic full-off before close and off
+after close. Original builder default retains old diagnostic expectation.
+Enabled the qualified feedbackd user service only after these checks. Final
+idle all0, serious kernel patterns0 and failed system units0. Warm reboot of
+this new module is pending; it was not forced during the independent active
+Mesa clean compilation (latest978/1325, compile failure markers0).
+Standard libfeedback caller integration is verified, not an automatic GNOME
+notification/keyboard hook. See experiments/pmic/feedback/README.md for source,
+installation order, safeguards, limitations and rollback. Whole-device battery
+savings and long-term motor heating are not measured by rail-off readback.
+
+Source review before reboot also found firmware may retain bias/MOTOR_EN at
+boot. Added explicit checked motor-off/bias-off initialization before registering
+the MAX77705 input; failed writes now fail probe instead of exposing a device
+with unknown initial state. Added actual init-function tests for retained bits
+and both write failures. Rebuilt the entire optional module/tool recipe in new
+private output, preserving earlier candidates. Fresh guarded module/pin-only
+replacement and restart passed: idle all0 before feedbackd opens and after it
+opens, then guarded100ms output/automatic rail-off/close-off all passed. Original
+pre-idle module/tool backups remain intact; intermediate lazy module retained
+separately. Latest clean Mesa build1286/1325/failed compile markers0, still active.

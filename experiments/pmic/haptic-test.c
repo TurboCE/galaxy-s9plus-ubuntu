@@ -9,6 +9,9 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#ifndef G965N_HAPTIC_IDLE_BOOST
+#define G965N_HAPTIC_IDLE_BOOST 1
+#endif
 static int state(int expect_motor, int expect_boost) {
  FILE *f=fopen("/sys/bus/platform/devices/g965n-haptic-board/motor_state","r");
  int boost=-1;unsigned bias=0,motor=0,config=0;
@@ -37,7 +40,7 @@ int main(int argc,char **argv) {
  event.value=0;
  if(write(fd,&event,sizeof(event))!=sizeof(event))goto remove;
  usleep(30000);
- int off=state(0,1);
+ int off=state(0,G965N_HAPTIC_IDLE_BOOST);
  status=on||off?6:0;
 remove:
  if(ioctl(fd,EVIOCRMFF,effect.id)<0){perror("effect remove");status=7;}

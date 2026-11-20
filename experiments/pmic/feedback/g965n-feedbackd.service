@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Unit]
+Description=G965N bounded standard feedback service
+[Service]
+Type=dbus
+BusName=org.sigxcpu.Feedback
+Environment=FEEDBACK_THEME=/usr/local/share/g965n-feedback/g965n.json
+ExecStart=/usr/libexec/feedbackd
+Restart=on-failure
+RestartSec=3
+[Install]
+WantedBy=default.target

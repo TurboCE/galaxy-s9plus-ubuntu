@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[D-BUS Service]
+Name=org.sigxcpu.Feedback
+Exec=/usr/bin/env FEEDBACK_THEME=/usr/local/share/g965n-feedback/g965n.json /usr/libexec/feedbackd
+SystemdService=g965n-feedbackd.service

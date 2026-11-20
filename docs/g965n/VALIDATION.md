@@ -405,3 +405,15 @@ required, data unverified. RTC/synchronized UTC delta0.53s. Targeted dmesg
 RTC/GPT/touch/sensor/P2P IF_ADD timeout patterns0; vendor bus QoS notices4,
 CPU capability notices9 remain. No blanket clean-log/all-modules claim.
 Clean rebuild latest202/1325 active, compile failure markers0.
+
+
+Native48 persistent-open feedbackd revealed real haptic idle power bug:
+boost1/bias1 despite MOTOR_EN0. Stopped daemon then applied MAX77705-only
+lazy-playback power patch. Actual held-open new state0/0/0; three standard
+fbcli100ms trials each observed1/1/1 during play and0/0/0 at auto-stop with
+daemon still alive. Independent4s rail-cut timers cancelled after verification.
+Updated guarded100ms/8192 diagnostic passed on/auto-off/close-off. Production
+functions100 held-open cycles and injected power/PWM/start/stop errors passed
+ASan/UBSan. Source-pinned optional idle-power module build passed. Serious
+kernel patterns0/failed system units0. Consumer enabled after tests; new module
+warm reboot, complete GNOME notification linkage and battery savings pending.

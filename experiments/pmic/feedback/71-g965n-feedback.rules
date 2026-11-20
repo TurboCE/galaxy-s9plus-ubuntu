@@ -1,0 +1,2 @@
+# SPDX-License-Identifier: GPL-2.0-only
+ACTION=="add|change", SUBSYSTEM=="input", KERNEL=="event[0-9]*", ATTRS{name}=="g965n-max77705-haptic", TAG+="uaccess", ENV{FEEDBACKD_TYPE}="vibra"
