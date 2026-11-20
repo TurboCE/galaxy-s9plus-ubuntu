@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Desktop Entry]
+Type=Application
+Name=NFC
+Name[ko]=NFC 설정 및 태그 읽기
+Exec=/usr/bin/python3 /usr/local/share/g965n-nfc/settings.py
+Icon=network-wireless
+Terminal=false
+Categories=Settings;HardwareSettings;

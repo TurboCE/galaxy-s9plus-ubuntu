@@ -110,3 +110,32 @@ handset's pinned Samsung GPIO, supply and clock definitions. It does
 not distribute vendor firmware.
 
 [Samsung NFC active-low VEN definition](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/drivers/nfc/sec_nfc.h)
+
+## Standard desktop service and controls
+
+The handset now uses upstream [neard](https://github.com/linux-nfc/neard)
+through its standard `org.neard` D-Bus service. Ubuntu 24.04's configured
+repositories had no neard package candidate, so it was built on the phone.
+Build dependencies are meson, ninja-build, libglib2.0-dev, libdbus-1-dev,
+libnl-3-dev and libnl-genl-3-dev.
+
+`build-neard.sh NEW_DIRECTORY` checks out the tested upstream revision
+and builds the daemon and tag-type plugins with their upstream notices.
+It runs the upstream NDEF and SNEP tests. The script never installs or
+flashes. After model, BOOT, backup and operator checks, install with
+`meson install -C NEW_DIRECTORY/build --no-rebuild`. With this prefix,
+copy the installed `/usr/local/etc/dbus-1/system.d/org.neard.conf` to
+`/etc/dbus-1/system.d/org.neard.conf` so Ubuntu loads its bus policy,
+then reload D-Bus configuration and systemd.
+
+Add a systemd neard drop-in with `Wants=g965n-bluetooth.service` and
+`After=g965n-bluetooth.service` in [Unit], and
+`WantedBy=multi-user.target` in [Install]. Enable the daemon.
+
+Install settings.py at /usr/local/share/g965n-nfc/settings.py and
+g965n-nfc.desktop under /usr/local/share/applications. This local GTK
+frontend runs as the desktop user and provides power and scanning
+controls over neard. It displays NDEF text and URI records when neard
+reads a tag. It does not automatically open a URI. GNOME Settings has
+no integrated NFC page in this installation, so the launcher is separate.
+Actual tag content needs an on-device tag and remains unverified.

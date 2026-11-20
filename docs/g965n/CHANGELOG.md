@@ -6430,3 +6430,38 @@ powered BlueZ adapter. nfc0 and its shared PCAL6524 stayed registered.
 The user was away, so no physical tag detection or content test was
 performed. The last NFC lifecycle test left the radio powered down
 and available for the next application.
+
+### 2026-11-20 — Add standard neard service and desktop NFC controls
+
+The configured Ubuntu 24.04 package repositories have no neard
+candidate. Built upstream linux-nfc/neard at the pinned revision
+f4b6db9ec482208079f684a0ed6762fd37371d2b on the handset with tag-type
+plugins, tools and examples. All three upstream NDEF/SNEP suites
+passed. Preserved upstream source and notices in the local build.
+The committed recipe builds only and does not install or flash.
+
+The first installed daemon could not own its D-Bus name because the
+/usr/local prefix installed the policy outside Ubuntu's system bus
+configuration directory. Installed that exact upstream policy under
+/etc/dbus-1/system.d, reloaded configuration and started the daemon.
+Its ObjectManager enumerates the native radio and its Adapter API
+reports the controller's supported protocols. The ordinary desktop
+user successfully powered the radio on and off and started/stopped
+polling through the standard D-Bus interface.
+
+Installed a local GTK NFC settings and tag-view frontend. GNOME has
+no native NFC page here, so it is a separate launcher. It displays
+neard NDEF text/URI records without automatically opening links.
+Added asynchronous control calls and excluded status refresh while
+a command is pending. The accessibility action tests could not
+activate the GTK controls reliably. A visible GTK instance then
+exercised the real checkbox and button handlers under the ordinary
+desktop account. All six off/on/poll/stop/off checks matched the
+visible status. The service is enabled after the shared Bluetooth
+driver and available through org.neard. A service restart repeated
+the ordinary-user control checks. Physical tag detection and NDEF
+content were not tested because the owner was away.
+
+The replacement data SIM remains in network-searching state in the
+current observation. Actual data registration, GNSS fix, camera and
+fingerprint remain open.
