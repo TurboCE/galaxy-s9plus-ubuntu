@@ -7090,3 +7090,22 @@ battery30C, started a separate normal-user clean Mesa build with Nice10,
 CPUQuota100% and two build jobs. First progress57/1325 with failed compile
 markers0; output adoption/hardware qualification remains pending. Service:
 g965n-mesa-neon48-clean-build.service (user), private work neon48-clean-rebuild.
+
+
+## 2026-11-20 — Post-NEON remaining-function read-only review
+
+Current SIM modem power is on, state/3GPP registration both searching, no
+access technology reported and no unlock required. No SIM identity/APN/raw
+modem log exported; no attach/data success inferred. Existing historical
+specific-SIM IPv4 success remains valid. No radio reset or network settings
+were changed during this review.
+
+RTC versus synchronized system UTC differed0.53s. Targeted current full dmesg
+patterns: RTC IRQ/GPT/touch timeout/sensor timeout/P2P IF_ADD timeout0.
+Vendor bus QoS notice4 and CPU capability-difference notices9 remain; this is
+not a globally warning-free boot. Modem g965n_compat.h deliberately reports
+missing vendor QoS rather than pretending a working frequency/interconnect
+policy; no invented frequency table or warning suppression was added.
+Clean user build remains active at202/1325 with failed compile markers0.
+No new binary was installed. These observations supersede earlier idle state
+only for this current modem query, not the previously verified LTE trials.

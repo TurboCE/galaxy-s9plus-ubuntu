@@ -399,3 +399,9 @@ true. Sensor supervisor journal error lines0; standard NTP synchronized true.
 Original screen-off state restored. Separate clean full build running under
 normal-user unit/Nice10/CPUQuota100%/jobs2; first57/1325 no failed compile
 markers. Full clean build and its later hardware adoption remain pending.
+
+Current post-reboot modem query: power on/searching registration/no unlock
+required, data unverified. RTC/synchronized UTC delta0.53s. Targeted dmesg
+RTC/GPT/touch/sensor/P2P IF_ADD timeout patterns0; vendor bus QoS notices4,
+CPU capability notices9 remain. No blanket clean-log/all-modules claim.
+Clean rebuild latest202/1325 active, compile failure markers0.

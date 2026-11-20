@@ -174,3 +174,11 @@ heading.sock 중계를 사용하세요. 정확도 보정은 여전히 별도 미
 시험과 남은 frame-clock dispatch 지연 조사입니다. 현재 화면은 시험 전의
 꺼짐 상태로 복원했습니다. NTP=yes/NTPSynchronized=yes 및 나침반 사용자
 소켓6개 정상 범위 표본도 확인했습니다.
+
+
+마지막 읽기 전용 확인: 현재 SIM은 searching/power on/unlock 불필요이며 실제
+데이터 재검증은 못 했습니다. RTC와 NTP 동기화된 UTC 차이0.53초.
+대상 dmesg 패턴 RTC/GPT/touch/sensor/P2P IF_ADD timeout0, vendor bus QoS4,
+CPU capability 차이 안내9. QoS는 g965n_compat.h의 실제 미구현 안내이므로
+표시만 숨기지 말고 실제 interconnect/frequency provider가 있어야 구현하세요.
+clean build 마지막 진행202/1325, 실패 컴파일 표시0, 실행 중입니다.
