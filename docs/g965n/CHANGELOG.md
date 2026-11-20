@@ -7183,3 +7183,10 @@ replacement and restart passed: idle all0 before feedbackd opens and after it
 opens, then guarded100ms output/automatic rail-off/close-off all passed. Original
 pre-idle module/tool backups remain intact; intermediate lazy module retained
 separately. Latest clean Mesa build1286/1325/failed compile markers0, still active.
+
+Clean Mesa source build subsequently completed1325/1325, no failed compile
+markers, receipt phase built. Output remains separate from the qualified live
+Shell. Initial Git whitespace review flagged unified-patch context prefixes,
+not generated C defects; regenerated0006 with zero context, updated patch hash
+and verified zero-fuzz application yields the identical already-tested source
+hash. No runtime binary/source semantics changed for that formatting correction.

@@ -1,18 +1,9 @@
 --- a/drivers/input/misc/max77693-haptic.c
 +++ b/drivers/input/misc/max77693-haptic.c
-@@ -59,6 +59,8 @@
- 	struct regulator *motor_reg;
- 
- 	bool enabled;
+@@ -61,0 +62,2 @@
 +	bool motor_powered;
 +	bool motor_bias;
- 	bool suspend_state;
- 	unsigned int magnitude;
- 	unsigned int pwm_duty;
-@@ -174,6 +176,54 @@
- 	}
- 
- 	return 0;
+@@ -176,0 +179,48 @@
 +}
 +
 +/* MAX77705 clients may keep evdev open indefinitely. Power only while playing. */
@@ -61,13 +52,7 @@
 + if (error)
 +  return error;
 + return max77843_haptic_bias(haptic, false);
- }
- 
- static void max77693_haptic_enable(struct max77693_haptic *haptic)
-@@ -184,6 +234,14 @@
- 	if (haptic->enabled)
- 		return;
- 
+@@ -186,0 +237,8 @@
 +	if (haptic->dev_type == TYPE_MAX77705) {
 +		error = g965n_haptic_power_on(haptic);
 +		if (error) {
@@ -76,30 +61,14 @@
 +		}
 +	}
 +
- 	pwm_init_state(haptic->pwm_dev, &state);
- 	state.duty_cycle = (state.period + haptic->pwm_duty) / 2;
- 	state.enabled = true;
-@@ -192,7 +250,7 @@
- 	if (error) {
- 		dev_err(haptic->dev,
- 			"failed to enable haptic pwm device: %d\n", error);
+@@ -195 +253 @@
 -		return;
 +		goto err_power;
- 	}
- 
- 	error = max77693_haptic_lowsys(haptic, true);
-@@ -211,11 +269,25 @@
- 	max77693_haptic_lowsys(haptic, false);
- err_enable_lowsys:
- 	pwm_disable(haptic->pwm_dev);
+@@ -213,0 +272,3 @@
 +err_power:
 +	if (haptic->dev_type == TYPE_MAX77705)
 +		g965n_haptic_power_off(haptic);
- }
- 
- static void max77693_haptic_disable(struct max77693_haptic *haptic)
- {
- 	int error;
+@@ -218,0 +280,11 @@
 +
 +	if (haptic->dev_type == TYPE_MAX77705) {
 +		if (haptic->enabled) {
@@ -111,39 +80,18 @@
 +		g965n_haptic_power_off(haptic);
 +		return;
 +	}
- 
- 	if (!haptic->enabled)
- 		return;
-@@ -284,6 +356,9 @@
- 	struct max77693_haptic *haptic = input_get_drvdata(dev);
- 	int error;
- 
+@@ -286,0 +359,3 @@
 +	if (haptic->dev_type == TYPE_MAX77705)
 +		return 0;
 +
- 	error = max77843_haptic_bias(haptic, true);
- 	if (error)
- 		return error;
-@@ -309,6 +384,9 @@
- 	cancel_work_sync(&haptic->work);
- 	max77693_haptic_disable(haptic);
- 
+@@ -311,0 +387,3 @@
 +	if (haptic->dev_type == TYPE_MAX77705)
 +		return;
 +
- 	error = regulator_disable(haptic->motor_reg);
- 	if (error)
- 		dev_err(haptic->dev,
-@@ -364,6 +442,12 @@
- 		return PTR_ERR(haptic->motor_reg);
- 	}
- 
+@@ -366,0 +445,6 @@
 +	if (haptic->dev_type == TYPE_MAX77705) {
 +		error = g965n_haptic_idle_init(haptic);
 +		if (error)
 +			return error;
 +	}
 +
- 	/* Initialize input device for haptic device */
- 	haptic->input_dev = devm_input_allocate_device(&pdev->dev);
- 	if (!haptic->input_dev) {
