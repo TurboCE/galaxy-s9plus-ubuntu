@@ -6244,3 +6244,47 @@ separate from the bus candidate.
 
 - [Stock Exynos9810 clock registers](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/drivers/soc/samsung/cal-if/exynos9810/cmucal-sfr.c)
 - [Stock Exynos9810 clock mapping](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/include/dt-bindings/clock/exynos9810.h)
+
+### 2026-11-20 — Boot the NFC bus trial and read the PCAL6524
+
+With the exact SM-G965N, USB recovery, charged battery and complete
+backup verified, wrote and read back the client-free NFC trial BOOT.
+Restored the guarded service receipts for the new BOOT. Recovery and
+the protected radio partitions matched the previous backup. EFS
+differed only in the four approved ext4 fields, so revalidated the
+private modem receipt while preserving the old receipt and its data.
+
+Both AutoV9 controllers bound and registered I²C adapters. The kernel
+read back the new clock and reset settings. A direct read of the clock
+tree showed the PERIC1 IP parent selected from PLL_SHARED2 (800 MHz),
+two upstream divide-by-two stages and local divisors of four and one.
+The inferred controller inputs are 50 MHz for full USI08 and 200 MHz
+for dedicated USI10 I²C. The existing boot still describes both as
+200 MHz. The electrical SCL rate has not been measured.
+
+The first targeted PCAL6524 input-register read timed out. A temporary
+clock-request bit test produced the same result and restored the
+original bit. The pinctrl owner display showed the correct group, but
+the actual GPP6 mux nibbles remained zero. The existing Bluetooth
+module uses the same two pins for its software I²C adapter. After
+stopping its service and reapplying the native controller pinmux,
+both nibbles read back as three and a targeted PCAL6524 read returned
+one input-register byte.
+
+The first test shell emitted its Python heredoc opener as text. The
+subsequent dedicated read completed. Bluetooth could not restart
+directly because its service stop leaves the module loaded. After
+manual reload the UART was assigned ttySAC1, while the service still
+expected ttySAC0. A normal reboot restored BlueZ's powered controller,
+audio, cover and sensors, and re-registered both I²C adapters. Wi-Fi
+HTTPS204 passed. The board still needs a single PCAL6524 owner before
+Bluetooth and NFC can share its outputs reliably.
+
+The owner inserted a replacement data SIM. The running system did
+not recognize it immediately. Restarting the modem with the verified
+receipt made the new SIM ready. On subsequent boots, EPS remained
+searching and packet attachment stayed false despite a nonzero
+signal. A separate one-minute observation after the final reboot
+never acquired a mobile bearer. Ubuntu Wi-Fi and the original modem
+service remained running. Prior end-to-end IPv4 evidence involved
+the previous SIM.

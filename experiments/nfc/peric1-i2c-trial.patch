@@ -1,0 +1,107 @@
+--- a/arch/arm64/boot/dts/exynos/exynos9810-star2lte.dts
++++ b/arch/arm64/boot/dts/exynos/exynos9810-star2lte.dts
+@@ -427,7 +427,16 @@
+ 		 */
+ 					     <0x1a242064>,	/* GATE_CLKCMU_FSYS0_USB30DRD (CMU top) */
+ 					     <0x1100206c>,	/* FSYS0 USB30DRD_REF_CLK */
+-					     <0x11002008>;	/* FSYS0 USBDPPHY_REF_SOC_PLL */
++					     <0x11002008>,	/* FSYS0 USBDPPHY_REF_SOC_PLL */
++				     /* PERIC1 root clocks, followed by each HSI2C input */
++				     <0x1a2420c0>,	/* CLKCMU_PERIC1_BUS */
++				     <0x1a2420c4>,	/* CLKCMU_PERIC1_IP */
++				     <0x10802040>,	/* USI08 clock */
++				     <0x108020f4>,	/* USI08 full USI IPCLK */
++				     <0x108020f8>,	/* USI08 full USI PCLK */
++				     <0x10802050>,	/* PERIC1 dedicated I2C clock */
++				     <0x1080210c>,	/* USI10 dedicated I2C IPCLK */
++				     <0x10802110>;	/* USI10 dedicated I2C PCLK */
+ 		/*
+ 		 * PCIe channel 0 (WiFi) gates are deliberately NOT here: the
+ 		 * FSYS1 PCIe gate and Q-Channel hint registers abort the bus
+@@ -504,7 +513,10 @@
+ 				    <0x1041101c 0x4>,	/* PERIC0 USI03 SW_CONF: I2C */
+ 				    <0x14212030 0x4>,	/* CMGP USI03 SW_CONF: I2C */
+ 				    <0x104b00c4 0x0>,	/* USI03 USI_CON: reset off */
+-				    <0x143600c4 0x0>;	/* USI_CMGP03 USI_CON: reset off */
++				    <0x143600c4 0x0>,	/* USI_CMGP03 USI_CON: reset off */
++				    <0x1081102c 0x4>,	/* USI08 SW_CONF: I2C */
++				    <0x108e00c4 0x0>,	/* USI08 USI_CON: reset off */
++				    <0x109300c4 0x0>;	/* USI10 dedicated I2C USI_CON */
+ 		/*
+ 		 * Unmask the cluster-1 watchdog's reset request in the PMU.
+ 		 * sboot leaves bit 23 of MASK_WDT_RESET_REQUEST set, and with
+@@ -515,7 +527,8 @@
+ 
+ 		s9p,or-registers = <0x14060704 0x1>,	/* PMU USB3/DP PHY control */
+ 				   <0x104b00c8 0x2>,	/* USI03 USI_OPTION: CLKREQ_ON */
+-				   <0x143600c8 0x2>;	/* USI_CMGP03 USI_OPTION: CLKREQ_ON */
++				   <0x143600c8 0x2>,	/* USI_CMGP03 USI_OPTION: CLKREQ_ON */
++				   <0x108e00c8 0x2>;	/* USI08 USI_OPTION: CLKREQ_ON */
+ 		/*
+ 		 * Read-only: the muxes and dividers behind the fixed-clock
+ 		 * stand-ins, so the real rates can be worked out from the log.
+@@ -793,6 +806,40 @@
+ 		};
+ 	};
+ 
++
++	/*
++	 * Trial: expose the two NFC-related PERIC1 buses alone. Device power,
++	 * I2C clients and pinctrl for the PCAL6524 reset are separate steps.
++	 * The fixed input rate matches the stock default-clk request and is
++	 * only a starting assumption until measured at the two controllers.
++	 */
++	hsi2c20: i2c@108e0000 {
++		compatible = "samsung,exynosautov9-hsi2c";
++		reg = <0x108e0000 0x1000>;
++		interrupts = <GIC_SPI 432 IRQ_TYPE_LEVEL_HIGH>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++		clocks = <&hsi2c_clk_stub>, <&hsi2c_clk_stub>;
++		clock-names = "hsi2c", "hsi2c_pclk";
++		clock-frequency = <370000>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&hsi2c20_bus>;
++		status = "okay";
++	};
++	hsi2c25: i2c@10930000 {
++		compatible = "samsung,exynosautov9-hsi2c";
++		reg = <0x10930000 0x1000>;
++		interrupts = <GIC_SPI 437 IRQ_TYPE_LEVEL_HIGH>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++		clocks = <&hsi2c_clk_stub>, <&hsi2c_clk_stub>;
++		clock-names = "hsi2c", "hsi2c_pclk";
++		clock-frequency = <370000>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&hsi2c25_bus>;
++		status = "okay";
++	};
++
+ 	hsi2c_pmic: i2c@14360000 {
+ 		compatible = "samsung,exynosautov9-hsi2c";
+ 		reg = <0x14360000 0x1000>;
+@@ -1109,6 +1156,23 @@
+ };
+ 
+ /* I2C pin groups, straight from the stock device tree (function 2, no pull). */
++
++&pinctrl_peric1 {
++	hsi2c20_bus: hsi2c20-bus-pins {
++		samsung,pins = "gpp5-0", "gpp5-1";
++		samsung,pin-function = <2>;
++		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
++		samsung,pin-drv = <EXYNOS5420_PIN_DRV_LV1>;
++	};
++
++	hsi2c25_bus: hsi2c25-bus-pins {
++		samsung,pins = "gpp6-2", "gpp6-3";
++		samsung,pin-function = <3>;
++		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
++		samsung,pin-drv = <EXYNOS5420_PIN_DRV_LV1>;
++	};
++};
++
+ &pinctrl_peric0 {
+ 	hsi2c10_bus: hsi2c10-bus-pins {
+ 		samsung,pins = "gpp1-4", "gpp1-5";
