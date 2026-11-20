@@ -6872,3 +6872,52 @@ explicit method mocks corrected that fixture and all three then passed. This
 was a host test-fixture error, not a handset change. The wrapper source captures
 the already executed successful sequence; it was not used to repeat a live
 provenance write after the receipt had already been updated.
+
+
+## 2026-11-20 — Real RGB output, standard LED class and warm-boot persistence
+
+Baseline recheck: native #48, failed units0, no RTC/GPT/call-trace regression,
+no LED/PWM class devices, existing unbound max77705-rgb/haptic platform children.
+Reviewed the pinned Lineage RGB driver: channels1/2/3 are red/green/blue, channel0
+is white, default low-power register code5. Built a separate derived trial from
+the already corrected upstream LED source, preserving its copyright/license.
+The trial attaches three software nodes to the selected existing RGB child,
+checks star2lte/parent address0x66, registers standard indicator LEDs with
+brightness cap1, and uses software timing rather than unqualified HW blink.
+No PMIC parent/charger reprobe, DT/BOOT write, firmware or regulator change.
+Readback is restricted to the four documented LED registers.
+
+The first warnings-as-errors build exposed kernel API-name differences for
+software-node groups/device attribute groups; corrected to the actual kernel
+APIs and rebuilt successfully. Verified exact input/output/patch/Module.symvers
+pins, matched module vermagic to the qualified running ABI, and checked current
+BOOT/model and RECOVERY/EFS/CPEFS/RADIO backup hashes before device changes.
+Loaded the standard multicolor dependency and explicitly bound only the RGB
+child via driver_override. Initial enable was00, all outputs off. No PMIC IRQ
+register dump was used.
+
+Fifteen bounded low-current pulses across red/green/blue passed current/enable
+and off readbacks, with finally leaving all off. The owner reported blue, red
+and green blinking. The published guard/control script then passed a test,
+stopped/unloaded only the selected driver, restarted it and passed another
+test. Enabled g965n-led.service and performed a normal warm reboot. Service
+active, all three class nodes/max_brightness1 restored, new readback test passed
+and failed units0. RTC/GPT/call-trace/Oops/BUG markers remain0 in that check.
+Existing early MFD missing-node messages were not hidden. GNOME notification/
+charging policy and calibrated brightness/HW patterns remain unimplemented.
+
+Rebuilt through the new public build-only recipe in a fresh directory; exact
+patched-source hash and module build passed. The broad existing PMIC C tests
+first lacked repository-relative DTS, then correctly rejected an old full-DTS
+pin. Reviewed CPU-cache-only commit91d74ac against the original and proved the
+charger node byte-identical. Refreshed only that topology reference pin. All
+three actual-C fault-injection/charger-topology checks now pass. No firmware,
+private module bundles or identifiers were added to Git.
+
+Haptic preparation located the vendor PWM gate/Q-channel and parent CMUCAL
+mux/div registers. Read-only values: PERIC0 mux0x10, gate0x200000, QCH0x3f0002,
+TOP parent mux1/div5. This does not prove a clock rate. A separate follow-up
+reading PLL_SHARED2 CON0/CON1 and DIV2 terminated with userspace SIGBUS; the
+specific blocked read was not isolated and was not retried. No clock/PWM/motor
+power register was written. Haptic remains pending a reviewed firmware/provider
+access route and real rate/supply verification; do not substitute a dummy clock.

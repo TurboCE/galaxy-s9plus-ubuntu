@@ -346,3 +346,20 @@ current-SIM registration/data. Existing provenance suite41 tests and isolated
 maintenance lease/refusal/cleanup tests3 pass. The published wrapper encodes the
 successful on-device isolated sequence; source pin/root-path checks were added
 for reuse and the wrapper file itself was not used to repeat a provenance write.
+
+
+Native48 RGB low-current trial (2026-11-20): existing PMIC child only, no parent
+reprobe/DT/BOOT update. Guarded input/ABI/BOOT/model/backup checks passed. Three
+standard indicator class nodes, max_brightness1. Fifteen physical-output
+on/off register checks passed; owner saw blue/red/green blinking. Public
+controller test, stop/unload/start/retest passed. Separate warm reboot restored
+g965n-led.service and three class nodes; repeat readback passed, failed units0,
+RTC/GPT/call-trace/Oops/BUG markers0. This qualifies low-current RGB output and
+startup, not brightness calibration, HW blink, GNOME notifications or charging
+policy. Reproducible build-only recipe and three existing actual-C/topology
+checks pass after reviewing the stale cache-only DTS topology pin.
+
+Haptic remains unqualified. Initial five CMU reads succeeded; a further PLL
+read-only diagnostic received userspace SIGBUS and stopped. No clock/PWM/motor
+power writes and no physical vibration test were performed. Do not infer motor
+failure or a verified PWM rate from that diagnostic.

@@ -31,6 +31,7 @@
     "charger_i2c_path": "drivers/power/supply/max77705_charger.c",
     "charger_i2c_sha256": "6df1e5a1100c8835def682db3d3ef87159158f06a91d6885798b8a235f05811a",
     "port_dts_path": "src/mainline-dts/exynos9810-star2lte.dts",
-    "port_dts_sha256": "fa9b4c11be8cf7e426f6160bf68ccada48baac72b7a4fffd5dcb663d873e1c16"
+    "port_dts_sha256": "e589407bc82bc73904ccfac92f19ff835fff09bca29ff5c054977b2e8aec68a3",
+    "port_dts_review": "91d74ac adds cache descriptions; charger node byte-identical to 6e7d279"
   }
 }

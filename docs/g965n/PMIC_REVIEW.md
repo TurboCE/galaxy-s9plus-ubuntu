@@ -1,6 +1,6 @@
 # MAX77705 functional wiring and source review
 
-Status: source-only candidates; RGB and haptics remain **UNVERIFIED**. No device
+Original review status: source-only candidates; RGB and haptics were **UNVERIFIED**. No device
 access, driver enable, configuration/DT change, kernel build or flash is part
 of this review. The existing separate charger is not replaced or reconfigured.
 
@@ -97,3 +97,22 @@ test conservative bounded output before making user-facing feature claims.
 Removing orphan MFD cells or hiding their missing-node warnings would not
 resolve these functional blockers. The charger cell is deliberately unchanged
 until a separate integration review determines the correct model.
+
+
+## 2026-11-20 functional follow-up
+
+The original review above is historical. Native #48 now drives the actual RGB
+LED through the separately pinned low-current trial in experiments/pmic.
+The owner saw all three colors. Fifteen on/off readbacks, unload/reload and a
+separate warm reboot passed; the normal LED class exposes three channels capped
+at1 and boot starts with all off. Existing MFD parent/charger were not rebound.
+No DT/BOOT change was used, and early missing-node messages were not filtered.
+This is output/boot qualification; notification policy/calibrated brightness
+and hardware patterns remain open. The source/ABI pins and exact commands are
+in the PMIC README. Haptic remains unqualified.
+
+Haptic investigation located the vendor CMUCAL PWM gate and parent path.
+Initial mux/gate/Q-channel register reads succeeded; subsequent PLL register
+reads caused SIGBUS in the userspace diagnostic process. No motor/PWM/clock
+writes occurred. Do not retry blocked PLL reads or invent a fixed clock rate;
+review firmware access and a proper clock-provider path first.

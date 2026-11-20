@@ -73,3 +73,73 @@ Original MFD GPL-2.0-or-later SPDX and Dzmitry Sankouski copyright are preserved
 The third patch does not alter the I2C charger driver, schema, DT or register
 settings. No raw boot log or firmware is published. Package pins in `SOURCES.json` must be
 reviewed if a later legitimate charger or board source change updates them.
+
+
+## Native #48 low-current RGB integration
+
+The earlier correctness patches above remain separate from the functional
+trial in `0004-g965n-low-current-led-trial.patch`. This trial uses the corrected
+upstream LED driver with its original copyright/GPL notice. It attaches three
+board software nodes to the existing unbound PMIC RGB platform child. No PMIC
+parent reprobe, DT/BOOT update, charger change or direct userspace I2C access is
+needed. Explicit driver_override selects only max77705-rgb; no automatic OF
+match is added. Board compatible and parent I2C address0x66 are checked.
+
+Lineage's pinned RGB source maps WHITE/RED/GREEN/BLUE to channels0/1/2/3.
+The trial never registers white or changes its enable bits. Brightness codes
+are restricted to0..1, below that reference driver's default low-power code5;
+this is a register-code limit, not a calibrated optical/electrical-current claim.
+Hardware blink/ramp remain unqualified; the callback returns EOPNOTSUPP so LED
+core can use software timing. A read-only attribute reads only documented LED
+registers0x30 and0x32..0x34, not IRQ/status registers or charger settings.
+
+Build from the reviewed kernel source (patch0001 already applied), using the
+qualified module-output tree with its exact Module.symvers:
+
+```sh
+python3 experiments/pmic/build-led-trial.py \
+  --kernel-source "$KERNEL_SOURCE" --kernel-out "$KERNEL_OUT" \
+  --output "$NEW_PRIVATE_MODULE_OUTPUT"
+```
+
+LED_TRIAL.json pins the input/output/patch and qualified ABI hashes. The build
+creates a new directory and does not modify kernel source or flash a handset.
+It copies the matching standard led-class-multicolor dependency. Changed ABI
+or source requires a separate review, not bypassing hashes.
+
+After explicit SM-G965N/BOOT/backup checks, stage the two modules, generated
+pins.json and led-control.py in root-owned0700 `/usr/local/lib/g965n-led-trial`
+with files0600. The control script checks the current sensor profile/BOOT and
+RECOVERY/EFS/CPEFS/RADIO backup hashes before operations. Use:
+
+```sh
+sudo python3 /usr/local/lib/g965n-led-trial/led-control.py start \
+  --confirm-sm-g965n-backed-up-led-trial
+sudo python3 /usr/local/lib/g965n-led-trial/led-control.py test \
+  --confirm-sm-g965n-backed-up-led-trial
+sudo python3 /usr/local/lib/g965n-led-trial/led-control.py stop \
+  --confirm-sm-g965n-backed-up-led-trial
+```
+
+The test refuses busy LEDs, checks each channel's current/enable readback and
+uses finally to turn all three off. Stop unregisters only this child driver,
+clears its override and unloads the trial module. It never removes/reprobes the
+PMIC parent. The standard multicolor dependency may remain loaded.
+
+For verified installations only, install g965n-led.service under
+/etc/systemd/system, daemon-reload and enable it. Startup defaults to all LEDs
+off. Standard paths are `/sys/class/leds/{red,green,blue}:indicator` with
+max_brightness1. Normal user writes are not granted globally. No GNOME
+notification/charging policy is installed by this trial.
+
+Hardware evidence2026-11-20: fifteen on/off pulses passed exact register
+readback; the owner saw blue/red/green light. Stop/start followed by another
+test passed. Separate warm reboot auto-loaded the service and all three
+readback tests passed again; failed units0. Brightness remained limited to1.
+This qualifies low-current RGB output and boot persistence, not calibrated
+brightness, hardware patterns or notification-daemon integration.
+
+A broader PMIC regression first lacked the expected repository layout, then
+correctly detected a stale full-DTS pin. Reviewed commit91d74ac's CPU-cache-only
+DTS change and proved the charger node byte-identical to the original. Updated
+only that topology reference pin; all three actual-C/fault-injection tests pass.

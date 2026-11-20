@@ -1,0 +1,15 @@
+[Unit]
+Description=SM-G965N guarded low-current notification LEDs
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /usr/local/lib/g965n-led-trial/led-control.py start --confirm-sm-g965n-backed-up-led-trial
+ExecStop=/usr/bin/python3 /usr/local/lib/g965n-led-trial/led-control.py stop --confirm-sm-g965n-backed-up-led-trial
+TimeoutStartSec=45
+TimeoutStopSec=45
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

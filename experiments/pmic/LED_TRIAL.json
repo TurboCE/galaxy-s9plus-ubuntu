@@ -1,0 +1,8 @@
+{
+  "input_sha256": "e6ef3c279d4f2a3e7340ba3f6df722976d319077fe05602ccc6913959de61a07",
+  "output_sha256": "4477f703d6f7ea32dd79780cce072e2cb1de0a81a01b5e29c54eb99ce8dedac2",
+  "patch_sha256": "74808269fef42a069c7de0001012c3e85942fd18a731f69b5b203b647f86d07f",
+  "module_symvers_sha256": "45d68e3278f2498bb2d187c86b86c2803417d2c4dbcccbe096caf268dd6422e2",
+  "lineage_rgb_source_sha256": "111929f2e1438bfae9b60ee6bd01fcc9378fb7d668273361122345f02a88e63f",
+  "scope": "native #48 LED trial, current code 0..1, manual selected-child binding; no charger or haptic changes"
+}
