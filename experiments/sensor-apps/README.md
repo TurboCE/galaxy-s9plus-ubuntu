@@ -69,3 +69,61 @@ actual272/271/270lux; the initial Qt cache0 was not counted as a real sample.
 Light/tilt sensor consumers can now use this standard backend. Compass still
 requires real qualified heading support and stays waiting; hwmon/Psensor and
 brightness dimming are not implemented by the acceleration/ALS bridge.
+
+## Native #47 Qt 5 hardware backend
+
+This optional plug-in connects `QTiltSensor`, `QProximitySensor`,
+`QGyroscope`, `QPressureSensor` and `QCompass` to the G965N sensors. It
+uses the installed IIO nodes and, for compass, the private socket from
+the setup above. Keep the socket enabled for the desktop user. Light
+and orientation continue to use the distribution's Qt plug-ins.
+
+Build on Ubuntu 24.04 arm64 from this directory:
+
+```sh
+sudo apt-get install --no-install-recommends qtbase5-dev libqt5sensors5-dev
+source_dir="$PWD/qt-backend"
+build_dir=$(mktemp -d)
+(
+  cd "$build_dir"
+  qmake -qt=5 "$source_dir/g965n-sensors.pro"
+  make -j2
+)
+```
+
+After verifying the G965N model, recovery backup and consent for device
+writes, install the plug-in and default settings on the handset:
+
+```sh
+plugin_dir=$(qmake -qt=5 -query QT_INSTALL_PLUGINS)
+sudo install -D -m644 "$build_dir/libqtsensors_g965n.so" \
+  "$plugin_dir/sensors/libqtsensors_g965n.so"
+# If this file already exists, merge the five entries under [Default]
+# rather than overwriting it. The example command is for a fresh setup.
+if [ ! -e /etc/xdg/QtProject/Sensors.conf ]; then
+  sudo install -D -m644 "$source_dir/Sensors.conf" /etc/xdg/QtProject/Sensors.conf
+fi
+```
+
+Reopen Qt apps after installation. **Tilt, Light and Proximity** shows
+angles and Near/Far after pressing **Start** for each sensor. In
+**Sensor Explorer**, select the `g965n.*` row, press **Start** and scroll
+to the bottom of **Properties**. The compass takes a few seconds to
+show its first reading. The example's **Running** column may stay
+`false` even while the timestamp and values update. The Qt backends are `g965n.tilt`, `g965n.proximity`, `g965n.gyroscope`,
+`g965n.pressure` and `g965n.compass`.
+
+The plug-in applies the kernel acceleration mount matrix for Qt tilt,
+compares proximity to the IIO near threshold, and converts pressure to
+Pa and die temperature to °C. The gyroscope uses the stock G965N Android
+HAL conversion for the same signed 32-bit SSP stream, 0.035°/s per 1000
+counts, retaining the stock axis order. The IIO readers poll at 5 Hz.
+Compass headings are magnetic. Qt calibration confidence is reported
+as unknown (0) because the existing relay carries only azimuth.
+
+The backend follows the [Qt 5 sensor plug-in API][qt-plugin] and the
+standard [Qt tilt axis conventions][qt-tilt]. This repository distributes
+its own source and configuration under GPL-2.0-only.
+
+[qt-plugin]: https://github.com/qt/qtsensors/blob/5.15/src/sensors/qsensorplugin.h
+[qt-tilt]: https://github.com/qt/qtsensors/blob/5.15/src/sensors/qtiltsensor.cpp

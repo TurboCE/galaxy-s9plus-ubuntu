@@ -6066,3 +6066,35 @@ heading. `gtk-launch` was absent, so used the actual installed desktop
 entry through `gio launch`. Verified the real Wayland window displayed
 168.6° through accessibility. Standalone direction accuracy remains
 unqualified.
+
+### 2026-11-20 — Connect five G965N hardware sensors to Qt 5
+
+The Ubuntu Qt 5 examples lacked usable backends for tilt, proximity,
+gyroscope and pressure. The distribution Qt compass backend waited
+for data in the ordinary desktop session. Installed the Qt 5 build
+dependencies and the locally built plug-in on the running #47 device
+after checking the model, BOOT and recovery backup. No partitions
+were flashed. The default backend file did not previously exist.
+
+The plug-in reads the existing read-only IIO attributes and uses the
+private desktop compass socket. It applies the acceleration mount
+matrix and proximity threshold, and reports pressure and die
+temperature in Qt's units. Local inspection of the same device's
+stock Android HAL confirmed the signed SSP gyro stream is passed
+through in axis order and scaled at 0.035°/s per thousand counts.
+No Android binary or extracted firmware is distributed.
+
+On the actual Wayland user session, exercised the packaged example
+QML and Explorer model via their sensor-selection and Start handlers.
+The first harness pass checked the QML proximity field name rather
+than Explorer's native `close` property and stopped the compass before
+the relay finished warming up. With those checks corrected, multiple
+runs showed fresh timestamps and rendered values for all five
+sensors. The packaged Tilt, Light and Proximity example also
+displayed both angles and Far via the configured defaults. The legacy
+Qt Quick Controls table emitted delegate warnings and sometimes left
+its Running column at false while Properties showed live readings.
+
+This run establishes data delivery to Qt 5. It sampled far proximity,
+stationary gyro and the current magnetic heading. Controlled motion
+accuracy, compass calibration and another reboot were not exercised.
