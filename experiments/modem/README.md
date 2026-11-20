@@ -65,3 +65,21 @@ native GIC and reserved-memory checks allowed the first manual probe. The same
 stock comparison remains mandatory before local staging. Existing QoS/ECT gaps
 and the legacy reset-GPIO warning remain visible; they are not silently stubbed
 into a claim of functional LTE. Never start cbd with original writable EFS.
+
+
+## LTE cell identities and desktop location
+
+See [location review](../../docs/g965n/LOCATION_REVIEW.md). The typed RIL broker
+adds explicit cell-list-request (own-stock0811 GET), cell-info (private bounded
+LTE identities,15s freshness), and cell-status (presence/counts only). Only the
+existing owner touches IPC channels. The plugin implements GetCellInfo and
+3gpp location gathering,10s polls while enabled, CP serving flag and stale/
+disabled clearing. No guessed signal scaling/unknown-family decoder, AT port
+emulation or kernel change. Build using scripts/g965n/build-modemmanager-sipc.sh
+in a new directory; the helper never installs or flashes. Before deployment,
+verify model/BOOT/backups and preserve current RIL/plugin/config/service. Update
+exact file hashes in private config and its service config-sha256 together,
+daemon-reload, then use normal reboot rather than bypass the once-per-boot
+LTE attempt guard. Runtime binaries/rollback/config never enter public Git.
+Actual20 LTE/1 serving and D-Bus exact-field match plus location toggle passed.
+Registration-success and external RF comparison remain unverified.

@@ -20,13 +20,14 @@
 | NFC | 실제 대상 인식·4개 레코드 읽기, 3회 전원 반복 및 재부팅 후 재읽기 확인 | 다른 태그 종류·쓰기·에뮬레이션·결제·보안 요소 |
 | LTE IPv4 | 특정 SIM으로 실제 DNS·TLS 인터넷 성공 | 현재 SIM은 이번 확인에서 망 검색 중(searching), 데이터 재검증 미완료, IPv6·망 복구·이동 시험 |
 | 모바일 네트워크 설정 | Ubuntu WWAN 화면·바로가기, 4G 표시 확인 | APN 편집·수동 망 선택·SIM 잠금 변경은 조작 미검증 |
+| 기지국 위치 | GetCellInfo LTE20개/serving1개, SIPC 원본 일치·기본3gpp 위치 값·끄기/켜기 확인 | 등록 성공 상태 비교·다른 RAT·신호 단위·외부 RF 비교 미검증 |
 | 통화·문자·다른 무선 모드 | 미완료 | 별도 구현·실기기 검증. 이 백엔드는 LTE만 광고하며 5G 지원 주장을 하지 않음 |
 | 조도·자동 밝기 | 실제 조명 ON/OFF, 부드러운 전환·기본 토글 확인 | 광학적 절대 밝기·장기 시험 |
 | 가속도·화면 회전 | 실제 회전·터치 좌표·기본 회전 잠금 및 재부팅 확인 | 동적 정확도·절전 복귀 |
 | 자이로·근접·기압·Qt 센서 | 실제 데이터, Qt 예제 연결 확인 | 축·절대 정확도, 근접에 따른 화면 정책·보정 |
 | 나침반 | 표준/Qt/전용 앱에 실시간 값 연결, 실험 모드 | 기준 방향과 비교한 정확도는 미달. 보정·기울기 정확도 필요 |
 | 온도·배터리 | hwmon·UPower 표시·충전 상태 확인 | 절대 온도·열 제어, 고속충전 협상, 배터리 소모 |
-| GPS | daemon 충돌 수정, UTC·순정 V5 LTO 캐시/갱신 연결. 창가 재시험 300초에서 정상 NMEA 4,448개·오류0·3D fix, GSV 위성군별 최대10/사용8. GeoClue가 새 위치(보고 정확도3m·1.2초 이내)를 전달했고 지도 현재 위치 동작 실행 | 기본 위성 fix·표준 위치 서비스 전달 확인. 이동·야외 장기 정확도·냉간 재부팅 및 절전 복귀·최초 fix 시간 비교는 남음. Android 센서 관성 보조 비활성화, SUPL/이전 위치 주입 미구현 |
+| GPS | 과거 실제3D fix·GeoClue 전달 확인. 이번 수신 불가 장소에서 HAL 시작/UTC·XTRA/유효 NMEA 전달 확인 | 사용자 확인 환경 제약. 수신 가능한 장소의 최종 fix·이동/냉간/절전 회귀는 미검증 |
 | RTC | IRQ 타입 경고 수정, 초기 부팅·별도 재부팅 후 시계 진행·실제 알람·시간 유지·Ubuntu NTP 동기화 상태 확인 | 완전 전원 차단 유지·절전 깨우기 |
 | 홀/커버 | 자석에 따른 SW_LID·logind 이벤트 확인 | 실제 커버·화면 정책. 현재 덮개 동작은 ignore |
 | 화면만 끄기 | 화면 꺼짐 중 센서·인터넷·백그라운드 유지 확인 | 물리 전원 키 전체 동작·Android 대비 소모량 |
@@ -101,3 +102,11 @@ position fix). Stock launcher was shadowed only by a per-user xgps.desktop
 pointing to the connected wrapper; package launcher preserved. The bridge
 restart disconnected an earlier viewer; launched a new connected window and
 verified delivery after receiver startup. No satellite-fix claim.
+
+
+최신 위치 검증: SIPC→ModemManager GetCellInfo에서 LTE20개/serving1개 반환,
+원본 필드 일치2회·기본3gpp 위치 소스 값·끄기/켜기 확인. 망 등록 성공
+상태에서의 비교와 다른 무선 종류/신호 세기 단위는 미검증입니다.
+GPS는 사용자가 위성 수신이 어려운 장소라고 확인한 조건에서 측정했습니다.
+NMEA/HAL 시작/UTC·XTRA 전달은 확인, 수신 가능한 장소의 최종 fix는 추후
+검증입니다. 이 결과를 GPS 드라이버 고장으로 해석하지 않습니다.

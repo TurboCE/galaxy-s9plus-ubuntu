@@ -79,7 +79,7 @@ class WWANQueryBroker:
     """Serialize typed WWAN requests through the existing RIL owner."""
     commands = {b'registration': 'AT+CEREG?', b'packet-attachment': 'AT+CGATT?',
                 b'signal-quality': 'AT+CSQ'}
-    state_requests = {b'sim-readiness', b'radio-state'}
+    state_requests = {b'sim-readiness', b'radio-state', b'cell-status', b'cell-list-request', b'cell-info'}
     bearer_requests = {b'bearer-status', b'connect-ipv4', b'disconnect-ipv4'}
     bearer_arguments = re.compile(rb'(?:connect-ipv4:[a-zA-Z0-9.-]{1,100}|abort-ipv4:[1-9][0-9]{0,8})')
 
@@ -161,7 +161,8 @@ def wwan_query_result(command, response):
     if command == 'AT+CEREG?':
         value = cereg_query_status_only(response)
         if value is not None:
-            return {'registration_code': value['registration_code']}
+            return {'registration_code': value['registration_code'],
+                    'location_fields_available': value['location_fields_available']}
     elif command == 'AT+CGATT?':
         value = completed_packet_attachment(response, command)
         if value is not None:
@@ -438,6 +439,70 @@ def s9_network_scan_status_only(body):
         rats[rat] = rats.get(rat, 0) + 1
     return {'operator_count': body[0], 'status_code_counts': states,
             'access_technology_code_counts': rats}
+
+
+def cell_list_counts_status(body):
+    """Own-stock 0811 count/stride envelope only, never cell identities.
+
+    IpcRxNetCellInfoList accepts a four-count layout (20/20/31/19-byte
+    records) or matching five-count layout with 51-byte final records.
+    Unknown/truncated layouts are not interpreted as an empty list.
+    """
+    if len(body) < 4:
+        return {'layout_valid': False, 'payload_bytes': len(body)}
+    counts = [0 if x == 255 else x for x in body[:4]]
+    expected = sum(n*stride for n,stride in zip(counts,(20,20,31,19)))
+    if len(body) == 4 + expected:
+        pass
+    elif len(body) >= 5 and len(body) == 5 + expected + 51*body[4]:
+        counts.append(body[4])
+    else:
+        return {'layout_valid': False, 'payload_bytes': len(body)}
+    return {'layout_valid': True, 'family_counts': counts, 'cell_count': sum(counts)}
+
+
+def s9_lte_cells(body):
+    """Own-stock fourth family: LTE identity fields only, no guessed signal units."""
+    envelope = cell_list_counts_status(body)
+    if not envelope.get('layout_valid'):
+        raise ValueError('Unqualified cell-list envelope')
+    counts = envelope['family_counts']
+    if counts[3] > 64:
+        raise ValueError('Cell list exceeds bounded desktop reply')
+    offset = len(counts) + sum(n*stride for n,stride in zip(counts[:3],(20,20,31)))
+    cells = []
+    for i in range(counts[3]):
+        record = body[offset+i*19:offset+(i+1)*19]
+        try:
+            mcc = record[1:4].decode('ascii')
+            mnc = record[4:7].rstrip(b'#\0').decode('ascii')
+        except UnicodeError:
+            continue
+        tac, ci, pci, earfcn = struct.unpack_from('<HIHH',record,7)
+        if (record[0] not in (0,1) or not re.fullmatch(r'[0-9]{3}',mcc) or mcc=='000'
+                or not re.fullmatch(r'[0-9]{2,3}',mnc) or tac==65535
+                or ci>=0xfffffff or pci>503):
+            continue
+        cell={'operator_id':mcc+mnc,'tac':tac,'ci':ci,'pci':pci,
+              'serving':bool(record[0])}
+        if earfcn!=65535:cell['earfcn']=earfcn
+        cells.append(cell)
+    return cells
+
+
+def cell_observation_status(body):
+    """Own S9 NetRegState's LAC/CI at packet11/13; disclose presence only.
+
+    Confirmed against own-stock constructor plus GPL libsamsung-ipc net.h.
+    This is neither a neighbor-cell decoder nor proof of usable registration.
+    Zero/FF markers are reported separately; no cell identity is logged.
+    """
+    if len(body) < 11:
+        return {'layout_complete': False, 'payload_bytes': len(body)}
+    return {'layout_complete': True, 'payload_bytes': len(body),
+            'registration_code': body[2], 'access_technology_code': body[0],
+            'lac_nonplaceholder': body[4:6] not in (bytes(2), b'\xff'*2),
+            'ci_nonplaceholder': body[6:10] not in (bytes(4), b'\xff'*4)}
 
 
 def s9_registration_status_only(body):
@@ -819,7 +884,8 @@ def cereg_query_status_only(body):
         if not 2 <= len(fields) <= 9 or not re.fullmatch('[0-5]', fields[0]) or not re.fullmatch('[0-9]{1,2}', fields[1]):
             return None
         result = {'reporting_mode': int(fields[0]), 'registration_code': int(fields[1]),
-                  'location_fields_redacted': True}
+                  'location_fields_redacted': True,
+                  'location_fields_available': len(fields) >= 4 and bool(re.fullmatch('[0-9A-Fa-f]{1,4}', fields[2])) and bool(re.fullmatch('[0-9A-Fa-f]{1,8}', fields[3]))}
         for index, key, maximum in [(4, 'access_technology_code', 99),
                                     (5, 'cause_type_code', 1), (6, 'reject_cause_code', 255)]:
             if len(fields) > index and fields[index]:
@@ -1029,6 +1095,9 @@ def main():
         at_queue = deque()
         at_active = None
         broker_active = False
+        cell_observation = {"observed": False}
+        cell_records = None
+        cell_records_at = None
         at_buffer = bytearray()
         at_ready = False
         diagnostic_queued = False
@@ -1259,7 +1328,20 @@ def main():
                 next_at_ping = time.monotonic() + 3
             broker_command = broker.take(now, at_ready and not at_failed and not at_active
                                          and not at_queue) if broker else None
-            if broker_command == b'sim-readiness':
+            if broker_command == b'cell-info':
+                if cell_records is None or cell_records_at is None or now-cell_records_at>15:
+                    broker.finish(error='no-fresh-cell-data')
+                else:
+                    broker.finish(cells=cell_records, age_seconds=round(now-cell_records_at,2))
+                broker_command = None
+            elif broker_command == b'cell-status':
+                broker.finish(**cell_observation)
+                broker_command = None
+            elif broker_command == b'cell-list-request':
+                send(0x0811, b'', kind=2)  # Own stock bodyless cell-list GET.
+                broker.finish(requested=True)
+                broker_command = None
+            elif broker_command == b'sim-readiness':
                 broker.finish(**sim_readiness_reply(sim_ready, sim_status))
                 broker_command = None
             elif broker_command == b'radio-state':
@@ -1386,6 +1468,8 @@ def main():
                         if cycle_observer is not None:
                             cycle_observer.event(message, time.monotonic())
                         if code == 0x0101:
+                            cell_observation = {'observed': False}
+                            cell_records = cell_records_at = None
                             if broker:
                                 broker.finish(error='modem-restarted')
                                 broker_active = False
@@ -1418,6 +1502,17 @@ def main():
                             sim_ready = False
                             sim_status = None
                             boot_at = time.monotonic()
+                        if code == 0x0811:
+                            result = cell_list_counts_status(message[7:])
+                            cell_observation['list'] = dict(result, observed=True)
+                            event['cell_list_counts'] = result
+                            try:
+                                cell_records = s9_lte_cells(message[7:])
+                                cell_records_at = time.monotonic()
+                                event['validated_lte_cell_count'] = len(cell_records)
+                            except ValueError:
+                                cell_records = cell_records_at = None
+                                event['cell_identity_layout_rejected'] = True
                         if code == 0x0804 and kind == 2 and args.scan_networks_s9:
                             try:
                                 event['s9_network_scan'] = s9_network_scan_status_only(message[7:])
@@ -1434,6 +1529,8 @@ def main():
                             request = message[7] << 8 | message[8]
                             event['acknowledged_command'] = hex(request)
                             event['request_kind'] = message[9]
+                            if request == 0x0811 and event['result_code'] != 0x8000:
+                                cell_observation['list'] = {'query_rejected': True, 'result_code': event['result_code']}
                             if args.scan_networks_s9 and request == 0x0804 and message[9] == 2 and event['result_code'] != 0x8000:
                                 scan_pending = False
                                 event['s9_network_scan_rejected'] = True
@@ -1459,6 +1556,9 @@ def main():
                         elif code in (0x080A, 0x0808, 0x0802) and length > 7:
                             event['network_setting_code'] = message[7]
                         elif code == 0x0805 and length >= 10:
+                            cell_observation = dict(cell_observation_status(message[7:]), observed=True,
+                                                    list=cell_observation.get('list', {'observed': False}))
+                            event['cell_observation'] = cell_observation
                             event['access_technology_code'] = message[7]
                             event['domain_code'] = message[8]
                             event['registration_code'] = message[9]

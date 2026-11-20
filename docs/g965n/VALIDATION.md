@@ -505,3 +505,18 @@ position fix). Stock launcher was shadowed only by a per-user xgps.desktop
 pointing to the connected wrapper; package launcher preserved. The bridge
 restart disconnected an earlier viewer; launched a new connected window and
 verified delivery after receiver startup. No satellite-fix claim.
+
+
+Native48 location integration: two guarded normal reboots, no kernel/image
+change. CP0811 returned20 LTE records while EPS2/searching. New MM GetCellInfo
+returned20 LTE/1 serving; two exact private SIPC→D-Bus identity matches pass.
+Standard source1 nonempty, location disable-clear/re-enable-restore pass.
+Other radio types/signal units, external RF freshness and registered1/5
+comparison unverified. BeaconDB/submit-data=false preserved. Full ARM64 build
+and final clean plugin rebuild plus49 host tests pass.
+
+GPS authorized window181s1699 NMEA/1233 TPV; detailed180s1687/1225, mode1, no
+GSV/HAL-visible satellites/fix. Final45s207/148 mode1. Standalone/start/UTC/
+XTRA-init0. Owner clarified location prevents satellite reception: environmental
+limit, not a proven receiver/driver defect. Favorable-location fix is pending.
+Initial GPSD observer without an active location client is not RF evidence.

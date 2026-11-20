@@ -12,10 +12,50 @@ class CeregDiagnosticsTests(unittest.TestCase):
     def test_query_redacts_location_and_retains_numeric_reason_domain(self):
         body=b'AT+CEREG?\r\r\n+CEREG: 3,3,"AA12","DEADBEEF",7,0,6\r\nOK\r\n'
         result=m.cereg_query_status_only(body)
-        self.assertEqual(result,{'reporting_mode':3,'registration_code':3,'location_fields_redacted':True,
+        self.assertEqual(result,{'reporting_mode':3,'registration_code':3,'location_fields_redacted':True,'location_fields_available':True,
                                  'access_technology_code':7,'cause_type_code':0,'reject_cause_code':6})
         self.assertNotIn('AA12',json.dumps(result));self.assertNotIn('DEADBEEF',json.dumps(result))
         self.assertFalse(m.completed_cereg_registration(body,'AT+CEREG?'))
+
+    def test_cell_observation_reports_only_presence(self):
+        for size in range(11):
+            self.assertFalse(m.cell_observation_status(bytes(size))['layout_complete'])
+        for marker in (0,255):
+            r=m.cell_observation_status(bytes([marker])*19)
+            self.assertFalse(r['lac_nonplaceholder']);self.assertFalse(r['ci_nonplaceholder'])
+        body=bytes([7,3,1,0])+bytes.fromhex('12aa efbeadde')+bytes(9)
+        r=m.cell_observation_status(body)
+        self.assertTrue(r['lac_nonplaceholder']);self.assertTrue(r['ci_nonplaceholder'])
+        self.assertNotIn('AA12',json.dumps(r).upper());self.assertNotIn('DEADBEEF',json.dumps(r).upper())
+        self.assertIn(b'cell-status',m.WWANQueryBroker.state_requests)
+        self.assertFalse(m.cereg_query_status_only(b'+CEREG: 0,0\r\n')['location_fields_available'])
+
+
+    def test_own_stock_cell_list_envelopes(self):
+        self.assertEqual(m.cell_list_counts_status(bytes(4))['cell_count'],0)
+        for i,stride in enumerate((20,20,31,19)):
+            body=bytearray(4+stride);body[i]=1
+            self.assertEqual(m.cell_list_counts_status(body)['cell_count'],1)
+            self.assertFalse(m.cell_list_counts_status(body[:-1])['layout_valid'])
+        self.assertEqual(m.cell_list_counts_status(bytes([0,0,0,0,1])+bytes(51))['cell_count'],1)
+        for size in range(4):self.assertFalse(m.cell_list_counts_status(bytes(size))['layout_valid'])
+
+
+    def test_lte_identity_layout_filters_invalid_records(self):
+        import struct
+        row=bytes([1])+b'001'+b'01#'+struct.pack('<HIHH',123,4567,12,500)+bytes(2)
+        body=bytes([0,0,0,1])+row
+        cells=m.s9_lte_cells(body)
+        self.assertEqual(cells,[{'operator_id':'00101','tac':123,'ci':4567,'pci':12,'earfcn':500,'serving':True}])
+        self.assertEqual(m.s9_lte_cells(bytes([0,0,0,1])+bytes(19)),[])
+        for bad in [row[:7]+struct.pack('<HIHH',65535,4567,12,500)+bytes(2),
+                    row[:7]+struct.pack('<HIHH',123,0xffffffff,12,500)+bytes(2),
+                    row[:7]+struct.pack('<HIHH',123,4567,504,500)+bytes(2)]:
+            self.assertEqual(m.s9_lte_cells(bytes([0,0,0,1])+bad),[])
+        with self.assertRaises(ValueError):m.s9_lte_cells(body[:-1])
+        prefixed=bytes([1,0,0,1])+bytes(20)+row
+        self.assertEqual(m.s9_lte_cells(prefixed),cells)
+
 
     def test_complete_acknowledged_query_required_for_initial_pdp(self):
         good=b'AT+CEREG?\r\r\n+CEREG: 0,1\r\nOK\r\n'

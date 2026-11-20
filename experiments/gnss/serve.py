@@ -120,6 +120,7 @@ def watch_hal(daemon, client, inject_utc):
                 print(f'GNSS HAL UTC assistance result: {result}', file=sys.stderr, flush=True)
             elif re.fullmatch(
                 rb'(?:GNSS extension (?:gps-xtra|agps|agps_ril|gps-debug|gnss_configuration) available: [01]|'
+                rb'(?:Standalone GNSS mode result|HAL start result): -?\d+|'
                 rb'GNSS callbacks: status=\d+ satellites=\d+ nmea=\d+ location=\d+|'
                 rb'GNSS checksum-valid NMEA: \d+, forwarded: \d+|'
                 rb'GNSS capability mask: \d+|GNSS status code \d+ occurred \d+ times|'

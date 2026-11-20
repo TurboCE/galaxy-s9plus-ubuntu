@@ -56,6 +56,8 @@ class Supervision(unittest.TestCase):
         with contextlib.redirect_stderr(output):
             result = self.run_children(
                 'import time; time.sleep(10)',
+                "print('Standalone GNSS mode result: 0'); "
+                "print('HAL start result: 0'); "
                 "print('GNSS UTC injection result: 0'); "
                 "print('GNSS extension gps-xtra available: 1'); "
                 "print('GNSS callbacks: status=2 satellites=1 nmea=14 location=0'); "
@@ -63,6 +65,8 @@ class Supervision(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertIn('GNSS HAL UTC assistance result: 0', output.getvalue())
         self.assertIn('gps-xtra available: 1', output.getvalue())
+        self.assertIn('Standalone GNSS mode result: 0', output.getvalue())
+        self.assertIn('HAL start result: 0', output.getvalue())
         self.assertIn('satellites=1 nmea=14', output.getvalue())
         self.assertNotIn('12.3', output.getvalue())
         self.assertNotIn('latitude', output.getvalue())

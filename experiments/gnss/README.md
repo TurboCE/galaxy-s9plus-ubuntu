@@ -295,3 +295,13 @@ connected wrapper; the stock package launcher is preserved. Final connected
 port2948 window verified via accessibility and145 live TPV records received,
 mode1 (no fix). A bridge restart disconnects existing xgps clients; reopen
 the viewer afterward. New bridge startup after a reboot remains untested.
+
+
+### Location review observation
+
+Run `gpsd-summary.py --seconds 180` as the authorized desktop user. It holds its own GeoClue request: watching GPSD
+alone does not keep the on-demand receiver running. It prints only counters,
+fix modes, NMEA types and aggregate GSV/CN0 values, never raw positions or IDs.
+HAL standalone-mode/start numeric status now passes the existing strict status
+log filter. Window-only tests received valid NMEA but had0 satellites/mode1;
+open-sky reproduction is pending. See LOCATION_REVIEW.md for exact limits.

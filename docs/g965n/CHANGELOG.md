@@ -7551,3 +7551,56 @@ position fix). Stock launcher was shadowed only by a per-user xgps.desktop
 pointing to the connected wrapper; package launcher preserved. The bridge
 restart disconnected an earlier viewer; launched a new connected window and
 verified delivery after receiver startup. No satellite-fix claim.
+
+
+## 2026-11-20 — SIPC cell information and standard location integration
+
+Owner requested layer-first review. Initial exact-model/BOOT/protected-backup
+checks passed. Existing plugin had no GetCellInfo/location implementation or AT
+port. Existing RIL diagnostics deliberately removed cell identities. Observed
+19-byte SIPC0805 bodies; own-stock core LAC/CI offsets match GPL reference net.h.
+Added privacy-preserving cell presence status plus explicit own-stock0811 GET
+and strict four/five-count envelope validation through the existing owner.
+First normal reboot loaded diagnostics without bypassing the once-per-boot
+LTE guard: CP returned20 LTE records while EPS was searching/2, demonstrating
+a real cell-list response without successful registration.
+
+Implemented bounded LTE identity decoder and root-only typed cell-info endpoint
+with15s freshness, no identity logging. Implemented plugin GetCellInfo and
+standard3gpp location gathering with10s active-only polling, CP serving flag,
+stale/disable clearing and object-lifecycle cleanup. Unqualified signal units
+and other radio-family identities remain absent. Original licences retained;
+no vendor binaries/disassembly/private identifiers published.
+
+Full isolated174-target ARM64 MM build passed. Corrected declaration placement
+warning; final plugin compile/link clean. One incremental attempt lacked the
+original cross-file mount; restored that mount and rebuilt successfully. With
+fresh model/BOOT/backups and original source/plugin/config/service rollback
+copies, installed SHA-checked plugin/RIL, updated all private pins and unit
+config hash, daemon-reloaded and performed a second normal reboot. No kernel,
+BOOT image, firmware, bootloader or protected partition was changed.
+
+Hardware: after startup completion, GetCellInfo returned20 LTE entries/1 serving;
+two rounds exactly matched private SIPC operator/TAC/CI/PCI/serving values.
+Location source1 became nonempty; disable cleared it and re-enable restored it.
+System failed units0 at check. EPS registered1/5 comparison remains untested.
+Reported19 nonserving records are not an independent fresh-RF scan guarantee.
+BeaconDB host api.beacondb.net/submit-data=false preserved; IP estimate and
+cell-derived/GNSS positions are separate evidence.
+
+GPS: first GPSD-only observer had no active receiver and only handshake records,
+so it is not an RF test. Fixed observation helper to hold its own authorized
+GeoClue request. Window181s:1699 NMEA/1233 TPV, mode1/no fix. Detailed180s:
+1687 NMEA/1225 TPV, no GSV and HAL satellite/fix0. Final45s after plugin reboot:
+207 NMEA/148 TPV, mode1. Numeric standalone/HAL-start/UTC/XTRA-init results all0
+confirmed after extending the strict nonlocation status whitelist; XTRA bytes
+124383 accepted. Source filtering/transport is alive; no RF fault inferred.
+Owner explicitly clarified this is a location where satellites cannot be
+received. Record these as reception-environment-limited, not evidence requiring
+a GPS driver repair. Favorable-location GPS fix remains pending; historical
+real fix evidence retained. No speculative receiver/kernel change.
+
+Host verification:7 cell/CEREG,14 radio-power,21 PDP and7 GNSS supervisor tests
+passed. Read LOCATION_REVIEW.md for reproducing/building, privacy, rollback and
+remaining registration/open-sky/signal/family limits. Independent personal-app
+edits in these shared documents were preserved outside this commit.

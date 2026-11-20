@@ -72,7 +72,7 @@ class S9PDPTests(unittest.TestCase):
     def test_typed_wwan_queries_return_only_validated_status(self):
         self.assertEqual(ril.wwan_query_result('AT+CEREG?',
                          b'AT+CEREG?\r\r\n+CEREG: 0,1,"ABCD","ABCDEF",7\r\nOK\r\n'),
-                         {'registration_code': 1})
+                         {'registration_code': 1, 'location_fields_available': True})
         self.assertEqual(ril.wwan_query_result('AT+CGATT?',
                          b'AT+CGATT?\r\r\n+CGATT: 1\r\nOK\r\n'),
                          {'packet_attached': True})

@@ -14,6 +14,8 @@ typedef enum {
     G965N_WWAN_BEARER_STATUS,
     G965N_WWAN_CONNECT_IPV4,
     G965N_WWAN_DISCONNECT_IPV4,
+    G965N_WWAN_CELL_LIST,
+    G965N_WWAN_CELL_INFO,
 } G965nWwanRequest;
 
 /* Call from a worker thread. A successful exchange returns a new object,

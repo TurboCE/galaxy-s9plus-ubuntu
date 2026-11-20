@@ -296,3 +296,22 @@ position fix). Stock launcher was shadowed only by a per-user xgps.desktop
 pointing to the connected wrapper; package launcher preserved. The bridge
 restart disconnected an earlier viewer; launched a new connected window and
 verified delivery after receiver startup. No satellite-fix claim.
+
+
+## 기지국 위치 기능 완료 및 GPS 환경 제약
+
+LOCATION_REVIEW.md를 우선 읽으세요. 새 root-only cell-list-request/cell-info
+브로커와 LTE decoder→MM GetCellInfo/3gpp 위치 소스가 실기기에서 동작합니다.
+두 차례 일반 재부팅/모델·BOOT·백업·핀 확인, LTE20개/serving1개와 원본 필드
+일치2회, 위치 수집 해제 시 clear/재활성 시 복구 통과. 프레임/신호 단위와
+다른 RAT를 추측하지 마세요. 현재 EPS2/searching이며 등록 성공 비교는 남음.
+원본 plugin/RIL/config/service는 기기에 비공개 보존. 재현은 기존 MM 빌더;
+실행 중인 서비스 코드 변경 시 config 파일 핀과 unit config-sha256 함께
+갱신하고 once-per-boot guard를 지우지 말고 정상 재부팅을 사용하세요.
+
+GPSD 관찰만으로는 receiver가 켜지지 않습니다. gpsd-summary.py를 허용된
+데스크톱 사용자로 실행하면 GeoClue client를 유지합니다. 현재 장소에서는
+위성을 못 받는다고 사용자가 명시했으므로 window0sat/no-fix는 환경 제약으로
+기록합니다. 수신 가능한 장소에서 최종 fix 확인이 남고 GPS 드라이버 임의
+수정은 하지 않았습니다. standalone/start/UTC/XTRA0와 유효 NMEA 전달 확인.
+과거 실기기 fix 성공 증거는 유지합니다. BeaconDB/submit-data=false 보존.

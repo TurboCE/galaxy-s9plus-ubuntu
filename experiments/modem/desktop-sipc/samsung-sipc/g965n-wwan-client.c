@@ -12,6 +12,8 @@ static const char * const requests[] = {
     [G965N_WWAN_BEARER_STATUS] = "bearer-status",
     [G965N_WWAN_CONNECT_IPV4] = "connect-ipv4",
     [G965N_WWAN_DISCONNECT_IPV4] = "disconnect-ipv4",
+    [G965N_WWAN_CELL_LIST] = "cell-list-request",
+    [G965N_WWAN_CELL_INFO] = "cell-info",
 };
 
 static JsonObject *
@@ -28,7 +30,7 @@ wwan_request (const char *invocation,
     JsonNode *root;
     gsize length;
     gssize transferred;
-    char reply[1024];
+    char reply[32768];
     uid_t uid;
 
     if (!invocation || strlen (invocation) != 32 ||
