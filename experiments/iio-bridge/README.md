@@ -35,6 +35,19 @@ particular physical orientation is correct. The owner must establish the
 matrix and whether broker values have already been transformed. There is no
 default identity matrix silently substituted for missing evidence.
 
+For standard temperature monitoring, `S9_EXPERIMENTAL_IIO_HWMON=1`
+builds the kernel's `hwmon` core and `iio_hwmon` consumer in. A sensor
+profile with `"hwmon": {"modules": {}}` enables read-only mappings from
+the active pressure die and board thermistor providers. For a running
+kernel with hwmon disabled, the #47 trial built unmodified
+`drivers/hwmon/hwmon.c` and `drivers/hwmon/iio_hwmon.c` as two external
+modules against the exact kernel source, output and symbol manifest.
+In that mode, supply both `hwmon` and `iio-hwmon` file pins under
+`hwmon.modules` and include both in the exact-BOOT receipt modules.
+The supervisor validates and loads them in that order. `sensors -u`
+reads the barometer die and both board channels using the standard
+hwmon API.
+
 The misc node `/dev/g965n-iio-bridge` is root-owned mode0600. Opening and writing
 require `CAP_SYS_ADMIN`; the sole writer opens `O_WRONLY`. A second open fails
 with `EBUSY`. Do not grant the node to an input group or ordinary applications.
@@ -129,8 +142,8 @@ withdraws the registered device until a new valid heading arrives.
 
 For calibration on the development handset, the operator may explicitly
 replace the `evidence` pin with `experimental: true` and a candidate
-`magnetic_matrix`. This sends measured headings with SSP quality at least
-1 through the same Ubuntu API. Apps receive them immediately and can use
+`magnetic_matrix`. This sends measured headings even at SSP calibration
+state 0 through the same Ubuntu API. Apps can use
 them as a calibration aid. Direction and tilt accuracy are unqualified
 until the experimental profile is replaced with verified evidence.
 The existing bounded private capture can run alongside either heading

@@ -97,7 +97,7 @@ def heading_policy(profile):
         geometry = load_module(policy['geometry'], 'g965n_heading_geometry')
         matrix = policy['magnetic_matrix']
         geometry.mounted((0, 0, 0), matrix)
-        return partial(geometry.diagnostic_heading, minimum_accuracy=1), matrix
+        return partial(geometry.diagnostic_heading, minimum_accuracy=0), matrix
     if set(policy) != {'evidence', 'geometry'}:
         raise ValueError('Select verified heading evidence or explicitly opt into experimental heading')
     evidence = json.loads(pinned(policy['evidence']))

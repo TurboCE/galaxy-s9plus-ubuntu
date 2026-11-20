@@ -10,6 +10,11 @@
 #include <linux/ktime.h>
 #include <linux/sysfs.h>
 #include <linux/iio/iio.h>
+#ifdef CONFIG_IIO
+#include <linux/iio/driver.h>
+#include <linux/iio/machine.h>
+#include <linux/platform_device.h>
+#endif
 #ifdef CONFIG_IIO_TRIGGERED_BUFFER
 #include <linux/iio/buffer.h>
 #include <linux/iio/trigger.h>
@@ -46,6 +51,62 @@ static struct iio_dev *thermistor_dev;
 static bool writer_open;
 static struct iio_mount_matrix mount;
 static struct miscdevice bridge_misc;
+
+#ifdef CONFIG_IIO
+static bool enable_hwmon;
+module_param(enable_hwmon, bool, 0444);
+MODULE_PARM_DESC(enable_hwmon, "Expose pressure-die and board temperatures to iio_hwmon");
+static struct platform_device *barometer_hwmon, *board_hwmon;
+static const struct iio_map barometer_map[] = {
+ IIO_MAP("barometer_temp", "iio_hwmon.0", "barometer"),
+ { }
+};
+static const struct iio_map board_map[] = {
+ IIO_MAP("board_temp0", "iio_hwmon.1", "board0"),
+ IIO_MAP("board_temp1", "iio_hwmon.1", "board1"),
+ { }
+};
+
+static int register_hwmon(struct iio_dev *dev, u32 type)
+{
+ struct platform_device **target, *consumer;
+ const struct iio_map *map;
+ int id, ret;
+
+ if (!enable_hwmon)
+  return 0;
+ if (type == G965N_IIO_PRESSURE) {
+  id = 0;
+  target = &barometer_hwmon;
+  map = barometer_map;
+ } else if (type == G965N_IIO_THERMISTOR) {
+  id = 1;
+  target = &board_hwmon;
+  map = board_map;
+ } else {
+  return 0;
+ }
+ ret = iio_map_array_register(dev, map);
+ if (ret)
+  return ret;
+ consumer = platform_device_register_simple("iio_hwmon", id, NULL, 0);
+ if (IS_ERR(consumer)) {
+  iio_map_array_unregister(dev);
+  return PTR_ERR(consumer);
+ }
+ *target = consumer;
+ return 0;
+}
+
+static void remove_hwmon(struct iio_dev *dev, struct platform_device **target)
+{
+ if (!*target)
+  return;
+ platform_device_unregister(*target);
+ iio_map_array_unregister(dev);
+ *target = NULL;
+}
+#endif
 
 #ifdef CONFIG_IIO_TRIGGERED_BUFFER
 static bool enable_heading;
@@ -170,7 +231,8 @@ static const struct iio_chan_spec light_channels[] = {
 static const struct iio_chan_spec pressure_channels[] = {
  { .type=IIO_PRESSURE, .info_mask_separate=BIT(IIO_CHAN_INFO_RAW),
    .info_mask_shared_by_type=BIT(IIO_CHAN_INFO_SCALE) },
- { .type=IIO_TEMP, .info_mask_separate=BIT(IIO_CHAN_INFO_PROCESSED) },
+ { .type=IIO_TEMP, .datasheet_name="barometer_temp",
+   .info_mask_separate=BIT(IIO_CHAN_INFO_PROCESSED) },
 };
 static ssize_t read_nearlevel(struct iio_dev *dev, uintptr_t private,
                              const struct iio_chan_spec *chan, char *buf)
@@ -190,6 +252,7 @@ static const struct iio_chan_spec gyro_channels[] = {
  GYRO_CHANNEL(X), GYRO_CHANNEL(Y), GYRO_CHANNEL(Z)
 };
 #define THERMISTOR_CHANNEL(number) { .type=IIO_TEMP, .indexed=1, .channel=(number), \
+ .datasheet_name="board_temp" #number, \
  .info_mask_separate=BIT(IIO_CHAN_INFO_PROCESSED) }
 static const struct iio_chan_spec thermistor_channels[] = {
  THERMISTOR_CHANNEL(0), THERMISTOR_CHANNEL(1)
@@ -288,6 +351,10 @@ static int register_sensor(u32 type)
  dev->num_channels=count;
  ret=iio_device_register(dev);
  if (ret) {iio_device_free(dev);return ret;}
+#ifdef CONFIG_IIO
+ ret=register_hwmon(dev,type);
+ if (ret) {iio_device_unregister(dev);iio_device_free(dev);return ret;}
+#endif
  *target=dev;return 0;
 }
 static int bridge_open(struct inode *inode,struct file *file)
@@ -340,6 +407,10 @@ static int bridge_close(struct inode *inode,struct file *file)
  mutex_lock(&sample_lock);memset(&cache,0,sizeof(cache));mutex_unlock(&sample_lock);
  /* Never hold sample_lock across kernfs/IIO removal: active read_raw may use it. */
  remove_heading();
+#ifdef CONFIG_IIO
+ remove_hwmon(pressure_dev,&barometer_hwmon);
+ remove_hwmon(thermistor_dev,&board_hwmon);
+#endif
  if (light_dev) {iio_device_unregister(light_dev);iio_device_free(light_dev);light_dev=NULL;}
  if (accel_dev) {iio_device_unregister(accel_dev);iio_device_free(accel_dev);accel_dev=NULL;}
  if (pressure_dev) {iio_device_unregister(pressure_dev);iio_device_free(pressure_dev);pressure_dev=NULL;}

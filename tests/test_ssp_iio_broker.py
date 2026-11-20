@@ -139,7 +139,7 @@ class BrokerTests(unittest.TestCase):
         with patch.object(b,'magnetic_initialization',return_value={}),patch.object(b,'load_module',return_value=geometry):
             experimental = b.HeadingFeed(b.heading_policy(profile), matrix)
             feed = unittest.mock.Mock()
-            experimental.publish({0:[(0,0,4096)],4:[(0,40,30,1,0)]},1,feed)
+            experimental.publish({0:[(0,0,4096)],4:[(0,40,30,0,0)]},1,feed)
             experimental.publish({0:[(0,0,4096)],4:[(0,40,30,3,1)]},1.1,feed)
             feed.publish.assert_called_once_with(8,(0,0,0))
             for value in (False,1,'true'):

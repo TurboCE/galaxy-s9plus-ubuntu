@@ -5868,3 +5868,62 @@ Bluetooth services were active, and Wi-Fi HTTPS returned 204. The
 pre-existing no-SIM desktop LTE startup failure was still present.
 A temporary live Wayland window read the same standard heading.
 Physical reference accuracy and tilt calibration remain open.
+
+### 2026-11-20 — Connect board and barometer temperatures to hwmon
+
+Native #47 had functioning IIO temperature data and the existing
+Ubuntu `lm-sensors` package, with no hwmon class. Built the unmodified
+upstream hwmon core and IIO consumer as external modules against the
+exact #47 output. Added optional IIO maps for the barometer die and
+both board thermistors. The sensor supervisor verifies module pins,
+loads the core and consumer in order, and brings up the guarded bridge.
+
+Checked SM-G965N, exact live #47 BOOT and the verified recovery backup.
+Saved the original sensor profile and unit before changing userspace
+and modules. No partition was written. Ubuntu's `sensors -u` returned
+37.890, 31.266 and 27.653 °C. After a separate warm boot it returned
+37.620, 30.900 and 27.551 °C. These are hardware readings exposed for
+monitoring. No thermal or charging policy is attached to the new maps.
+
+The first warm boot exposed a compass dropout. A bounded private trace
+with hwmon and compass both enabled yielded 95 magnetic samples at
+calibration state 0, all without overflow, plus 111 acceleration
+records. With the existing threshold the geometry rejected all 95
+batches. All 95 passed the geometry check at minimum calibration
+state 0. Restored the original capture settings. Following the owner's
+earlier request to activate before calibration, the explicit experimental
+profile now publishes these live readings when the geometry and freshness
+checks pass. The verified profile retains its original quality threshold.
+GeoClue's account read five live compass samples around 67° while all
+three hwmon channels remained readable.
+The final warm boot reproduced both features together. Two IIO hwmon
+devices reported three temperatures (38.210, 31.633 and 28.503 °C),
+the standard compass returned five headings around 67°, and the
+proxy reported acceleration, light and proximity present. Audio and
+Bluetooth services were active and Wi-Fi HTTPS returned 204. The
+pre-existing no-SIM desktop LTE unit was still failed.
+
+### 2026-11-20 — Audit remaining GNSS, NFC and fingerprint interfaces
+
+The handset's own read-only vendor runtime supplies the Broadcom GPS
+daemon and GNSS HAL. The active hub daemon publishes the matching
+private GPS IPC FIFO. Ran a bounded GPS startup probe with separate
+mount, PID and network namespaces, Android GPS UID, scratch state and
+no BBD or block device exposed. An initial service check inside the
+network namespace could not reach systemd; moved it outside. The
+stock ELF initially lacked its vendor search path and Android runtime
+ICU library path. Supplying the vendor, system and runtime library
+directories allowed the daemon to run to the trial timeout and create
+its control and HAL IPC FIFOs. No NMEA or fix was verified and no
+GeoClue source was enabled.
+
+The owner stock device tree exposes secure-mode SPI and identifies
+the Egis ET510 reader. The fingerprint HAL references the Samsung
+biometric service and the vendor image contains the Trustonic stack.
+No native libfprint backend or enrollment was validated. The owner
+NFC configuration identifies S3NRN82 at the stock NFC I²C controller.
+The running kernel has NFC off, and the available mainline Samsung
+driver identifies S3FWRN5. Board wiring and protocol support still
+need a controller probe before exposing NFC through Linux. The stock
+tree also identifies Hall, optical heart-rate and separate grip inputs.
+No new probe drove those buses or input lines.

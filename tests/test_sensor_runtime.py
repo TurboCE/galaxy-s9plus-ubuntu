@@ -101,6 +101,19 @@ class SensorRuntimeTests(unittest.TestCase):
         for invalid in [[0]*9,[2,0,0,0,1,0,0,0,1],[1]*8,[True,0,0,0,1,0,0,0,1]]:
             with self.assertRaises(RuntimeError):S.validate_matrix(invalid)
 
+    def test_hwmon_requires_temperature_and_complete_runtime_module_pair(self):
+        self.assertIsNone(S.hwmon_policy({}))
+        profile={'pressure':{'enabled':True},'hwmon':{'modules':{}}}
+        self.assertIn('enable_hwmon=1',S.bridge_policy(profile)[0])
+        profile['hwmon']['modules']={'hwmon':{}}
+        with self.assertRaisesRegex(RuntimeError,'both module pins'):
+            S.hwmon_policy(profile)
+        profile['hwmon']['modules']['iio-hwmon']={}
+        self.assertEqual(set(S.hwmon_policy(profile)),{'hwmon','iio-hwmon'})
+        profile['pressure']['enabled']=False
+        with self.assertRaisesRegex(RuntimeError,'temperature provider'):
+            S.hwmon_policy(profile)
+
     def test_up_sensors_never_enumerates_or_chowns_modem(self):
         character=types.SimpleNamespace(st_mode=stat.S_IFCHR|0o600,st_rdev=123)
         with mock.patch.object(V,'safe_components'),mock.patch.object(V.os.path,'ismount',return_value=True),mock.patch.object(V.Path,'exists',return_value=True),mock.patch.object(V.Path,'lstat',return_value=character),mock.patch.object(V.Path,'glob',return_value=[Path('/dev/umts_test')]) as glob,mock.patch.object(V.os,'chown') as chown:

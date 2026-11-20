@@ -100,14 +100,17 @@ def validate_profile(profile):
     kernel=json.loads(pinned(profile['kernel_receipt']))
     if kernel.get('built_in_iio')is not True or kernel.get('boot_sha256')!=profile['expected_boot_sha256']:raise RuntimeError('BOOT selection mismatch')
     load_program(profile,'kernel_verifier').verify_kernel(kernel)
-    for key,feature in (('module','sensors'),('iio_bridge','iio-bridge')):
-        module=pinned(profile[key],64*1024*1024)
+    modules=[(profile['module'],'sensors'),(profile['iio_bridge'],'iio-bridge')]
+    hwmon=hwmon_policy(profile)
+    if hwmon is not None:
+        modules.extend((entry,feature) for feature,entry in hwmon.items())
+    for spec,feature in modules:
+        module=pinned(spec,64*1024*1024)
         entry=kernel.get('modules',{}).get(feature,{})
         if entry.get('sha256')!=digest(module) or entry.get('bytes')!=len(module):
             raise RuntimeError('Module does not match exact startup package: '+feature)
-    for key in ('module','iio_bridge'):
-        if type(profile[key].get('bytes'))is not int or profile[key]['bytes']<=0:raise RuntimeError('Module byte size must be pinned')
-        data=pinned(profile[key],64*1024*1024)
+        if type(spec.get('bytes'))is not int or spec['bytes']<=0:raise RuntimeError('Module byte size must be pinned')
+        data=module
         if len(data)<64 or data[:6]!=b'\x7fELF\x02\x01' or struct.unpack_from('<HH',data,16)!=(1,183):
             raise RuntimeError('Expected AArch64 kernel module')
         # Parse ABI without executing a module or trusting a filename.
@@ -256,6 +259,18 @@ def sensor_view(profile):
         if digest(trusted_bytes(path))!=profile['vendor'][key]:raise RuntimeError('Own vendor program/config changed')
 
 
+def hwmon_policy(profile):
+    if 'hwmon' not in profile:
+        return None
+    policy=profile['hwmon']
+    if (not isinstance(policy,dict) or set(policy)!={'modules'} or
+            not isinstance(policy['modules'],dict) or
+            set(policy['modules']) not in (set(),{'hwmon','iio-hwmon'}) or
+            not (profile.get('pressure',{}).get('enabled') or profile.get('thermistor',{}).get('enabled'))):
+        raise RuntimeError('Hwmon requires a temperature provider and either both module pins or built-in support')
+    return policy['modules']
+
+
 def bridge_policy(profile):
     enabled=profile.get('accel',{}).get('enabled',False)
     params=['enable_g965n=1','enable_accel='+str(int(enabled))]
@@ -272,6 +287,9 @@ def bridge_policy(profile):
     if 'heading' in profile:
         params.append('enable_heading=1')
         expected['enable_heading']='Y'
+    if hwmon_policy(profile) is not None:
+        params.append('enable_hwmon=1')
+        expected['enable_hwmon']='Y'
     return params,expected
 
 
@@ -457,6 +475,13 @@ def supervise(profile,path,profile_sha):
             parameters,expected=transport_policy(profile)
             ensure_module(profile['module'],'zrn_bbd',parameters,expected)
             check_stop()
+            hwmon=hwmon_policy(profile)
+            if hwmon is not None:
+                for feature in ('hwmon','iio-hwmon'):
+                    if feature in hwmon:
+                        ensure_module(hwmon[feature],feature.replace('-','_'),[],{})
+                if not Path('/sys/bus/platform/drivers/iio_hwmon').is_dir():
+                    raise RuntimeError('The stock IIO hwmon consumer is unavailable')
             params,expected=bridge_policy(profile)
             ensure_module(profile['iio_bridge'],'g965n_iio_bridge',params,expected)
             check_stop()

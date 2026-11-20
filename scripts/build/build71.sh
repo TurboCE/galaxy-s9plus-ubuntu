@@ -373,6 +373,11 @@ if [ "${S9_EXPERIMENTAL_IIO_COMPASS:-0}" = 1 ]; then
 	cfg --enable IIO_KFIFO_BUF
 	cfg --enable IIO_TRIGGERED_BUFFER
 fi
+if [ "${S9_EXPERIMENTAL_IIO_HWMON:-0}" = 1 ]; then
+	cfg --enable IIO
+	cfg --enable HWMON
+	cfg --enable SENSORS_IIO_HWMON
+fi
 if [ "${S9_EXPERIMENTAL_MODEM:-0}" = 1 ]; then
 	cfg --enable OF_OVERLAY
 	cfg --enable OF_DYNAMIC

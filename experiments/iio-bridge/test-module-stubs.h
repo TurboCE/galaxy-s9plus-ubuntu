@@ -73,7 +73,7 @@ struct iio_chan_spec;
 struct iio_chan_spec_ext_info {const char *name;int shared;ssize_t (*read)(struct iio_dev *,uintptr_t,const struct iio_chan_spec *,char *);};
 #define IIO_MOUNT_MATRIX(...) {.name="mount_matrix"}
 #define sysfs_emit(buf, text) ((ssize_t)strlen(strcpy(buf,text)))
-struct iio_chan_spec {int type,modified,channel2,indexed,channel;unsigned int info_mask_separate,info_mask_shared_by_type;const struct iio_chan_spec_ext_info *ext_info;};
+struct iio_chan_spec {int type,modified,channel2,indexed,channel;unsigned int info_mask_separate,info_mask_shared_by_type;const struct iio_chan_spec_ext_info *ext_info;const char *datasheet_name;};
 struct iio_info {int (*read_raw)(struct iio_dev *,const struct iio_chan_spec *,int *,int *,long);};
 struct iio_dev {const char *name;const struct iio_info *info;int modes;const struct iio_chan_spec *channels;unsigned int num_channels;};
 struct file_operations {void *owner;int (*open)(struct inode *,struct file *);ssize_t (*write)(struct file *,const char *,size_t,loff_t *);int (*release)(struct inode *,struct file *);void *llseek;};
