@@ -1,0 +1,71 @@
+--- a/drivers/rtc/rtc-s3c.c
++++ b/drivers/rtc/rtc-s3c.c
+@@ -48,6 +48,7 @@
+ 
+ struct s3c_rtc_data {
+ 	bool needs_src_clk;
++	bool firmware_clock;
+ 
+ 	void (*irq_handler) (struct s3c_rtc *info, int mask);
+ 	void (*enable) (struct s3c_rtc *info);
+@@ -412,7 +413,8 @@
+ 	if (IS_ERR(info->base))
+ 		return PTR_ERR(info->base);
+ 
+-	info->rtc_clk = devm_clk_get(&pdev->dev, "rtc");
++	if (!info->data->firmware_clock)
++		info->rtc_clk = devm_clk_get(&pdev->dev, "rtc");
+ 	if (IS_ERR(info->rtc_clk))
+ 		return dev_err_probe(&pdev->dev, PTR_ERR(info->rtc_clk),
+ 				     "failed to find rtc clock\n");
+@@ -538,6 +540,14 @@
+ 	.disable		= s3c6410_rtc_disable,
+ };
+ 
++/* Exynos8 exposes this RTC without software-controlled clock inputs. */
++static const struct s3c_rtc_data exynos8_rtc_data = {
++	.firmware_clock		= true,
++	.irq_handler		= s3c6410_rtc_irq,
++	.enable			= s3c6410_rtc_enable,
++	.disable		= s3c6410_rtc_disable,
++};
++
+ static const __maybe_unused struct of_device_id s3c_rtc_dt_match[] = {
+ 	{
+ 		.compatible = "samsung,s3c6410-rtc",
+@@ -545,6 +555,9 @@
+ 	}, {
+ 		.compatible = "samsung,exynos3250-rtc",
+ 		.data = &s3c6410_rtc_data,
++	}, {
++		.compatible = "samsung,exynos8-rtc",
++		.data = &exynos8_rtc_data,
+ 	},
+ 	{ /* sentinel */ },
+ };
+--- a/Documentation/devicetree/bindings/rtc/s3c-rtc.yaml
++++ b/Documentation/devicetree/bindings/rtc/s3c-rtc.yaml
+@@ -14,6 +14,7 @@
+     oneOf:
+       - enum:
+           - samsung,s3c6410-rtc
++          - samsung,exynos8-rtc
+       - items:
+           - enum:
+               - samsung,exynos7-rtc
+--- a/arch/arm64/boot/dts/exynos/exynos9810-star2lte.dts
++++ b/arch/arm64/boot/dts/exynos/exynos9810-star2lte.dts
+@@ -730,6 +730,13 @@
+ 		#phy-cells = <1>;
+ 	};
+ 
++	rtc@141e0000 {
++		compatible = "samsung,exynos8-rtc";
++		reg = <0x141e0000 0x100>;
++		interrupts = <GIC_SPI 31 IRQ_TYPE_NONE>,
++			     <GIC_SPI 32 IRQ_TYPE_NONE>;
++	};
++
+ 	usb: usb@10c00000 {
+ 		compatible = "snps,dwc3";
+ 		reg = <0x10c00000 0x10000>;

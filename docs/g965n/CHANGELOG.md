@@ -6098,3 +6098,72 @@ its Running column at false while Properties showed live readings.
 This run establishes data delivery to Qt 5. It sampled far proximity,
 stationary gyro and the current magnetic heading. Controlled motion
 accuracy, compass calibration and another reboot were not exercised.
+
+### 2026-11-20 — Restore the native #47 desktop modem and check stock services
+
+The enabled desktop LTE service had failed before preparing the modem
+or loading its module. The protected EFS partition differed from its
+private receipt while CPEFS and RADIO still matched. Located the exact
+old and live-matching recovery backups. The existing byte-level proof
+accepted a single step limited to the four permitted primary ext4
+superblock fields. Verified SM-G965N, the running BOOT and the pinned
+nine-partition backup before refreshing the private receipt under both
+leases. Kept the old receipt and working modem data. No block device
+was written. The sensor service stayed active during maintenance.
+
+The first retry preflight found the failed service's empty runtime
+directory. Removed only that empty directory and archived the prior
+attempt marker after confirming the modem module was never loaded
+during that failed attempt. A fresh service invocation exposed the real
+SIM and one internal device through ModemManager, then NetworkManager
+listed rmnet0 as GSM. The RIL broker returned radio on, SIM ready, EPS
+searching, no packet attachment and nonzero signal. ModemManager timed
+out waiting for registration and the mobile data profile did not
+connect. Wi-Fi-bound HTTPS204 passed, and no systemd units remained
+failed. Cellular traffic and the reason for the operator registration
+timeout remain unqualified on this boot.
+
+Verified UPower exposes both stock sysfs power supplies and a present
+desktop DisplayDevice at 99%, fully charged with USB online. Sensor
+Proxy still exposes acceleration, ambient light and proximity. BlueZ
+reports a powered adapter. The GNSS and compass sockets remain active.
+
+NFC and camera class devices are absent with NFC and media disabled in
+the running kernel. Comparison with the Linux Samsung NFC drivers
+shows the S3FWRN82 driver uses UART while this board has the S3NRN82
+on I²C with a clock request and regulator setup. A driver match by
+similar chip name is insufficient. The secure ET510 still needs a
+native biometric integration. No new probe drove any of these buses.
+
+### 2026-11-20 — Enable and verify the Exynos8 hardware clock on native #48
+
+Reused the revision 26 hardware evidence to add the Exynos8 match,
+firmware-clock path, binding and S9+ RTC node. Compiled the driver
+and DTB against the current native #47 sources. The first standalone
+DTB preprocessing attempt lacked the kernel include-prefix path.
+Added it and verified the resource address and both interrupts.
+Built the full ARM64 #48 Image and uniLoader with the new inner DTB.
+Kernel release and module symbol table matched #47. The only config
+changes disabled automatic RTC-to-system and system-to-RTC updates.
+The verified BOOT package retained the existing outer DT and ramdisk.
+
+Confirmed operator consent, model, USB link and battery. Verified a
+fresh nine-partition TWRP backup and #47 rollback image, wrote only
+BOOT and verified its readback. Ubuntu started on #48. Restored the
+guarded startup receipts for sensors, audio, Bluetooth, cover and
+desktop LTE. The fresh recovery backup differed from the previous
+EFS checkpoint only in the four permitted superblock fields, so
+revalidated the modem receipt using the existing proof. The prior
+receipt and working private modem data were preserved.
+
+Linux registered /dev/rtc0. The initial calendar was invalid. A
+first initialization attempt used a buffered handle unsuitable for
+a non-seekable RTC device. Opened the character device directly
+and initialized the RTC from synchronized UTC. Readback agreed
+within three seconds, the counter advanced and an awake alarm
+delivered RTC_AF through /dev/rtc0. Cleared the trial alarm. On a
+distinct warm reboot the RTC retained an advancing time. Standard
+systemd timedated reported a matching RTC time, and audio, Bluetooth,
+cover, sensor, GNSS, compass and desktop modem services were active.
+Wi-Fi-bound HTTPS204 passed. Power-off retention, sleep wake and
+automatic RTC sync were not exercised.
