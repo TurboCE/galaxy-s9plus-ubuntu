@@ -42,3 +42,30 @@ does not prove a position fix. Configuring GeoClue's
 [local NMEA socket](https://manpages.ubuntu.com/manpages/noble/man5/geoclue.5.html)
 does not grant desktop applications access when user location services
 are disabled.
+
+## Start GPS on demand from GeoClue
+
+On a handset with the exact guarded sensor profile and independent recovery
+backup verified, install the built helper as `/usr/local/lib/g965n-gnss/hal`
+and install `serve.py` alongside it. Keep that directory root-owned and
+mode 0700. Write `pins.json` there with the SHA-256 of the executable
+(`hal`), the handset's read-only `vendor/bin/hw/gpsd` (`vendor_daemon`),
+and `vendor/etc/gnss/gps.xml` (`vendor_config`). These paths are relative
+to `/run/g965n-sensor-runtime/root` for the vendor inputs. The supervisor
+rechecks the active sensor profile and BOOT before opening the hardware
+path.
+
+Install the supplied socket and service under `/etc/systemd/system`. Put
+the following in `/etc/geoclue/conf.d/80-g965n-gnss.conf`:
+
+```ini
+[network-nmea]
+enable=true
+nmea-socket=/run/g965n-gnss/nmea.sock
+```
+
+Run `systemctl daemon-reload` and `systemctl enable --now g965n-gnss.socket`.
+Restart an active GeoClue to read its new source. The socket accepts only
+the GeoClue service account. The worker uses an isolated vendor runtime,
+and stops its GNSS session when GeoClue disconnects. Other GeoClue sources
+and desktop application permissions continue to use Ubuntu's settings.

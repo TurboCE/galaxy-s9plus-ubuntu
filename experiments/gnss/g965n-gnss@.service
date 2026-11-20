@@ -1,0 +1,14 @@
+[Unit]
+Description=G965N standalone GNSS session
+BindsTo=g965n-sensors.service
+After=g965n-sensors.service
+
+[Service]
+Type=simple
+UMask=0077
+StandardInput=socket
+StandardOutput=journal
+StandardError=journal
+ExecStart=/usr/bin/python3 /usr/local/lib/g965n-gnss/serve.py
+KillMode=mixed
+TimeoutStopSec=15s

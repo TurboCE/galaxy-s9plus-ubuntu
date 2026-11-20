@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdatomic.h>
 #include <pthread.h>
+#include <poll.h>
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +22,7 @@ struct constructor_arrays {
 };
 extern void __libc_init(void *, void *, int (*)(int, char **, char **),
                         const struct constructor_arrays *) __attribute__((noreturn));
+extern int *__errno(void);
 int main(int argc, char **argv, char **envp);
 __attribute__((used)) static void start_main(void *sp)
 {
@@ -170,7 +172,8 @@ int main(int argc, char **argv, char **envp)
     };
     int rc;
     unsigned long seconds = 24;
-    if (argc > 3 || (argc == 3 && strcmp(argv[2], "--nmea-fd3")))
+    bool on_demand = argc == 3 && !strcmp(argv[2], "--serve-nmea-fd3");
+    if (argc > 3 || (argc == 3 && !on_demand && strcmp(argv[2], "--nmea-fd3")))
         return 4;
     forward_nmea = argc == 3;
     if (argc >= 2) {
@@ -203,13 +206,24 @@ int main(int argc, char **argv, char **envp)
         rc = gps->start();
         printf("HAL start result: %d\n", rc);
         if (!rc) {
-            struct timespec limit;
-            int waited = clock_gettime(CLOCK_MONOTONIC, &limit);
-            if (!waited) {
-                limit.tv_sec += seconds;
+            int waited = 0;
+            if (on_demand) {
+                struct pollfd control = {.fd = STDIN_FILENO, .events = POLLIN};
+                int status;
                 do {
-                    waited = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &limit, NULL);
-                } while (waited == EINTR);
+                    status = poll(&control, 1, -1);
+                } while (status < 0 && *__errno() == EINTR);
+                if (status < 0)
+                    waited = *__errno();
+            } else {
+                struct timespec limit;
+                waited = clock_gettime(CLOCK_MONOTONIC, &limit);
+                if (!waited) {
+                    limit.tv_sec += seconds;
+                    do {
+                        waited = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &limit, NULL);
+                    } while (waited == EINTR);
+                }
             }
             printf("GNSS wait result: %d (requested %lu seconds)\n", waited, seconds);
             if (waited)

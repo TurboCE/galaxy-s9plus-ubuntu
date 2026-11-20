@@ -6012,3 +6012,26 @@ active-low GPA3 input as Linux `EV_SW/SW_LID`. The input device appeared
 with the standard udev `power-switch` tag and logind read open. Enabled
 its exact-BOOT service for future startup. The system's existing
 logind lid action is `ignore`. No partition or lid policy was changed.
+
+### 2026-11-20 — Install on-demand GPS as a standard GeoClue source
+
+The owner requested registering the GPS module without requiring a
+position fix as an installation gate. Installed a persistent local
+GeoClue NMEA source and systemd socket on native #47 after verifying
+the model, exact BOOT and full backup receipt. Desktop Location
+Services remains enabled. No partition was written.
+
+The socket is limited to the GeoClue account and starts one guarded
+vendor GPS session per connection. It reuses only read-only Android
+files and the existing leased GPS IPC directory. Network, PID and
+mount namespaces isolate the GPS process, and the session forwards
+only checksum-valid NMEA. The first Bionic client link exposed a
+glibc errno accessor reference. Used Bionic's accessor and rebuilt.
+
+The installed Ubuntu GeoClue daemon started the real receiver by
+connecting to the persistent socket. Its 64-second proof session
+received 14 NMEA sentences. Closing the client ended the worker,
+released the sensor lease and left only the listening socket. The
+temporary proof app's authorization was removed. No fix was observed.
+A second connection as the GeoClue service account independently read
+14 checksum-valid sentences and returned the receiver to idle again.

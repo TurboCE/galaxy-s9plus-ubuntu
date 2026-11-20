@@ -1,0 +1,13 @@
+[Unit]
+Description=G965N GNSS socket for GeoClue
+
+[Socket]
+ListenStream=/run/g965n-gnss/nmea.sock
+SocketMode=0660
+SocketGroup=geoclue
+Accept=yes
+MaxConnections=1
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target
