@@ -42,3 +42,31 @@ sequence and the native NFC protocol path remain unqualified.
 
 - [LineageOS revision 26 device tree](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/arch/arm64/boot/dts/exynos/exynos9810-star2lte_eur_open_26.dts)
 - [LineageOS Exynos9810 clock register table](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/drivers/soc/samsung/cal-if/exynos9810/cmucal-sfr.c)
+
+## Share the expander with Bluetooth
+
+The legacy Bluetooth path owns GPP6 through a separate GPIO I²C
+adapter. The `native_expander=1` option of `zrn-bt.ko` instead uses
+line 7 of the PCAL6524 handled by the standard `gpio-pca953x` driver
+on the native controller. The module checks the exact controller
+path and the type and driver of its client. The default Bluetooth
+option still uses the legacy startup path.
+
+On the native #48 bus trial, the PCAL6524 and Bluetooth were tested
+together using the standard GPIO driver, a temporary I²C client and
+a guarded local module load. This arrangement is not yet described
+by the boot device tree or by the installed startup unit. A native
+startup configuration must instantiate the expander before loading
+Bluetooth. It must not run the legacy GPIO I²C client in parallel.
+
+## Linux NFC core
+
+The trial used the existing kernel with the upstream NFC and NCI
+modules compiled for its exact release. For a fresh kernel build,
+enable `CONFIG_NFC=m` and `CONFIG_NFC_NCI=m` and build the modules
+against that kernel's complete symbol table. On the handset both
+the AF_NFC socket interface and the `nfc` generic netlink family
+worked. An NFC radio must still bind before an application can poll
+or read tags.
+
+[Linux NFC userspace interface](https://docs.kernel.org/networking/nfc.html)

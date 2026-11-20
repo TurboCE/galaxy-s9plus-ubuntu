@@ -6288,3 +6288,37 @@ signal. A separate one-minute observation after the final reboot
 never acquired a mobile bearer. Ubuntu Wi-Fi and the original modem
 service remained running. Prior end-to-end IPv4 evidence involved
 the previous SIM.
+
+### 2026-11-20 — Share the native PCAL6524 with Bluetooth and load Linux NFC
+
+Added an explicit native-expander option to zrn-bt. It locates the
+exact G965N I²C controller through the device tree, verifies the
+PCAL6524 client and its GPIO driver, and claims BT_EN as a GPIO
+consumer. It does not create a second I²C adapter in this mode.
+The existing startup path remains the default.
+
+Built the ARM64 Bluetooth module. Kbuild emitted it in the output
+tree, and the first copy tried the source directory. On the verified
+#48 BOOT, stopped the legacy service and unloaded its module,
+rebound the native controller, and instantiated a temporary
+PCAL6524 client. gpio-pca953x bound and reported an absent vcc
+description with a dummy regulator. The existing powered chip
+answered. Loaded the new module, attached the actual UART and
+observed the BCM firmware and powered BlueZ controller. A discovery
+scan observed 13 peers with no device addresses retained. The legacy
+i2c-96 adapter was absent and Wi-Fi HTTPS204 passed.
+
+Built the upstream nfc and nci modules for the same release with
+CONFIG_NFC=m and CONFIG_NFC_NCI=m. The first modpost attempts
+saw an empty Module.symvers left by an external module build.
+Reused the preserved vmlinux symbol table that had matched #48
+during its build and linked without suppressing unresolved symbols.
+Loaded both modules on the verified handset. AF_NFC opened and
+generic netlink resolved the nfc family. Bluetooth was still
+powered. No NFC radio registered, and the handset's configured
+Ubuntu repositories offered no neard package candidate. The
+S3NRN82 I²C driver and its power/clock path remain separate work.
+
+The temporary Bluetooth unit, native GPIO client and NFC core
+modules are live in this boot. No BOOT or persistent startup
+configuration was changed by this trial.

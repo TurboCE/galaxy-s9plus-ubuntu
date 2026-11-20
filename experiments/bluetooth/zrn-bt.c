@@ -80,7 +80,7 @@ static struct platform_device *bus_pdev, *uart_pdev, *self;
 static struct i2c_client *exp;
 static struct clk_hw *uart_clk;
 static struct clk_lookup *cl_uart, *cl_baud;
-static struct gpio_desc *bt_wake, *host_wake;
+static struct gpio_desc *bt_wake, *host_wake, *bt_enable;
 static int host_wake_irq = -1;
 
 /* what the gates and USI_OPTION were before we forced them, for sleep */
@@ -218,10 +218,15 @@ static int exp_update(u8 reg, u8 mask, u8 val)
 
 static int bt_power(bool on)
 {
-	int ret = exp_update(EXP_CFG0, BT_EN, 0);	/* an output */
+	int ret;
 
-	if (!ret)
-		ret = exp_update(EXP_OUT0, BT_EN, on ? BT_EN : 0);
+	if (bt_enable) {
+		ret = gpiod_direction_output(bt_enable, on);
+	} else {
+		ret = exp_update(EXP_CFG0, BT_EN, 0);
+		if (!ret)
+			ret = exp_update(EXP_OUT0, BT_EN, on ? BT_EN : 0);
+	}
 	pr_info("zrn-bt: BT_EN %s (%d)\n", on ? "high" : "low", ret);
 	return ret;
 }
@@ -400,6 +405,62 @@ static bool enable_g965n;
 module_param(enable_g965n, bool, 0444);
 MODULE_PARM_DESC(enable_g965n, "explicit opt-in for reviewed star2lte Bluetooth bring-up");
 
+static bool native_expander;
+module_param(native_expander, bool, 0444);
+MODULE_PARM_DESC(native_expander, "use the shared PCAL6524 on the native G965N controller");
+
+static struct gpiod_lookup_table enable_gpio = {
+	.dev_id = "zrn-bt",
+	.table = {
+		GPIO_LOOKUP(NULL, 7, "bt-enable", GPIO_ACTIVE_HIGH),
+		{ }
+	},
+};
+
+static int bt_request_native_enable(void)
+{
+	struct device_node *node;
+	struct i2c_adapter *bus;
+	struct i2c_client *client;
+	struct device *device;
+	char label[24];
+	int ret = -ENODEV;
+
+	node = of_find_node_by_path("/soc@0/i2c@10930000");
+	if (!node)
+		return -ENODEV;
+	bus = of_find_i2c_adapter_by_node(node);
+	of_node_put(node);
+	if (!bus)
+		return -EPROBE_DEFER;
+
+	snprintf(label, sizeof(label), "%d-%04x", bus->nr, EXP_ADDR);
+	device = bus_find_device_by_name(&i2c_bus_type, NULL, label);
+	i2c_put_adapter(bus);
+	if (!device)
+		return -EPROBE_DEFER;
+
+	device_lock(device);
+	client = i2c_verify_client(device);
+	if (!client || strcmp(client->name, "pcal6524") ||
+	    !device->driver || strcmp(device->driver->name, "pca953x"))
+		goto unlock;
+
+	enable_gpio.table[0].key = label;
+	gpiod_add_lookup_table(&enable_gpio);
+	bt_enable = gpiod_get(&self->dev, "bt-enable", GPIOD_OUT_LOW);
+	gpiod_remove_lookup_table(&enable_gpio);
+	enable_gpio.table[0].key = NULL;
+	ret = PTR_ERR_OR_ZERO(bt_enable);
+	if (ret)
+		bt_enable = NULL;
+
+unlock:
+	device_unlock(device);
+	put_device(device);
+	return ret;
+}
+
 static int __init zrn_bt_init(void)
 {
 	struct i2c_adapter *bus;
@@ -419,22 +480,24 @@ static int __init zrn_bt_init(void)
 		return 0;
 	}
 
-	gpiod_add_lookup_table(&bus_gpios);
-	bus_pdev = platform_device_register_data(NULL, "i2c-gpio", EXP_BUS, &bus_pdata, sizeof(bus_pdata));
-	if (IS_ERR(bus_pdev)) {
-		ret = PTR_ERR(bus_pdev);
-		goto err_table;
-	}
-	bus = i2c_get_adapter(EXP_BUS);
-	if (!bus) {
-		ret = -EPROBE_DEFER;
-		goto err_bus;
-	}
-	exp = i2c_new_dummy_device(bus, EXP_ADDR);
-	i2c_put_adapter(bus);
-	if (IS_ERR(exp)) {
-		ret = PTR_ERR(exp);
-		goto err_bus;
+	if (!native_expander) {
+		gpiod_add_lookup_table(&bus_gpios);
+		bus_pdev = platform_device_register_data(NULL, "i2c-gpio", EXP_BUS, &bus_pdata, sizeof(bus_pdata));
+		if (IS_ERR(bus_pdev)) {
+			ret = PTR_ERR(bus_pdev);
+			goto err_table;
+		}
+		bus = i2c_get_adapter(EXP_BUS);
+		if (!bus) {
+			ret = -EPROBE_DEFER;
+			goto err_bus;
+		}
+		exp = i2c_new_dummy_device(bus, EXP_ADDR);
+		i2c_put_adapter(bus);
+		if (IS_ERR(exp)) {
+			ret = PTR_ERR(exp);
+			goto err_bus;
+		}
 	}
 
 	gpiod_add_lookup_table(&wake_gpios);
@@ -442,6 +505,11 @@ static int __init zrn_bt_init(void)
 	if (IS_ERR(self)) {
 		ret = PTR_ERR(self);
 		goto err_exp;
+	}
+	if (native_expander) {
+		ret = bt_request_native_enable();
+		if (ret)
+			goto err_exp;
 	}
 	if (!IS_ERR(self)) {
 		bt_wake = gpiod_get(&self->dev, "bt-wake", GPIOD_OUT_HIGH);
@@ -482,11 +550,16 @@ err_exp:
 	if (!IS_ERR_OR_NULL(self))
 		platform_device_unregister(self);
 	gpiod_remove_lookup_table(&wake_gpios);
-	i2c_unregister_device(exp);
+	if (bt_enable)
+		gpiod_put(bt_enable);
+	if (!IS_ERR_OR_NULL(exp))
+		i2c_unregister_device(exp);
 err_bus:
-	platform_device_unregister(bus_pdev);
+	if (bus_pdev)
+		platform_device_unregister(bus_pdev);
 err_table:
-	gpiod_remove_lookup_table(&bus_gpios);
+	if (!native_expander)
+		gpiod_remove_lookup_table(&bus_gpios);
 	return ret;
 }
 
@@ -507,11 +580,14 @@ static void __exit zrn_bt_exit(void)
 	if (!IS_ERR_OR_NULL(self))
 		platform_device_unregister(self);
 	gpiod_remove_lookup_table(&wake_gpios);
+	if (bt_enable)
+		gpiod_put(bt_enable);
 	if (!IS_ERR_OR_NULL(exp))
 		i2c_unregister_device(exp);
 	if (!IS_ERR_OR_NULL(bus_pdev))
 		platform_device_unregister(bus_pdev);
-	gpiod_remove_lookup_table(&bus_gpios);
+	if (!native_expander)
+		gpiod_remove_lookup_table(&bus_gpios);
 }
 
 module_init(zrn_bt_init);
