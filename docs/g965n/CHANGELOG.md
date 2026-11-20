@@ -5798,7 +5798,42 @@ controls with physical changes.
 The Ubuntu user read acceleration, light, pressure, barometer
 temperature, proximity, angular velocity and both board temperatures
 from the six IIO devices. GeoClue is installed, but its Sensor Proxy
-compass interface was absent. No verified heading backend is exposed.
+compass backend was unavailable. No verified heading backend is exposed.
 An ordinary remote process was denied a Sensor Proxy claim by stock
 PolicyKit; the bounded diagnostic used an authorized root claim and
 released it. No package, setting or access policy change was needed.
+
+### 2026-11-20 — Measure compass response with a local display
+
+Confirmed on #46 that GeoClue can read the standard compass object at
+`/net/hadess/SensorProxy/Compass` and gets `HasCompass=false`. The kernel
+has IIO direct mode but lacks the buffer and trigger support required
+by Ubuntu 24.04's stock compass backend.
+
+The first bounded cardinal capture reported magnetic quality 0 in the
+four flat poses. The nominal tilted pose was flat and was excluded.
+Automatic restore initially refused the wrong kernel receipt left in
+the trial wrapper. Corrected the pin, restored the original profile
+and verified the existing sensor service. A second capture after a
+figure-eight still reported quality 1 at north and restored normally.
+
+For the owner's direct check, opened a temporary Wayland sensor window
+showing the live magnetic X/Y/Z readings, calibration state and
+overflow. Verified Wi-Fi and Tailscale SSH against the known host key.
+The capture ran independently of USB. The owner saw the readings
+change and calibration reach 2–3 after removing the cable. All five
+wireless reference windows contained 15 quality-3 magnetic samples
+with no overflow. The accelerometer distinguished the tilted pose.
+
+Compared the five reference poses with all 24 proper magnetic
+axis mappings. The best candidate still differed by about 15°, 19°,
+35°, 44° and 115° for north, east, south, west and tilted north.
+These angles and the quality indication measure different properties.
+The trial did not qualify an orientation matrix or heading. No angle
+was sent to GNOME or GeoClue.
+
+The owner reconnected USB after the reference measurements. Ended
+the transient capture, verified the saved service unit and profile
+byte-for-byte, and confirmed the sensor broker and Sensor Proxy were
+active with all six original IIO devices. The viewer reported
+measurement end. The phone stayed on #46, with no partition writes.
