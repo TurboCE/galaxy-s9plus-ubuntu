@@ -6921,3 +6921,82 @@ reading PLL_SHARED2 CON0/CON1 and DIV2 terminated with userspace SIGBUS; the
 specific blocked read was not isolated and was not retried. No clock/PWM/motor
 power register was written. Haptic remains pending a reviewed firmware/provider
 access route and real rate/supply verification; do not substitute a dummy clock.
+
+
+## 2026-11-20 — Haptic clock investigation and PWM-only preparation
+
+The owner requests autonomous continuation and prioritizes vibration. A new
+five-minute GNSS run after boot completed with3,279 valid sentences/invalid0,
+but satellites0/fixfalse at the current unattended placement. No location
+reacquisition claim is made.
+
+Pinned vendor ra.c/fvmap.c show runtime firmware correction of PLL addresses.
+A Python SRAM metadata read again received SIGBUS. Replaced byte/slice MMIO
+with aligned volatile32-bit reads, matching the actual ACPM kernel driver:
+framework plugin metadata and all13 frequency-map domain headers then parsed.
+Firmware maps two TOP PLL addresses to offsets0x1a0/0x2a0 rather than the old
+source offsets. Aligned32-bit reads at those firmware-qualified addresses passed.
+This establishes that the prior failure was not proof of an access prohibition;
+it does not justify reading arbitrary/unmapped registers or whole firmware.
+No firmware dump is published and no ACPM command/PLL write was sent.
+
+The decisive PWM wiring evidence is vendor pwm-samsung.c: counter arithmetic
+uses pwm_sclk, while pwm_pclk only enables the register interface. Its clock
+provider registers pwm-clock as fin_pll1:1 (26MHz). Preparing a separate board
+module aliases the existing real oscillator to mainline's timers clock and
+opens only the dedicated PWM APB gate, restoring its prior bits at teardown.
+It registers the built-in Samsung PWM driver with the exact stock s3c6400
+variant and output channel1 only. No dummy clock, shared PLL retune, motor
+power or pad mux enable is part of this PWM-only stage. Warnings-as-errors
+ARM64 module build succeeded; hardware counter measurement is next.
+
+
+PWM-only hardware trial passed: source_hz26,062,180, reload47, prescaler26,
+divider1,60,179 valid sample intervals. The counter was disabled and unexported
+in finally. This agrees with the real26MHz oscillator path, not the APB parent.
+Subsequent pin inspection corrected an insufficient assumption: the bootloader
+had already left gpp3-1 function2 and motor boost gpg1-7 outputHIGH. The PWM
+stage did not change these pins or write PMIC MOTOR_EN, but its initial MOTOR_EN
+was not read and it must not be described as confirmed rail-off throughout.
+The initial motor-board guard correctly refused this unexpected function2.
+Reviewed the exact stock PWM2 function/unclaimed ownership, then accepted that
+known initial state with restoration; no unrelated alternate function allowed.
+
+A first pin map used a nonexistent generic func2 mux name and probe refused.
+Used Samsung's actual PINCFG_TYPE_FUNC pinconf under an exclusive GPIO claim.
+This registered the real GPIO-backed motor regulator with boost forcedLOW,
+period48,828ns PWM1 and the standard rumble consumer. Legacy PWM lookup-table
+functions were not exported by7.1; switched to the exported standard translator,
+managed release and real controller linkage. The exported helper initially
+needed an explicit prototype for warnings-as-errors; corrected that build.
+No force-loading/unchecked symbol or parent-PMIC reprobe was used.
+
+The generic trial preserves upstream notices, limits magnitude32767/duty75%,
+uses the reviewed MAX77705 bias fix and exposes a distinct FF_RUMBLE input.
+Initial state boost0/bias1/motor0/config82. A bounded100ms/magnitude8192 effect
+showed boost1/bias1/motor1/configc2, automatic motor0/config82, then boost0/bias0
+on close. An independent systemd rail-cut fallback was armed before output.
+Four200ms/magnitude16384 cycles passed. Simultaneous accelerometer Z standard
+deviation was280.34/283.97/202.39/310.89 during pulses versus3.94 before and4.07
+after; read errors0, supporting actual mechanical response. Intermediate quiet
+periods included decay. Raw samples stayed private; no audio/coordinates saved.
+
+Public control test, ordered unload/reload/retest and normal Ubuntu user open/
+close passed. Added only this dedicated input's uaccess rule and automatic
+startup service. First complete cross-build failed on missing ARM64 libc
+headers; added libc6-dev-arm64-cross to the build Dockerfile/environment.
+The final new-directory recipe built all modules and four bounded/read-only
+ARM64 tools. The actual patched magnitude function passed393,216 strong/weak/
+period cases with ASan/UBSan, not a separate mathematical implementation.
+
+First warm boot retained output but reported device_links_driver_bound WARNING:
+the custom link targeted the unbound PWM class device. Fixed it to the actual
+pwmchip_parent exactly as PWM core does, rather than hiding the warning or
+removing ordering. Preserved the earlier candidate, stopped the service,
+verified original pad function2/boostHIGH restoration, replaced only the board
+module and its pin, restarted/tested, then rebooted separately. The final boot
+has active haptic/LED services, successful rumble/automatic stop, settled
+boost0/bias0/motor0, device-links warning0, call-trace/Oops/BUG0 and RTC/GPT
+warning0; failed units0. The temporary warning is superseded only for that
+fixed scope. Stock waveform parity, calibrated force, long-term heating,
+suspend restoration and GNOME notification policy remain open.

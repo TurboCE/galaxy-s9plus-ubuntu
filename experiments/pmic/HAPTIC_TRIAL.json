@@ -1,0 +1,15 @@
+{
+  "input_sha256": "408b0bb39310ec9707d39a61a8875607e7886249cc1644e77250d0652bcc226f",
+  "output_sha256": "2aad2f910d5d105862fd7ba02f7178477223d812bd9e99db53fcf9df33c2d480",
+  "patch_sha256": "46099dce5d2f99ed26f09d077cd4a6ffd0d5c4f9e4c4caf2a8421c1b9759d820",
+  "module_symvers_sha256": "45d68e3278f2498bb2d187c86b86c2803417d2c4dbcccbe096caf268dd6422e2",
+  "limits": "rev26 PWM1 period48828ns, magnitude<=32767, normal duty<=75%, no overdrive",
+  "board_sources": {
+    "g965n-pwm-board.c": "d212e59b782a673faf03b19ac1d9ae9801acebfed2785ffd5e88eb36e988d7dd",
+    "g965n-haptic-board.c": "3bbe78f207c99033bc73bf4c14378810f04cbd35abdd74500316f96f86fc63aa",
+    "haptic-test.c": "9fe1a4d0f5597c4179f84dccb351972fb21334c799d97b2a9a5302fad8087557",
+    "measure-pwm-counter.c": "2b7da41491fec4183f19670c1fdc80107c740beb63502719a196364b030aad2f",
+    "read-fvmap32.c": "5fa888e0a998785c1882e85f4af94c4bba103d639a5d339337a268fc95b33abd",
+    "read-motor-pins32.c": "7e43b0775a30c93af00dac7fbbf81168f18bc702cabdb2887c6882a295d08e5c"
+  }
+}

@@ -5,7 +5,7 @@ ADD ubuntu-base-24.04.3-base-amd64.tar.gz /
 ENV DEBIAN_FRONTEND=noninteractive BUILD=/build BUILD_IMG=""
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential bc bison flex libssl-dev libelf-dev libncurses-dev \
-    gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu clang lld llvm \
+    gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu libc6-dev-arm64-cross clang lld llvm \
     device-tree-compiler python3 python3-pip git wget curl ca-certificates \
     debootstrap qemu-user-static binfmt-support cpio gzip lz4 zstd xz-utils \
     rsync kmod fakeroot e2fsprogs dosfstools android-sdk-libsparse-utils \

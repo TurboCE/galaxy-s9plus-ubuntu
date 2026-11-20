@@ -47,7 +47,7 @@ RECOVERY/EFS/CPEFS/RADIO 및 부트로더를 복구 편의상 덮어쓰지 않�
 | 2 | GPS 보조 데이터 | 순정 gps_psds.conf의 4day/v5 LTO를 HTTPS로 수신. 24h 캐시·4day Last-Modified 제한·해시·원본 설정 일치 검사. XTRA init/inject 모두0, 124,383바이트가 수신기 저장 파일과 일치. hourly 갱신 timer 연결 | 보조 데이터를 사용한 실제 fix는 확인됨. 보조 유무의 첫 fix 시간 A/B 비교는 안 함. SUPL/이전 위치 주입 미구현 |
 | 3 (확인) | RTC: `experiments/rtc/` | DT의 IRQ_TYPE_NONE 때문에 경고. generic IRQ sysfs는 edge라 표시했지만 실제 GICD_ICFGR의 IRQ63/64 필드 값은1이고 bit1=0(level). generic 표시만으로 EDGE_RISING을 적용하면 안 됨. LEVEL_HIGH 적용 후 초기 부팅·별도 재부팅에서 경고/호출 추적0, 시계 진행·실제 알람·시간 유지 통과. 서비스 receipt 이관 및 재시작 확인 | 기본 회귀 완료. 냉간 전원·절전 깨우기·자동 시각 동기화는 미검증 |
 | 4 (확인) | GPT: `experiments/storage/` | 실제 섹터4096, Samsung 헤더512. 원본 메타데이터를 기기·호스트에 보존하고 비어 있던 보조 영역20KiB만 복원 | 재부팅 경고0, 주 메타데이터 불변, 보조 CRC·25개 엔트리 동일 및6개 보호 파티션 불변 확인. 일반 자동 수리 명령으로 대체하지 않음 |
-| 5 (진동 다음) | 진동·LED: `experiments/pmic/`, `docs/g965n/PMIC_REVIEW.md` | RGB 실제 세 색·15회 읽기 검증·모듈 정지/재시작·재부팅 자동 구동 통과. g965n-led.service, max_brightness1. 진동은 PWM 클럭/공급 미완료 | RGB 알림/충전 정책은 미설치. 진동 PLL 직접 읽기 시 SIGBUS 발생; CMU 직접 읽기 반복 금지, 펌웨어 클럭 API/권한 먼저 조사 |
+| 5 (기본 출력 확인) | 진동·LED: `experiments/pmic/`, `docs/g965n/PMIC_REVIEW.md` | RGB 실제 세 색·15회 읽기 검증·모듈 정지/재시작·재부팅 자동 구동 통과. g965n-led.service, max_brightness1. 진동은 실제26MHz 카운터·GPIO 공급·FF_RUMBLE·IMU 반응·재부팅 통과 | LED/진동 알림 정책과 장기·절전·파형 보정은 미완료. 이전 SIGBUS/의존성 경고는 아래 후속 정정 참고 |
 | 6 | 나침반/센서 | IIO/Qt/표준 앱 데이터 전달은 됨. 방향 정확도 미달 | USB/자석 분리한 기준 방향·기울기 비교 및 보정, 재부팅 후 유지 |
 | 7 | GPU | 기본 가속/클럭 회귀는 통과한 이력. GNOME 실제 화면 애니메이션 버벅임 남음 | 실제 출력의 프레임 시간·장시간 부하 개선. 가상 모니터 성능만으로 통과하지 않음 |
 | 8 | 통신·전원·주변 기능 | 데이터 SIM 망 등록, 복구/이동/IPv6, BT 프로파일, OTG·충전·절전·대기 전력 등 | 항목별 실제 시험. 과거 LTE/WFD 성공을 지우지 않고 최신 빌드의 회귀 증거를 추가 |
@@ -99,7 +99,7 @@ EFS ext4 메타데이터6바이트 변경은 기존4필드 제한 증명으로�
 모든 주요 서비스 active/failed0, 모뎀 enabled이나 현재 망 idle/데이터 detached입니다.
 GPS는 재부팅 후264초/정상2,852문장/오류0이나 위성0·fix없음이며, GPT 검증 재부팅으로
 중단한 기록입니다. 예전 창가 fix와 구별하고, 하늘이 보이는 조건의 재부팅 후
-재수신 검증을 남겨 두세요. RGB 출력/재부팅은 후속 검증으로 완료했고, 다음 개발 우선순위는 진동 PWM/모터 공급입니다.
+재수신 검증을 남겨 두세요. RGB 출력/재부팅은 후속 검증으로 완료했고, 진동 PWM/모터 공급은 후속 검증으로 완료했습니다. 다음 우선순위는 실제 화면 GPU 비교입니다.
 
 
 ## RGB 기능 추가 및 진동 클럭 조사
@@ -117,3 +117,28 @@ GPS는 재부팅 후264초/정상2,852문장/오류0이나 위성0·fix없음이
 어떤 클럭·PWM·모터 전원 값도 쓰지 않았습니다. 이 읽기 실패를 모터 고장이나
 클럭 주파수 확인으로 해석하지 마세요. 고정 가상 클럭을 넣지 말고 기존 펌웨어
 클럭 서비스 또는 적절한 커널 provider를 통한 접근 권한/실제 rate부터 조사하세요.
+
+
+## 진동 후속 검증 — 이전 조사 정정
+
+진동은 현재 g965n-haptic.service로 자동 등록됩니다. 기존 실제 오실레이터26MHz를
+Samsung PWM에 연결했고, 카운터 실측26.06MHz로 확인했습니다. 모터 공급은 실제
+GPIO gpg1-7, 패드는 gpp3-1이며 표준 FF_RUMBLE 입력명은 g965n-max77705-haptic입니다.
+200ms 출력 4회에서 IMU Z변동202..311/대기약4, 자동 정지·전원/바이어스 off를
+확인했습니다. 출력 제한과 독립 rail-off fallback, 정상 정지/재시작 및 재부팅 통과.
+현재 원본 boost GPIO는 부트로더가1로 남기지만 서비스의 대기 전원은0입니다.
+서비스 stop은 소비자를 제거한 후 원래 핀/GPIO 상태로 복원합니다.
+
+앞선 Python SRAM SIGBUS는 접근 금지의 증거가 아니었습니다. 문서화된 ACPM 영역을
+정렬된 volatile32-bit로 읽으면 정상이며 실제 펌웨어 PLL 주소 보정도 확인했습니다.
+임의 바이트 읽기나 추측한 PLL CON1을 반복하지 마세요. PWM 기능 클럭은 APB 클럭과
+별개로26MHz이므로 공유 PLL retune/가짜 fixed-clock가 필요하지 않습니다.
+일반 func2 mux 이름도 없어서 Samsung pinconf FUNC API를 사용합니다.
+첫 재부팅의 의존성 경고는 PWM class 대신 pwmchip_parent를 참조해 수정했고,
+최종 별도 부팅에서 해당 경고/Call trace/Oops/BUG0, RTC/GPT 경고0, failed0입니다.
+
+빌드/설치/권한/시험 재현은 experiments/pmic README와 HAPTIC_TRIAL.json을 보세요.
+원본 haptic 소스의 GPL-2.0-or-later/저자 표기는 보존했고 새 board/controller는
+GPL-2.0-only입니다. GNOME 알림/키보드 피드백 정책은 아직 연결하지 않았습니다.
+GPS 후속300초 시험은 정상3,279문장/오류0이나 현재 위치 위성0/fix없음입니다.
+기존 창가 fix 증거와 구별하세요. GPU 실제 화면 A/B는 아직 실행 전입니다.

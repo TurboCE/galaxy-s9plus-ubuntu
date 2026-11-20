@@ -1,0 +1,2 @@
+# Only the active local user gets access to this dedicated rumble device.
+ACTION=="add|change", SUBSYSTEM=="input", KERNEL=="event[0-9]*", ATTRS{name}=="g965n-max77705-haptic", TAG+="uaccess"

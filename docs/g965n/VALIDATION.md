@@ -363,3 +363,18 @@ Haptic remains unqualified. Initial five CMU reads succeeded; a further PLL
 read-only diagnostic received userspace SIGBUS and stopped. No clock/PWM/motor
 power writes and no physical vibration test were performed. Do not infer motor
 failure or a verified PWM rate from that diagnostic.
+
+
+Native48 haptic board integration: actual26MHz timer source verified by hardware
+counter26.06MHz; dedicated APB gate and real gpg1-7 supply/gpp3-1 PWM1, no shared
+PLL/BOOT write. Initial boot boostHIGH/PWM2 corrected an earlier rail-off
+assumption. Standard FF_RUMBLE100ms and4x200ms output/auto-stop/close-off pass;
+IMU Z std202..311 versus baseline3.9..4.1 supports mechanical vibration.
+Ordered stop/restart, original GPIO/pad restoration and normal-user device
+access pass. First warm-boot device-link warning fixed by targeting controller
+parent; final separate warm boot/test has warning/call-trace/Oops/BUG0,
+RTC/GPT warning0 and failed units0. Motor settles boost0/bias0/MOTOR_EN0.
+Actual patched magnitude function393,216 ASan/UBSan cases and complete fresh
+module/tool cross-build pass. No stock waveform/calibrated force/endurance/
+suspend/GNOME notification-policy claim. GPS unattended300s regression:
+3,279 valid/0 invalid sentences, satellites0/fixfalse at current placement.

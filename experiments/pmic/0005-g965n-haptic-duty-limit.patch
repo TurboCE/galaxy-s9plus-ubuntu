@@ -1,0 +1,48 @@
+--- a/drivers/input/misc/max77693-haptic.c
++++ b/drivers/input/misc/max77693-haptic.c
+@@ -27,6 +27,8 @@
+ #include <linux/mfd/max77705-private.h>
+ #include <linux/mfd/max77843-private.h>
+ 
++extern struct pwm_device *g965n_haptic_pwm_get(struct device *dev);
++
+ #define MAX_MAGNITUDE_SHIFT	16
+ 
+ enum max77693_haptic_motor_type {
+@@ -258,6 +260,9 @@
+ 	haptic->magnitude = effect->u.rumble.strong_magnitude;
+ 	if (!haptic->magnitude)
+ 		haptic->magnitude = effect->u.rumble.weak_magnitude;
++
++	/* Bound this board trial below the stock normal-duty limit (75%). */
++	haptic->magnitude = min(haptic->magnitude, 0x7fffU);
+ 
+ 	/*
+ 	 * The magnitude comes from force-feedback interface.
+@@ -347,7 +352,7 @@
+ 	INIT_WORK(&haptic->work, max77693_haptic_play_work);
+ 
+ 	/* Get pwm and regulatot for haptic device */
+-	haptic->pwm_dev = devm_pwm_get(&pdev->dev, NULL);
++	haptic->pwm_dev = g965n_haptic_pwm_get(&pdev->dev);
+ 	if (IS_ERR(haptic->pwm_dev)) {
+ 		dev_err(&pdev->dev, "failed to get pwm device\n");
+ 		return PTR_ERR(haptic->pwm_dev);
+@@ -366,7 +371,7 @@
+ 		return -ENOMEM;
+ 	}
+ 
+-	haptic->input_dev->name = "max77693-haptic";
++	haptic->input_dev->name = "g965n-max77705-haptic";
+ 	haptic->input_dev->id.version = 1;
+ 	haptic->input_dev->dev.parent = &pdev->dev;
+ 	haptic->input_dev->open = max77693_haptic_open;
+@@ -440,7 +445,7 @@
+ 
+ static struct platform_driver max77693_haptic_driver = {
+ 	.driver		= {
+-		.name	= "max77693-haptic",
++		.name	= "g965n-max77705-haptic",
+ 		.pm	= pm_sleep_ptr(&max77693_haptic_pm_ops),
+ 		.of_match_table = of_max77693_haptic_dt_match,
+ 	},
