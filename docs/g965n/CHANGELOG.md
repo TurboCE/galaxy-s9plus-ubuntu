@@ -6167,3 +6167,17 @@ systemd timedated reported a matching RTC time, and audio, Bluetooth,
 cover, sensor, GNSS, compass and desktop modem services were active.
 Wi-Fi-bound HTTPS204 passed. Power-off retention, sleep wake and
 automatic RTC sync were not exercised.
+
+### 2026-11-20 — Verify Ubuntu Mobile Network data after the #48 warm reboot
+
+After the approved RTC installation and separate normal reboot,
+the existing desktop LTE service started automatically with the
+revalidated private receipt. The real SIM registered on its home
+network and NetworkManager connected the standard GSM profile.
+An uncached IPv4 DNS query used rmnet0 and certificate-verified
+HTTPS bound to rmnet0 returned 204. The cellular interface gained
+10 RX and 13 TX packets with no interface errors. A separate
+Wi-Fi-bound HTTPS request also returned 204. No systemd units
+were failed. The earlier #47 registration timeout did not recur
+in this check. The reason for the previous registration delay,
+long-term reconnect behavior, IPv6, voice and SMS remain open.
