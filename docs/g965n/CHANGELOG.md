@@ -5784,3 +5784,21 @@ started and then stopped without reaching confirmed channel readiness.
 Stock ModemManager was active afterward. The earlier #44 no-SIM
 startup result does not qualify this boot, and no LTE data test was
 run on #46.
+
+### 2026-11-20 — Check stock Ubuntu sensor integration on #46
+
+Ubuntu 24.04's installed IIO Sensor Proxy was active. In the signed-in
+GNOME Wayland session, automatic brightness was enabled and rotation
+lock was off. Direct sensor claims returned 341 lux and proximity far.
+The accelerometer reported available, with orientation undefined in
+the observed nearly flat pose. This check did not move the phone or
+vary the light. The owner had previously qualified both desktop
+controls with physical changes.
+
+The Ubuntu user read acceleration, light, pressure, barometer
+temperature, proximity, angular velocity and both board temperatures
+from the six IIO devices. GeoClue is installed, but its Sensor Proxy
+compass interface was absent. No verified heading backend is exposed.
+An ordinary remote process was denied a Sensor Proxy claim by stock
+PolicyKit; the bounded diagnostic used an authorized root claim and
+released it. No package, setting or access policy change was needed.
