@@ -66,8 +66,9 @@ existing guarded controller; a successful client return alone is insufficient.
 Actual native48: three standard API trials observed boost/bias/MOTOR_EN1 during
 playback and all0 afterward while the daemon still held the device open.
 Guarded original100ms/8192 regression also passed with the updated idle-aware
-test. Kernel serious patterns and failed units0. New module warm-boot persistence
-has not yet been tested; a separate clean Mesa compilation is still running.
+test. Kernel serious patterns and failed units0. A later warm reboot confirmed automatic service startup, all-zero idle state
+before the first effect, guarded100ms output and another actual standard API
+output/automatic full-off. The separate clean Mesa compilation also finished.
 GNOME Shell does not automatically translate every notification into libfeedback
 calls. No broad notification observer, keyboard hook or personal app setting is
 installed. The standard service works for explicit libfeedback-aware callers;

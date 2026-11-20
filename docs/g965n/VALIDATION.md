@@ -417,3 +417,16 @@ functions100 held-open cycles and injected power/PWM/start/stop errors passed
 ASan/UBSan. Source-pinned optional idle-power module build passed. Serious
 kernel patterns0/failed system units0. Consumer enabled after tests; new module
 warm reboot, complete GNOME notification linkage and battery savings pending.
+
+
+후속: clean Mesa 전체 빌드1325/1325·receipt 검증 완료. 새 출력의 실제
+Panfrost/Gallium 매핑 확인, readback100프레임/6,553,600바이트 오류0,
+256MiB 텍스처 검사 통과. 실행 중인 Shell은 기존 검증 overlay 유지.
+이제 새 진동 모듈 재부팅 회귀 시험을 시작했습니다.
+
+Native48 final idle-power warm boot: all major system services and standard
+feedback user daemon active, actual idle0/0/0 before first rumble. Guarded
+100ms/8192 and standard fbcli actual on→automatic full-off both passed.
+Serious kernel patterns0/failed units0. Existing qualified Shell overlay stable.
+First early Wi-Fi SSH timeout recovered on retry; no long-term network claim.
+This supersedes new haptic module reboot-pending entry above only.

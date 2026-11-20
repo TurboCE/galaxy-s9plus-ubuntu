@@ -166,8 +166,8 @@ Wi-Fi 지정 HTTPS204. 나침반 D-Bus Compass 객체는 Ubuntu 정책상 GeoClu
 heading.sock 중계를 사용하세요. 정확도 보정은 여전히 별도 미완료입니다.
 
 
-현재 새 clean build는 사용자 unit `g965n-mesa-neon48-clean-build.service`에서
-실행 중입니다(Nice10/CPUQuota100%/jobs2). `neon48-clean-rebuild`의 비공개
+새 clean build는 사용자 unit `g965n-mesa-neon48-clean-build.service`에서
+1325/1325 완료했습니다(Nice10/CPUQuota100%/jobs2). `neon48-clean-rebuild`의 비공개
 로그/receipt와 unit 결과를 확인한 뒤 성공·실패를 기록하세요. SSH 연결과
 무관하게 실행되지만 재부팅하면 중단될 수 있습니다. 완료된 새 바이너리를
 자동 적용하지 않습니다. 다음 단계는 이 clean 결과의 별도 픽셀/실제 Shell
@@ -198,5 +198,28 @@ user g965n-feedbackd.service는 enabled/active입니다. 보편적인 GNOME
 HAPTIC_IDLE_POWER.json, builder --idle-power. 기존0005 모듈·test·두 pin의
 복구본은 기기의 feedback48/pre-idle-module 비공개 경로에 보존했습니다.
 되돌릴 때 feedbackd부터 중지/비활성화하고 기존 모듈과 도구·핀을 같이 복구하세요.
-새 모듈 재부팅 검증은 아직 남아 있습니다. 실행 중인 clean Mesa 빌드를
-중단시키지 않고 완료·별도 시험 후 함께 진행하세요. 마지막978/1325/실패표시0.
+이후 전체 클린 Mesa 빌드가 완료됐고, 아래 후속 재부팅으로 새 진동 모듈도 검증했습니다.
+기존978/1325 기록은 중간 진행 이력입니다.
+
+
+후속: clean Mesa 전체 빌드1325/1325·receipt 검증 완료. 새 출력의 실제
+Panfrost/Gallium 매핑 확인, readback100프레임/6,553,600바이트 오류0,
+256MiB 텍스처 검사 통과. 실행 중인 Shell은 기존 검증 overlay 유지.
+이제 새 진동 모듈 재부팅 회귀 시험을 시작했습니다.
+
+
+## 현재 최종 상태 — idle-power warm boot 완료
+
+새 진동 모듈과 feedbackd가 정상 재부팅에서 자동 시작했습니다. 첫 진동 전
+boost0/bias0/motor0, guarded100ms 재출력/자동 off/close off와 표준 fbcli
+실제 모터 on→자동 full-off 통과. 새 커널 호출 추적/Oops/BUG0, failed0,
+오디오/센서/LED/BT/NFC/LTE 서비스 active. LTE 서비스 기동을 망 등록 성공으로
+해석하지 않습니다. 기존 qualified Shell overlay는 그대로 유지됩니다.
+clean Mesa 전체 빌드/검증/100프레임 픽셀·256MiB 검사는 완료됐지만 그 새
+바이너리의 실제 Shell A/B는 아직 미검증이므로 자동 교체하지 않았습니다.
+
+재부팅 직후 첫 Wi-Fi SSH는 시간 초과였고 다음 읽기 전용 확인에서 Wi-Fi와
+USB SSH 모두 열렸으며 재시도로 정상 접속했습니다. 장기 재접속 완료 주장 없음.
+다음 우선순위: 잔여 frame-clock dispatch 지연, 실제 provider/주파수 표가
+필요한 modem QoS, 현재 SIM 망 등록, 나침반 정확도, 전원·절전 회귀.
+카메라/지문 제외, GPS는 Wi-Fi 시험 경계를 유지합니다.

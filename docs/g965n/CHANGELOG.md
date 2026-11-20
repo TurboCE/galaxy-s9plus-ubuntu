@@ -7190,3 +7190,28 @@ Shell. Initial Git whitespace review flagged unified-patch context prefixes,
 not generated C defects; regenerated0006 with zero context, updated patch hash
 and verified zero-fuzz application yields the identical already-tested source
 hash. No runtime binary/source semantics changed for that formatting correction.
+
+
+Clean build verify passed all source/output/launcher/link pins. Actual normal-
+user launch mapped the newly clean-built Gallium, Mali-G72/Panfrost and passed
+100 RGBA/BGRA frames/6,553,600 bytes/zero mismatches plus256MiB live textures.
+It was not substituted into Shell; physical animation qualification remains
+separate. After confirming build unit inactive/success/exit0 and fresh protected
+backup/module preflight, initiated ordinary reboot under existing consent to
+verify the new idle-power consumer path. No BOOT flash was needed.
+
+
+## 2026-11-20 — Idle-power final warm boot verified
+
+First SSH shortly after reboot timed out; read-only recheck found both Wi-Fi
+and USB SSH reachable, and retry connected. No network configuration changed.
+Fresh protected preflight passed. Haptic/LED/sensor/audio/Bluetooth/NFC/LTE
+services active, feedbackd user service active. Before any effect, actual
+boost0/bias0/MOTOR_EN0, including firmware-retained state initialization.
+Guarded100ms/8192 output/automatic full-off/close-off passed after reboot.
+Separate standard API fbcli trial also observed1/1/1 during playback and0/0/0
+at automatic completion; independent4s rail fallback cancelled after success.
+Serious kernel patterns0 and failed system units0. Existing qualified Mesa
+Shell overlay stable mapping confirmed separately; clean-built Mesa remains
+an isolated tested candidate. This supersedes only idle-power warm-boot pending
+entries above, not all profiles/suspend/notification policy qualifications.
