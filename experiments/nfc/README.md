@@ -74,10 +74,10 @@ or read tags.
 ## Start the shared configuration at boot
 
 On the verified #48 NFC-bus BOOT, install `start-shared.py` and the
-matching `zrn-bt.ko`, `nfc.ko` and `nci.ko` in a root-owned private
-directory such as `/usr/local/lib/g965n-native-nfc`. Place the three
-module SHA-256 digests in `pins.json` using keys `zrn-bt`, `nfc` and
-`nci`. Retain the original `g965n-bluetooth.service` BOOT/package
+matching `zrn-bt.ko`, `nfc.ko`, `nci.ko` and `g965n-s3nrn82.ko` in a root-owned private
+directory such as `/usr/local/lib/g965n-native-nfc`. Place the four
+module SHA-256 digests in `pins.json` using keys `zrn-bt`, `nfc`,
+`nci` and `g965n-s3nrn82`. Retain the original `g965n-bluetooth.service` BOOT/package
 verification command when overriding the legacy module load.
 
 The tested systemd service drop-in clears `ExecStartPre` and re-adds
@@ -94,5 +94,19 @@ The helper instantiates the sole expander client, verifies the native
 driver, loads the pinned modules and locates the actual Bluetooth UART.
 The stop hook removes only the Bluetooth module loaded by that service.
 The expander and NFC core stay available to other consumers. A normal
-reboot verified this setup. The S3NRN82 did not answer CORE_RESET, so
-no radio or tag reader is exposed by this setup.
+reboot verified this setup. The corrected controller driver registers a standard NFC radio after
+a successful CORE_RESET response. The board's VEN is active-low,
+as defined by SEC_NFC_PW_ON=0 in the stock sec_nfc.h. FIRM is raised
+only after normal-mode power-up, then the driver waits 100 ms before
+sending commands. CLKOUT1 supplies TCXO and LDO38 retains its 1.8 V
+selector. Linux NCI performs device initialization and polling.
+
+
+Build the controller module with this directory's Makefile against the
+exact kernel source and its NFC-enabled output configuration. Include
+the full vmlinux and nfc/nci module symbol tables when building it
+separately. The implementation uses the published NCI core and the
+handset's pinned Samsung GPIO, supply and clock definitions. It does
+not distribute vendor firmware.
+
+[Samsung NFC active-low VEN definition](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/drivers/nfc/sec_nfc.h)

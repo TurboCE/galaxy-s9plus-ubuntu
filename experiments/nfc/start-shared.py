@@ -24,7 +24,7 @@ def run(*args):
 
 def load_modules():
     pins = json.loads((BASE / 'pins.json').read_text())
-    for name in ('nfc', 'nci', 'zrn-bt'):
+    for name in ('nfc', 'nci', 'zrn-bt', 'g965n-s3nrn82'):
         module = BASE / (name + '.ko')
         with module.open('rb') as stream:
             if hashlib.file_digest(stream, 'sha256').hexdigest() != pins[name]:
@@ -46,11 +46,23 @@ def bind_expander():
         raise RuntimeError('Expected the standard PCAL6524 GPIO driver')
 
 
+def bind_nfc():
+    if not (SYS_MODULE / 'g965n_s3nrn82').is_dir():
+        run('/usr/sbin/insmod', str(BASE / 'g965n-s3nrn82.ko'))
+    bus, = Path('/sys/bus/platform/devices/108e0000.i2c').glob('i2c-*')
+    client = I2C_DEVICES / (bus.name.removeprefix('i2c-') + '-0027')
+    if not client.exists():
+        (bus / 'new_device').write_text('g965n-s3nrn82 0x27\n')
+    if (client / 'driver').resolve(strict=True).name != 'g965n-s3nrn82':
+        raise RuntimeError('Expected native S3NRN82 driver')
+
+
 def start():
     if (SYS_MODULE / 'zrn_bt').exists() or (I2C_DEVICES / 'i2c-96').exists():
         raise RuntimeError('Bluetooth or its legacy I2C adapter is already loaded')
     bind_expander()
     load_modules()
+    bind_nfc()
     run('/usr/sbin/insmod', str(BASE / 'zrn-bt.ko'), 'enable_g965n=1', 'native_expander=1')
     try:
         with OWNER.open('x'):

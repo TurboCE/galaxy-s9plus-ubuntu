@@ -6374,3 +6374,32 @@ No NFC radio or tag read was verified. These checks do not establish
 that the chip receives its physical supply or reference clock. Further
 progress requires resolving chip power/clock delivery or obtaining a
 working stock NFC baseline on this exact damaged handset.
+
+### 2026-11-20 — Correct VEN polarity and register the live S3NRN82
+
+The owner confirmed this handset's NFC worked previously. Re-read the
+stock sec_nfc.h definition: SEC_NFC_PW_ON is zero and PW_OFF is one.
+Earlier probes incorrectly drove VEN active-high. GPIO controller
+readback from those probes therefore did not qualify NFC power-on.
+Correcting VEN to active-low immediately produced a successful
+CORE_RESET response over I2C.
+
+The native driver now claims active-low VEN through the shared
+PCAL6524, enables the stock LDO38 and CLKOUT1 settings and raises wake
+after normal-mode startup. Its first Linux NCI activation timed out.
+Added a 100 ms post-wake delay and a level-triggered oneshot data IRQ.
+The controller then registered and Linux DEV_UP plus START_POLL and
+STOP_POLL all succeeded. Driver diagnostics contain packet header
+types and lengths only.
+
+Installed the pinned controller module in the shared startup path.
+A distinct warm reboot automatically registered nfc0, the standard
+PCAL6524 and a powered BlueZ adapter. Audio and sensor services were
+active with no failed systemd unit. Repeated Linux NFC activation,
+polling and cancellation successfully after that boot. The real
+physical tag test is pending tag presentation. No tag content, tag
+identifier or secure-element operation was recorded.
+
+This corrects the prior suggestion that physical power/clock
+measurement was the necessary next step. The active-low definition
+in the available stock source resolved the initial nonresponse.
