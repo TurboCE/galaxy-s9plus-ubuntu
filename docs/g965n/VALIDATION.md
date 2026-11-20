@@ -336,3 +336,13 @@ recovery-only superblock changes; exact old/new backup proof and existing
 bounded revalidation passed without writing originals/working NV. Current SIM
 registration/data needs separate verification. GPS264s output2,852 valid/0
 invalid, no fix; interrupted for this reboot, not a completed five-minute test.
+
+
+Final post-provenance-maintenance boot: all six checked driver/desktop-LTE/NFC
+services active, failed units0, actual modem module present, ModemManager enabled,
+registration idle and packet service detached. Wi-Fi HTTPS204. This supersedes
+the temporary LTE startup failure for service startup only; it does not qualify
+current-SIM registration/data. Existing provenance suite41 tests and isolated
+maintenance lease/refusal/cleanup tests3 pass. The published wrapper encodes the
+successful on-device isolated sequence; source pin/root-path checks were added
+for reuse and the wrapper file itself was not used to repeat a provenance write.

@@ -116,3 +116,22 @@ and the verified snapshots; always teardown in finally before restarting the
 standard desktop-LTE service. This prepares only a private read-only vendor
 view and never mounts/writes the original identity partitions. A first attempt
 without that prepared view correctly refused with Runtime not mounted.
+
+
+The source wrapper `scripts/g965n/revalidate-private-efs.py` implements that
+isolated-view maintenance sequence. Obtain the expected runtime digest from
+the protected desktop LTE config, not by trusting an unreviewed replacement:
+
+```sh
+sudo python3 scripts/g965n/revalidate-private-efs.py \
+  --runtime /var/lib/g965n-lte/desktop/vendor-runtime.py \
+  --runtime-sha256 "$PINNED_RUNTIME_SHA256" \
+  --old-efs-backup "$EXACT_TRUSTED_OLD_EFS" \
+  --efs-backup "$NEW_VERIFIED_EFS" --cpefs-backup "$NEW_VERIFIED_CPEFS" \
+  --backup-manifest "$NEW_VERIFIED_MANIFEST" \
+  --confirm-sm-g965n-efs-metadata-only
+```
+
+The wrapper refuses an occupied modem view. It never restarts services or
+removes the per-boot attempt guard. If an earlier start consumed that guard,
+use a normal reboot after a successful proof, then verify automatic startup.

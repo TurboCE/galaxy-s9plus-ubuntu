@@ -6853,3 +6853,22 @@ boot again has0 GPT/RTC IRQ warnings, call traces and panic/Oops/BUG markers;
 waiting for sensor-dependent automatic LTE startup. The storage maintenance
 source also explicitly flushes its private receipt and rejects duplicate backup
 entries; these host-only hardening changes do not require another GPT write.
+
+
+Final reboot after provenance maintenance: desktop LTE, sensors, audio,
+Bluetooth, cover and neard all active; failed units0, modem module loaded and
+ModemManager enabled. Current registration is idle/packet service detached,
+so this is service recovery, not LTE Internet verification. Wi-Fi HTTPS204.
+Published the actual isolated maintenance sequence as a pinned-source wrapper
+for future recovery-only EFS metadata changes; it retains the existing bounded
+proof and preserves an occupied runtime rather than tearing it down.
+
+
+Maintenance regression checks: existing private-runtime suite41 passed, and
+three new wrapper tests cover both exclusive leases during proof/cleanup,
+cleanup after proof refusal, and preserving an already mounted runtime. The
+first wrapper test fixture hit unittest Mock's reserved assert_* naming rule;
+explicit method mocks corrected that fixture and all three then passed. This
+was a host test-fixture error, not a handset change. The wrapper source captures
+the already executed successful sequence; it was not used to repeat a live
+provenance write after the receipt had already been updated.
