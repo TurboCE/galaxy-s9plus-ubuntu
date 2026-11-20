@@ -6048,3 +6048,21 @@ released the sensor lease and left only the listening socket. The
 temporary proof app's authorization was removed. No fix was observed.
 A second connection as the GeoClue service account independently read
 14 checksum-valid sentences and returned the receiver to idle again.
+
+### 2026-11-20 — Connect the desktop Compass app to live Sensor Proxy
+
+The old launcher used the Qt Sensors compass backend and stayed in
+its waiting state. On the same boot the GeoClue account read five
+real magnetic headings around 104° from Ubuntu Sensor Proxy.
+Replaced that frontend with the local GTK app and an on-demand relay
+running as the existing GeoClue account. The socket belongs only to
+the selected desktop user. It releases the compass on disconnect
+and does not change D-Bus, PolicyKit or system location permissions.
+
+Saved the old desktop entry and installed the new launcher and
+enabled socket on the running #47 handset after the model, BOOT and
+backup checks. The ordinary desktop account received a real 103.729°
+heading. `gtk-launch` was absent, so used the actual installed desktop
+entry through `gio launch`. Verified the real Wayland window displayed
+168.6° through accessibility. Standalone direction accuracy remains
+unqualified.

@@ -1,0 +1,13 @@
+[Unit]
+Description=G965N local desktop compass socket
+
+[Socket]
+ListenStream=/run/g965n-compass/heading.sock
+SocketUser=@DESKTOP_USER@
+SocketMode=0600
+Accept=yes
+MaxConnections=2
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

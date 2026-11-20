@@ -3,7 +3,7 @@
 Type=Application
 Name=Compass
 Name[ko]=나침반
-Exec=/usr/bin/env QT_QUICK_BACKEND=software QT_QPA_PLATFORM=wayland /usr/lib/qt5/bin/qmlscene /usr/local/share/g965n-sensor-apps/Compass.qml
+Exec=/usr/bin/python3 /usr/local/share/g965n-sensor-apps/compass.py
 Icon=find-location-symbolic
 Terminal=false
 Categories=Utility;

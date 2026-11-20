@@ -1,0 +1,12 @@
+[Unit]
+Description=G965N magnetic heading via Ubuntu Sensor Proxy
+After=iio-sensor-proxy.service
+
+[Service]
+Type=simple
+User=geoclue
+StandardInput=socket
+ExecStart=/usr/bin/python3 /usr/local/share/g965n-sensor-apps/compass-feed.py
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes

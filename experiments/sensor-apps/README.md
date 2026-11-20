@@ -11,27 +11,34 @@ package repositories:
 sudo apt-get install --no-install-recommends \
   iio-sensor-proxy lm-sensors psensor qtsensors5-examples \
   qml-module-qtsensors qml-module-qtquick2 qml-module-qtquick-window2 \
-  qml-module-qtquick-controls qml-module-qtquick-layouts qtwayland5 qmlscene
+  qml-module-qtquick-controls qml-module-qtquick-layouts qtwayland5 qmlscene \
+  python3-gi gir1.2-gtk-4.0
 sudo install -d /usr/local/share/g965n-sensor-apps
-sudo install -m644 Compass.qml /usr/local/share/g965n-sensor-apps/
+sudo install -m644 compass.py compass-feed.py /usr/local/share/g965n-sensor-apps/
 sudo install -m644 g965n-*.desktop /usr/local/share/applications/
+sudo install -m644 g965n-compass@.service /etc/systemd/system/
+sed "s/@DESKTOP_USER@/$(id -un)/" g965n-compass.socket.in |
+  sudo tee /etc/systemd/system/g965n-compass.socket >/dev/null
+sudo systemctl daemon-reload
+sudo systemctl enable --now g965n-compass.socket
 sudo update-desktop-database /usr/local/share/applications
 ```
 
 Run those copy commands from this directory on the handset. The launcher paths
 target Ubuntu24.04 arm64 Qt5 package locations. No build script runs this recipe
 or writes a device automatically. Packages retain their original licensing and
-notices in `/usr/share/doc/`. The locally written Compass.qml and launchers are
+notices in `/usr/share/doc/`. The locally written Compass frontend and launchers are
 GPL-2.0-only; they contain no upstream application source or artwork.
 
 - **Sensor Explorer** is Ubuntu's Qt sensor explorer example.
 - **Tilt, Light and Proximity** is Ubuntu's QtSensors demonstration.
 - **Psensor** is the repository's hardware-monitor frontend. It requires hwmon
   data; it does not read the proprietary SSP transport directly.
-- **Compass** is a small local Qt Sensors frontend, not an Ubuntu/GNOME bundled
-  compass application. It shows no angle/needle until a real backend supplies
-  a fresh timestamp and finite azimuth, and clears stale availability. It does
-  not compute a heading from unqualified raw XYZ or use demo/random readings.
+- **Compass** is a local GTK 4 frontend. Its on-demand relay claims magnetic
+  heading through the stock Sensor Proxy using the existing GeoClue account.
+  Only the selected desktop user can open the private socket. The application
+  clears the display while readings are unavailable or the relay disconnects.
+  Directions are magnetic and labelled experimental until calibration.
 
 Qt launchers use per-app software rendering without changing the desktop's GPU
 configuration. These programs run as the ordinary desktop user. Their source
