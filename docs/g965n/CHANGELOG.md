@@ -6514,3 +6514,13 @@ remain unavailable. No fake camera/reader or PAM authentication change was
 installed. Documented reproducible desktop setup and these boundaries in
 DESKTOP_HARDWARE.md. Private package/runtime logs and all identity data remain
 outside Git.
+
+### 2026-11-20 — Verify live Wi-Fi station scanning
+
+At the owner's request, explicitly requested a NetworkManager rescan on
+wlp1s0, waited four seconds, and read its AP listing without recording SSIDs
+or BSSIDs. The scan command succeeded and the listing contained 15 AP entries,
+including the current connection, with signal strengths 22–100/100. A subsequent
+HTTPS request explicitly bound to Wi-Fi returned 204. This bounded observation
+verifies station scanning and continued connectivity, not scan endurance or AP
+handover. No driver, network profile or device configuration was changed.
