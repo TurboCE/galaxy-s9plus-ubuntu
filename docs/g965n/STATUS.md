@@ -110,3 +110,7 @@ verified delivery after receiver startup. No satellite-fix claim.
 GPS는 사용자가 위성 수신이 어려운 장소라고 확인한 조건에서 측정했습니다.
 NMEA/HAL 시작/UTC·XTRA 전달은 확인, 수신 가능한 장소의 최종 fix는 추후
 검증입니다. 이 결과를 GPS 드라이버 고장으로 해석하지 않습니다.
+
+
+위치 fallback 후속: 위치 요청 중 MM 기지국 소스 자동 활성화 확인. 실제
+GeoClue 응답 정확도는25km로, 기지국 DB 기반의 좌표 확정 성공은 미검증입니다.

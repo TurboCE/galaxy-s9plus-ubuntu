@@ -7604,3 +7604,11 @@ Host verification:7 cell/CEREG,14 radio-power,21 PDP and7 GNSS supervisor tests
 passed. Read LOCATION_REVIEW.md for reproducing/building, privacy, rollback and
 remaining registration/open-sky/signal/family limits. Independent personal-app
 edits in these shared documents were preserved outside this commit.
+
+
+Location fallback check: GeoClue3g source configured enabled. During an
+authorized desktop location request, MM source1 was enabled; after the request
+it was disabled on demand. GeoClue returned accuracy25000m. This confirms
+a network estimate, not successful cell-database resolution. CP cell exposure
+and actual cell-derived coordinates remain distinct; no provider/settings
+change made for this read-only check.

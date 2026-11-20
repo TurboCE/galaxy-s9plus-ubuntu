@@ -315,3 +315,8 @@ GPSD 관찰만으로는 receiver가 켜지지 않습니다. gpsd-summary.py를 �
 기록합니다. 수신 가능한 장소에서 최종 fix 확인이 남고 GPS 드라이버 임의
 수정은 하지 않았습니다. standalone/start/UTC/XTRA0와 유효 NMEA 전달 확인.
 과거 실기기 fix 성공 증거는 유지합니다. BeaconDB/submit-data=false 보존.
+
+
+위치 fallback 질문 후속: 요청 중 MM source1 활성화/요청 종료 후 비활성은
+정상 on-demand 동작. GeoClue accuracy25000m 반환; 기지국 데이터 전달 완료와
+기지국 DB 좌표 조회 성공을 구분하세요. 아직 cell-specific 좌표 검증은 남음.

@@ -520,3 +520,8 @@ GSV/HAL-visible satellites/fix. Final45s207/148 mode1. Standalone/start/UTC/
 XTRA-init0. Owner clarified location prevents satellite reception: environmental
 limit, not a proven receiver/driver defect. Favorable-location fix is pending.
 Initial GPSD observer without an active location client is not RF evidence.
+
+
+Fallback follow-up: authorized location request enabled MM source1 on demand,
+GeoClue accuracy25000m. Cell-specific coordinate lookup success is unverified;
+coarse network estimate must not be labelled a GNSS/cell-position pass.
