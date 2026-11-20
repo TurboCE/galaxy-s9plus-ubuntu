@@ -5927,3 +5927,51 @@ driver identifies S3FWRN5. Board wiring and protocol support still
 need a controller probe before exposing NFC through Linux. The stock
 tree also identifies Hall, optical heart-rate and separate grip inputs.
 No new probe drove those buses or input lines.
+
+### 2026-11-20 — Exercise the GNSS HAL and read the cover input
+
+Built a small Android 10 LP64 GNSS client using the handset's own
+Bionic DSOs in temporary private storage. The first link could not
+traverse the root-only runtime. An unprivileged build using read-only
+copies resolved that. Disabled glibc fortification and outlined
+atomics for the Bionic link after the initial undefined references.
+No vendor code or binary was published.
+
+In the empty trial runtime, the HAL returned an 80-byte interface,
+then acknowledged initialization, standalone mode and start. With
+the active hub's dedicated GPS IPC directory in the isolated trial,
+observed successful HAL and LHD pipe reads and writes and the actual
+BBD core-on and core-off messages. A process guard originally used an
+unsupported quiet flag; corrected the guard and verified cleanup.
+Satellite, NMEA and valid-fix callbacks remained at zero in the short
+initial trials.
+
+The isolated Android logging socket identified repeated refused RILD
+connections. Explicitly disabling SUPL, LBS and HTTP LTO in the scratch
+GNSS configuration did not change the result. The core turned off
+about 0.5–1.2 seconds after the start requests in those traces. This
+does not establish that the RILD failure causes the transition.
+
+An interruption-safe 60-second observation produced one satellite
+callback and 14 NMEA callbacks. A separate 90-second run produced 14
+checksum-valid sentences and delivered all 14 through a local streaming
+socket to the GeoClue service account. It received one GGA, one RMC,
+eight GSA and four vendor messages. Neither run reported a valid
+latitude/longitude fix. No coordinates or NMEA payload were printed or
+recorded.
+
+An initial desktop-service proof timed out obtaining a client from a
+root session. Obtaining a client as the desktop user succeeded, but
+starting it was denied because location is disabled for that user.
+The temporary GeoClue trial drop-in was removed. No desktop location
+preference was changed.
+After all trials, confirmed GPS daemon exit, moved only newly created
+GPS scratch artifacts out of the active IPC directory, and verified
+the original LHD lock and two server FIFOs remained. Sensor Proxy
+and the sensor service were active and all three hwmon temperatures
+remained readable.
+
+For cover detection, confirmed the owner's stock GPIO assignment
+and requested GPA3 line 6 as an input using Linux GPIO v2. The initial
+level was high. Waiting for a physical open/close check before
+choosing the input polarity and exposing a lid switch to Ubuntu.
