@@ -2,7 +2,7 @@
 
 `hal-probe.c` calls the handset's legacy Android GNSS HAL through its
 published LP64 callback ABI. It requests standalone mode with one-second
-updates, waits for 24 seconds by default (or 1–120 seconds as requested),
+updates, waits for 24 seconds by default (or 1–240 seconds as requested),
 and stops and cleans up. The default reports counts and status codes.
 It does not record coordinates or NMEA strings. Passing `90 --nmea-fd3`
 streams checksum-validated NMEA through a private pipe already open on

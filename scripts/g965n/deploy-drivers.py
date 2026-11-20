@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-only
-"""Stage opt-in audio/Bluetooth startup on the handset, guarded by exact BOOT.
+"""Stage opt-in audio, Bluetooth and cover startup, guarded by exact BOOT.
 
 Does not flash, load modules immediately, enable modem/sensors, or install
 firmware. --stage-for-next-boot permits staging for a different kernel; every
@@ -15,7 +15,7 @@ import shutil
 import subprocess
 import re
 
-FILES = {'audio': 'snd-zrn-abox.ko', 'bluetooth': 'zrn-bt.ko'}
+FILES = {'audio': 'snd-zrn-abox.ko', 'bluetooth': 'zrn-bt.ko', 'cover': 'g965n-cover.ko'}
 
 
 def validate_receipt(receipt):
@@ -47,6 +47,7 @@ def main():
     parser.add_argument('--package', type=Path)
     parser.add_argument('--enable-audio', action='store_true')
     parser.add_argument('--enable-bluetooth', action='store_true')
+    parser.add_argument('--enable-cover', action='store_true')
     parser.add_argument('--stage-for-next-boot', action='store_true')
     parser.add_argument('--verify', type=Path, help='Service-only receipt check')
     parser.add_argument('--feature', choices=FILES)
@@ -62,17 +63,19 @@ def main():
         if hashlib.sha256(module.read_bytes()).hexdigest() != receipt['modules'][args.feature]['sha256']:
             raise RuntimeError('Installed module changed; no driver loaded')
         return
-    if not args.package or not (args.enable_audio or args.enable_bluetooth):
-        raise SystemExit('Select a package and explicit audio/Bluetooth enable flags')
+    selected = [feature for feature in FILES if getattr(args, 'enable_' + feature)]
+    if not args.package or not selected:
+        raise SystemExit('Select a package and an explicit feature enable flag')
+    if 'cover' in selected and len(selected) != 1:
+        raise SystemExit('Stage the cover separately so its package cannot replace audio/Bluetooth receipts')
     receipt = json.loads((args.package / 'manifest.json').read_text())
     validate_receipt(receipt)
     if receipt['model'] != 'SM-G965N' or b'samsung,star2lte' not in Path('/sys/firmware/devicetree/base/compatible').read_bytes().split(b'\0'):
         raise SystemExit('Expected G965N package on star2lte')
     if not args.stage_for_next_boot:
         verify_kernel(receipt)
-    selected = [f for f, enable in [('audio', args.enable_audio), ('bluetooth', args.enable_bluetooth)] if enable]
     required = {'audio': ['calliope_sram.bin', 'calliope_dram.bin', 'calliope_iva.bin'],
-                'bluetooth': ['brcm/BCM.samsung,star2lte.hcd']}
+                'bluetooth': ['brcm/BCM.samsung,star2lte.hcd'], 'cover': []}
     sources = {}
     for feature in selected:
         if feature == 'bluetooth' and receipt.get('built_in_aes') is not True:
@@ -91,7 +94,10 @@ def main():
                 raise RuntimeError('Supply own-device firmware first: ' + firmware)
         sources[feature] = source
     os.umask(0o022)
-    destination = Path('/usr/lib/g965n-experiments') / receipt['boot_sha256'][:16]
+    package_name = receipt['boot_sha256'][:16]
+    if 'cover' in selected:
+        package_name += '-cover'
+    destination = Path('/usr/lib/g965n-experiments') / package_name
     destination.mkdir(parents=True, exist_ok=True)
     (destination / 'manifest.json').write_text(json.dumps(receipt, indent=2) + '\n')
     shutil.copyfile(__file__, destination / 'verify.py')
@@ -112,7 +118,7 @@ RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target
 '''
-        else:
+        elif feature == 'bluetooth':
             service = f'''[Unit]
 Description=Experimental G965N Bluetooth controller
 After=local-fs.target
@@ -124,6 +130,19 @@ ExecStartPre={verify}
 ExecStartPre=/usr/sbin/insmod {module} enable_g965n=1
 ExecStart=/usr/bin/btattach -B /dev/ttySAC0 -P bcm -S 115200
 Restart=no
+[Install]
+WantedBy=multi-user.target
+'''
+        else:
+            service = f'''[Unit]
+Description=G965N flip cover input
+After=local-fs.target
+[Service]
+Type=oneshot
+ExecStartPre={verify}
+ExecStart=/usr/sbin/insmod {module} enable_g965n=1
+ExecStop=/usr/sbin/rmmod g965n_cover
+RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target
 '''

@@ -143,10 +143,11 @@ reset/remove-all command or hardware trial is introduced by this source fix.
 ## Cover input diagnostic
 
 `cover-probe.c` reads the SM-G965N revision 26 flip-cover input at GPIO
-GPA3 line 6 using the standard Linux GPIO v2 interface. Build it with
+GPA3 line 6 using the standard Linux GPIO v2 interface. `--certify` selects
+the phone's separate accessory-detection input at GPA0 line 2. Build it with
 `cc -O2 -Wall -Wextra -Werror cover-probe.c -o cover-probe`. Use the
 model-verified phone only. `--initial-only` reads the current level and
-releases the line. The default reports both edges for a bounded 45-second
+releases the line. The default reports both edges for a bounded 110-second
 cover test. The probe requests input only and does not generate lid,
 power or wake events. Verify open/closed polarity before advertising an
 Ubuntu lid switch.

@@ -5975,3 +5975,27 @@ For cover detection, confirmed the owner's stock GPIO assignment
 and requested GPA3 line 6 as an input using Linux GPIO v2. The initial
 level was high. Waiting for a physical open/close check before
 choosing the input polarity and exposing a lid switch to Ubuntu.
+
+### 2026-11-20 — Verify GeoClue connection with desktop location enabled
+
+The owner explicitly requested leaving the GNOME location setting on.
+Set it for the desktop account and confirmed it was enabled. Used a
+temporary GeoClue configuration that selected the local NMEA stream
+and disabled other providers for source isolation. The desktop proof
+client started and the relay verified that the real GeoClue daemon
+connected to its socket. No coordinates were printed.
+
+The owner moved the phone near an open view of the sky. The standalone
+HAL trial ran for 205 seconds. It returned one satellite-status callback
+and 14 checksum-valid NMEA sentences, and all 14 were forwarded.
+There was no valid latitude/longitude callback and no GeoClue location
+object during its 215-second observation. Removed the temporary source
+and authorization drop-in and restored the preceding GeoClue service
+state. The GNOME location preference remained enabled.
+
+For Hall detection, expanded the read-only diagnostic to observe the
+stock flip-cover input (GPA3 line 6) and accessory input (GPA0 line 2),
+including periodic reads to catch a level change without an interrupt.
+The owner clarified that the stimulus was a magnet at the earpiece.
+The accessory input recorded three rising and three falling interrupts
+with matching levels. The flip-cover input stayed high in that trial.

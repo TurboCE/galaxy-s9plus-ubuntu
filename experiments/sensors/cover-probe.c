@@ -13,9 +13,19 @@
 
 int main(int argc, char **argv)
 {
-    bool observe = argc == 1;
-    if (!observe && (argc != 2 || strcmp(argv[1], "--initial-only")))
-        return 8;
+    bool observe = true;
+    const char *bank = "gpa3";
+    unsigned offset = 6;
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "--initial-only"))
+            observe = false;
+        else if (!strcmp(argv[i], "--certify")) {
+            bank = "gpa0";
+            offset = 2;
+        } else {
+            return 8;
+        }
+    }
     glob_t devices;
     if (glob("/dev/gpiochip*", 0, NULL, &devices))
         return 1;
@@ -25,7 +35,7 @@ int main(int argc, char **argv)
         if (fd < 0)
             continue;
         struct gpiochip_info info = {0};
-        if (!ioctl(fd, GPIO_GET_CHIPINFO_IOCTL, &info) && !strcmp(info.label, "gpa3") &&
+        if (!ioctl(fd, GPIO_GET_CHIPINFO_IOCTL, &info) && !strcmp(info.label, bank) &&
             info.lines == 8) {
             if (chip >= 0) {
                 close(fd);
@@ -43,7 +53,7 @@ int main(int argc, char **argv)
         return 3;
 
     struct gpio_v2_line_request request = {
-        .offsets = {6},
+        .offsets = {offset},
         .consumer = "g965n-hall-read-only",
         .config = {.flags = GPIO_V2_LINE_FLAG_INPUT | GPIO_V2_LINE_FLAG_EDGE_RISING |
                             GPIO_V2_LINE_FLAG_EDGE_FALLING},
@@ -61,7 +71,8 @@ int main(int argc, char **argv)
         close(request.fd);
         return 5;
     }
-    printf("Initial GPIO GPA3-6 state: %d\n", !!(value.bits & 1));
+    bool state = !!(value.bits & 1);
+    printf("Initial GPIO %s-%u state: %d\n", bank, offset, state);
     fflush(stdout);
 
     if (!observe) {
@@ -72,7 +83,7 @@ int main(int argc, char **argv)
     struct pollfd watch = {.fd = request.fd, .events = POLLIN};
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
-    const time_t deadline = now.tv_sec + 45;
+    const time_t deadline = now.tv_sec + 110;
     for (;;) {
         clock_gettime(CLOCK_MONOTONIC, &now);
         if (now.tv_sec >= deadline)
@@ -82,14 +93,22 @@ int main(int argc, char **argv)
             continue;
         if (status < 0 || (watch.revents & (POLLERR | POLLHUP | POLLNVAL)))
             return 6;
-        if (!status)
-            continue;
-        struct gpio_v2_line_event event;
-        if (read(request.fd, &event, sizeof(event)) != sizeof(event))
-            return 7;
-        printf("Hall input edge: %s\n", event.id == GPIO_V2_LINE_EVENT_RISING_EDGE ?
-                                         "rising" : "falling");
-        fflush(stdout);
+        if (status) {
+            struct gpio_v2_line_event event;
+            if (read(request.fd, &event, sizeof(event)) != sizeof(event))
+                return 7;
+            printf("Hall input edge: %s\n", event.id == GPIO_V2_LINE_EVENT_RISING_EDGE ?
+                                             "rising" : "falling");
+            fflush(stdout);
+        }
+        if (ioctl(request.fd, GPIO_V2_LINE_GET_VALUES_IOCTL, &value))
+            return 9;
+        bool current = !!(value.bits & 1);
+        if (current != state) {
+            printf("Hall input level: %d\n", current);
+            fflush(stdout);
+            state = current;
+        }
     }
     close(request.fd);
     return 0;

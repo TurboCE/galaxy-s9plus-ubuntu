@@ -13,7 +13,7 @@ import sys
 
 FILES = {'audio': 'snd-zrn-abox.ko', 'bluetooth': 'zrn-bt.ko',
          'sensors': 'zrn-bbd.ko', 'modem': 'g965n-modem.ko',
-         'iio-bridge': 'g965n-iio-bridge.ko'}
+         'iio-bridge': 'g965n-iio-bridge.ko', 'cover': 'g965n-cover.ko'}
 ROOT = Path(__file__).resolve().parents[2]
 OVERLAY_SOURCE = 'experiments/modem/g965n-modem-overlay.dts'
 
@@ -80,6 +80,8 @@ def main():
     built_in_iio = 'CONFIG_IIO=y' in (a.kernel_out / '.config').read_text().splitlines()
     if 'iio-bridge' in a.features and not built_in_iio:
         raise SystemExit('IIO bridge requires the exact kernel built-in IIO core')
+    if 'cover' in a.features and 'CONFIG_KEYBOARD_GPIO=y' not in (a.kernel_out / '.config').read_text().splitlines():
+        raise SystemExit('Cover switch requires the exact kernel built-in GPIO keys driver')
     receipt = {'model': 'SM-G965N', 'kernel_release': (a.kernel_out / 'include/config/kernel.release').read_text().strip(),
                'kernel_version': version[1], 'source_commit': a.source_commit,
                'boot_bytes': len(boot), 'boot_sha256': hashlib.sha256(boot).hexdigest(),

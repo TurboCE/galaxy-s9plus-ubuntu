@@ -176,7 +176,7 @@ int main(int argc, char **argv, char **envp)
     if (argc >= 2) {
         char *end;
         seconds = strtoul(argv[1], &end, 10);
-        if (end == argv[1] || *end || seconds < 1 || seconds > 120)
+        if (end == argv[1] || *end || seconds < 1 || seconds > 240)
             return 4;
     }
     (void)envp;
