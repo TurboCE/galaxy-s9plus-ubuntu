@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Desktop Entry]
+Name=Mobile Network
+Name[ko]=모바일 네트워크
+Comment=Open Ubuntu mobile data, roaming, network and APN settings
+Exec=env XDG_CURRENT_DESKTOP=ubuntu:GNOME gnome-control-center wwan
+Icon=org.gnome.Settings-mobile-network-symbolic
+Terminal=false
+Type=Application
+Categories=Settings;X-GNOME-NetworkSettings;
+Keywords=LTE;WWAN;SIM;APN;cellular;

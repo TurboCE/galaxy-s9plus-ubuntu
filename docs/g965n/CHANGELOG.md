@@ -6465,3 +6465,52 @@ content were not tested because the owner was away.
 The replacement data SIM remains in network-searching state in the
 current observation. Actual data registration, GNSS fix, camera and
 fingerprint remain open.
+
+### 2026-11-20 — Expose native WWAN settings and audit camera/fingerprint
+
+Opened the real GNOME Settings WWAN panel on the #48 handset and enumerated
+its accessibility tree. Mobile data, roaming, network mode, network selection,
+APNs, SIM lock, modem details and the master mobile-network switch are present.
+The control center refuses a bare SSH desktop environment; its application-
+scoped GNOME environment allows a normal launch. The stock panel desktop file
+is intentionally NoDisplay, and GNOME hides the panel when no supported modem
+is enumerated. The exact cause of the owner's earlier missing menu was not
+captured. A later AT-SPI attempt to activate the APN button failed because its
+accessible object exposed no action at index zero. The button's presence is
+verified; APN editing was not exercised. Added and installed a separate
+application launcher that opens this
+standard page. The first launcher check found an ambiguous category hint and
+no gtk-launch executable. Corrected the category and verified launch via gio;
+desktop-file-validate then passed without output.
+
+The SIPC subclass inherited an ANY mode despite advertising only an LTE
+backend. This caused GNOME to display 2G, 3G, 4G and 5G. Added an asynchronous
+supported-mode result for the implemented 4G backend. This is software
+capability reporting, not an RF-mode command or a chipset-wide support claim.
+The first clean ARM64 builder attempt failed because patch was absent. A fresh
+build using the existing cross builder and pinned 1.23.4 source archive passed.
+Rechecked exact SM-G965N identity, current BOOT, backup and old plugin pin;
+preserved the previous plugin/configuration/unit privately. Installed the
+candidate, updated the plugin and configuration hashes, and restarted only
+ModemManager. It enumerates the physical modem and one 4G mode. The visible
+native panel now says “4G Only”. Desktop LTE and Bluetooth services remained
+active, Wi-Fi-bound HTTPS204 passed and no units were failed. The current SIM
+remains unregistered, so this does not claim a new successful cellular data
+trial. No PIN change or manual operator change was attempted. No reboot was
+performed for this update.
+
+Installed ordinary Ubuntu Cheese and fprintd packages. Initial package setup
+completed before the explicit live guard recheck; that subsequent check passed
+against the unchanged #48 BOOT and verified backup. No partition was written.
+Cheese opens but the kernel exposes no video/media device; preferences probing
+also emits GLib missing-device errors. Closed the empty application. The native
+fprintd manager starts on demand and returns an empty device array, while
+fprintd-list reports No devices available. The live configuration disables
+MEDIA_SUPPORT and TEE, with no enumerated SPI reader. The existing Samsung
+media source covers older pipelines; it does not establish Exynos9810 FIMC-IS
+support. The stock secure ET510 still requires its transport/security protocol
+and a compatible biometric backend. Camera capture and fingerprint enrollment
+remain unavailable. No fake camera/reader or PAM authentication change was
+installed. Documented reproducible desktop setup and these boundaries in
+DESKTOP_HARDWARE.md. Private package/runtime logs and all identity data remain
+outside Git.

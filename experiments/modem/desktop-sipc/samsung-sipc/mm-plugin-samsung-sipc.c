@@ -116,6 +116,26 @@ load_capabilities_finish (MMIfaceModem *self, GAsyncResult *result, GError **err
 }
 
 static void
+load_supported_modes (MMIfaceModem *self, GAsyncReadyCallback callback, gpointer user_data)
+{
+    g_autoptr(GTask) task = g_task_new (self, NULL, callback, user_data);
+    GArray *modes = g_array_new (FALSE, FALSE, sizeof (MMModemModeCombination));
+    const MMModemModeCombination mode = { MM_MODEM_MODE_4G, MM_MODEM_MODE_NONE };
+
+    /* This describes the LTE-only SIPC backend, not all radio capabilities
+     * of the chipset. Inherited ANY falsely includes 5G in GNOME Settings. */
+    g_array_append_val (modes, mode);
+    g_task_return_pointer (task, modes, (GDestroyNotify) g_array_unref);
+}
+
+static GArray *
+load_supported_modes_finish (MMIfaceModem *self, GAsyncResult *result, GError **error)
+{
+    g_assert (g_task_is_valid (result, self));
+    return g_task_propagate_pointer (G_TASK (result), error);
+}
+
+static void
 load_signal_quality (MMIfaceModem *self, GAsyncReadyCallback callback, gpointer user_data)
 {
     start_radio_query (self, G965N_WWAN_SIGNAL_QUALITY, callback, user_data);
@@ -239,6 +259,8 @@ modem_iface_init (MMIfaceModem *iface)
     iface->create_bearer_finish = create_bearer_finish;
     iface->load_current_capabilities = load_capabilities;
     iface->load_current_capabilities_finish = load_capabilities_finish;
+    iface->load_supported_modes = load_supported_modes;
+    iface->load_supported_modes_finish = load_supported_modes_finish;
     iface->load_signal_quality = load_signal_quality;
     iface->load_signal_quality_finish = load_signal_quality_finish;
     iface->load_unlock_required = load_unlock_required;
