@@ -5,6 +5,14 @@ original firmware G965NKSU5FVA2. Target is parity with the hardware features
 supported by the reference LineageOS build, not just desktop startup.
 A build or a driver node is not sufficient evidence of a working function.
 
+Latest #48 log audit: early kernel ring-buffer warnings remain, including
+two RTC IRQ63 type warnings with traces, CPU feature variation/taint,
+unsupported NFC vendor notifications and Bluetooth transmit-power commands,
+missing RGB/haptic nodes and alternate-GPT fallback. The system journal
+omits part of early boot. No new warning appeared in the last 15 minutes,
+no unit was failed, and no real panic/Oops/BUG or matching GPU/display fault
+was observed. This is a quiet runtime observation, not a clean-boot claim.
+
 Owner-confirmed baseline: audio output, microphone, Wi-Fi, Wi-Fi Direct and
 Bluetooth have already worked in actual use, as clarified by the owner. Retain
 that evidence separately from historical experiment failures and untested

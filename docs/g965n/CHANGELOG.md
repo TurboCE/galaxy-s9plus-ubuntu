@@ -6524,3 +6524,27 @@ including the current connection, with signal strengths 22–100/100. A subseque
 HTTPS request explicitly bound to Wi-Fi returned 204. This bounded observation
 verifies station scanning and continued connectivity, not scan endurance or AP
 handover. No driver, network profile or device configuration was changed.
+
+### 2026-11-20 — Audit current-boot kernel warnings before stopping
+
+Read both the current-boot journal and the kernel ring buffer. The journal
+contained 1,102 lines and only two broad error-keyword matches; it did not
+contain all early boot warnings, so it is insufficient for a clean-boot claim.
+The ring buffer had 234 warning-or-higher lines, including stack/register
+context. It contained two RTC-probe GIC warnings for hardware IRQ 63 with an
+invalid type, CPU feature variations across the heterogeneous cores (kernel
+CPU_OUT_OF_SPEC taint), four unimplemented vendor modem bus-QoS messages,
+14 unsupported NFC vendor notifications (opcode 0xf3f), three Bluetooth
+advertised-but-unsupported transmit-power commands, and the old cbd v2
+capability warning. MAX77705 RGB/haptic nodes were not found and the alternate
+GPT was invalid with primary-GPT fallback. None of these are marked fixed.
+
+No new warning-priority ring-buffer entry appeared within the preceding
+15 minutes and systemd listed no failed units. There was no observed kernel
+panic, real Oops report, BUG report or matching Panfrost/DECON fault. An initial
+unanchored Oops keyword count falsely matched the normal ramoops backend
+startup line; inspected its context rather than treating it as a crash.
+The BBD timeout keyword line reports the configured ten-second wait and is
+not, by itself, proof that the wait expired. Current use is quiet, but this is
+not a warning-free boot or complete feature qualification. No device setting,
+partition or driver was changed during this audit.
