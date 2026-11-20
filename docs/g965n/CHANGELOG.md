@@ -7000,3 +7000,93 @@ boost0/bias0/motor0, device-links warning0, call-trace/Oops/BUG0 and RTC/GPT
 warning0; failed units0. The temporary warning is superseded only for that
 fixed scope. Stock waveform parity, calibrated force, long-term heating,
 suspend restoration and GNOME notification policy remain open.
+
+
+## 2026-11-20 — Physical compositor swizzle A/B preparation
+
+On native #48 after haptic qualification, compiled a fresh upstream uinput
+module against the current qualified kernel output, preserving its original
+source notices. Used only a bounded temporary virtual keyboard for configured
+Super/Super+A/Escape actions and removed it after capture. Three fixed Cairo
+GTK windows exercised the actual connected DSI desktop, not a virtual monitor.
+The first precheck found display DPMS off and refused before input loading.
+Preserved that failure, established the normal session idle inhibitor first,
+then woke display power and repeated; original idle/lock preferences were not
+rewritten. Original screen power/lock state is preserved privately for cleanup.
+
+Baseline1 captured24 actual transitions with private Sysprof data. Opening
+paint p95 was23.236/23.128/22.297ms for picker/grid/picker-repeat; corresponding
+frame-clock dispatch p95 was30.175/30.933/28.967ms. These are operation timings,
+not direct presentation FPS. Physical over-budget paints were reproduced.
+
+Prepared a timed per-user Shell-only profile for the already tested NEON
+candidate. It preserves every accepted profile file and library, verifies the
+known baseline/candidate Gallium hashes, identical remaining coherent build
+outputs and local links, and uses a separate wrapper/vendor/drop-in. A root
+four-minute restoration job is armed before any user-file change. The initial stage included no permanent accept action; hardware candidate
+comparison and restoration were pending at that point. The following evidence
+supersedes that pending state; system libraries remain unchanged.
+
+
+## 2026-11-20 — Physical Mesa NEON A/B/A, retained overlay and reboot
+
+On the actual connected DSI display, each phase used three fixed Cairo GTK
+windows, four warmup cycles and24 configured overview/app-grid transitions.
+Opening paint p95 in ms (picker/grid/picker-repeat): baseline1
+23.236/23.128/22.297; NEON10.778/10.835/13.537; restored baseline2
+22.519/24.655/22.322. Paints above16.7ms were4/4/4,0/1/0,4/4/4.
+Frame-clock dispatch p95 remained17.165/23.628/21.849ms with NEON: this
+improves the identified conversion/paint hotspot, not all animation latency.
+These are Sysprof operation durations, not presentation FPS. Raw captures and
+input timestamps remain private. First baseline2 SSH connection timed out before
+the test began; both network paths were reachable on recheck and retry passed.
+No network root-cause repair is claimed.
+
+The first timed overlay was actually removed and original Shell DSO mapping
+restored before baseline2. A separate final overlay was applied, checked using
+fresh SSH and three stable coherent Shell mapping observations, then explicitly
+kept. Added keep requires guarded current BOOT/protected backups, unmodified
+parent files, physical comparison, pixel checks and post-startup evidence. It
+cancels the independent four-minute restoration timer only after these checks.
+Parent profile/library files and system Mesa remain intact; restore the child
+overlay before modifying the parent. Source: experiments/mesa/physical-session.py.
+
+Two exact RGBA/BGRA GPU readback runs used Mali-G72/Panfrost and the candidate
+Gallium mapping:200 frames/13,107,200 bytes/zero mismatches. The second also
+allocated256MiB of live textures with zero mismatches. The first command had
+invalid env option ordering and failed before executing the test; corrected
+command passed and the failure log was retained privately. Shared test source:
+experiments/mesa/gpu-readback-bgra.c.
+
+Subsequent actual warm reboot retained the candidate Shell mapping and actual
+Panfrost DRM render descriptor. Serious kernel patterns/Call trace/Oops/BUG and
+matching GPU faults were0; failed units0. Audio, Bluetooth, NFC, modem, sensors,
+haptic and LED units were active, seven IIO devices enumerated, RTC readable.
+This is startup regression evidence, not fresh audio/NFC peer validation.
+Initial HTTPS check incorrectly selected wlan0; actual interface wlp1s0 returned
+HTTPS204. No network configuration was changed. Compass root/desktop direct
+D-Bus access was denied by Ubuntu's intentional GeoClue-only policy; querying
+as geoclue returned HasCompass=true. Do not weaken this policy.
+
+Added clean Mesa builder variant neon, pinned both patch hashes and original/
+patched format_utils hashes. New isolated native source preparation applied
+both patches at zero fuzz and verified the entire source tree. Existing build
+receipts/binaries were preserved. Builder self-tests passed. First native
+swizzle test staging omitted its companion C source and failed before compile;
+staged that existing public file and reran:1,296 swizzles, both normalization
+modes,0..33 pixels, unaligned and in-place all passed. Native clean configure/
+full rebuild is tracked separately from the already-qualified incremental
+candidate; neither builder installs or flashes anything.
+
+
+The desktop-only compass socket delivered6 finite0..360-degree samples after
+reboot. Direct root/ubuntu D-Bus rejection therefore does not indicate a broken
+backend; the existing geoclue-owned socket relay remains the intended route.
+Sensor supervisor journal error lines since boot0. Standard timedatectl reports
+CanNTP=yes/NTP=yes/NTPSynchronized=yes. This verifies Ubuntu network time sync,
+not a cold RTC retention or suspend wake test. Restored the pre-benchmark screen
+power-off state; no idle/lock preferences changed. While charging at95% and
+battery30C, started a separate normal-user clean Mesa build with Nice10,
+CPUQuota100% and two build jobs. First progress57/1325 with failed compile
+markers0; output adoption/hardware qualification remains pending. Service:
+g965n-mesa-neon48-clean-build.service (user), private work neon48-clean-rebuild.

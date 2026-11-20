@@ -49,7 +49,7 @@ RECOVERY/EFS/CPEFS/RADIO 및 부트로더를 복구 편의상 덮어쓰지 않�
 | 4 (확인) | GPT: `experiments/storage/` | 실제 섹터4096, Samsung 헤더512. 원본 메타데이터를 기기·호스트에 보존하고 비어 있던 보조 영역20KiB만 복원 | 재부팅 경고0, 주 메타데이터 불변, 보조 CRC·25개 엔트리 동일 및6개 보호 파티션 불변 확인. 일반 자동 수리 명령으로 대체하지 않음 |
 | 5 (기본 출력 확인) | 진동·LED: `experiments/pmic/`, `docs/g965n/PMIC_REVIEW.md` | RGB 실제 세 색·15회 읽기 검증·모듈 정지/재시작·재부팅 자동 구동 통과. g965n-led.service, max_brightness1. 진동은 실제26MHz 카운터·GPIO 공급·FF_RUMBLE·IMU 반응·재부팅 통과 | LED/진동 알림 정책과 장기·절전·파형 보정은 미완료. 이전 SIGBUS/의존성 경고는 아래 후속 정정 참고 |
 | 6 | 나침반/센서 | IIO/Qt/표준 앱 데이터 전달은 됨. 방향 정확도 미달 | USB/자석 분리한 기준 방향·기울기 비교 및 보정, 재부팅 후 유지 |
-| 7 | GPU | 기본 가속/클럭 회귀는 통과한 이력. GNOME 실제 화면 애니메이션 버벅임 남음 | 실제 출력의 프레임 시간·장시간 부하 개선. 가상 모니터 성능만으로 통과하지 않음 |
+| 7 | GPU | 실제 DSI NEON A/B/A에서 paint 지연 감소, child overlay 재부팅 유지 확인. frame-clock dispatch 지연은 남음 | 새 clean 빌드 검증, 실제 출력의 전체 프레임 지연·장시간 부하 개선 |
 | 8 | 통신·전원·주변 기능 | 데이터 SIM 망 등록, 복구/이동/IPv6, BT 프로파일, OTG·충전·절전·대기 전력 등 | 항목별 실제 시험. 과거 LTE/WFD 성공을 지우지 않고 최신 빌드의 회귀 증거를 추가 |
 
 ## NFC 회귀를 피하기 위한 기록
@@ -141,4 +141,36 @@ GPIO gpg1-7, 패드는 gpp3-1이며 표준 FF_RUMBLE 입력명은 g965n-max77705
 원본 haptic 소스의 GPL-2.0-or-later/저자 표기는 보존했고 새 board/controller는
 GPL-2.0-only입니다. GNOME 알림/키보드 피드백 정책은 아직 연결하지 않았습니다.
 GPS 후속300초 시험은 정상3,279문장/오류0이나 현재 위치 위성0/fix없음입니다.
-기존 창가 fix 증거와 구별하세요. GPU 실제 화면 A/B는 아직 실행 전입니다.
+기존 창가 fix 증거와 구별하세요. GPU 실제 화면 A/B는 아래 후속 결과로 대체됩니다.
+
+
+## GPU 실제 화면 후속 — 현재 유지한 Shell overlay
+
+`physical-neon48-final`이 accepted 상태로 실제 재부팅 후에도 유지됩니다.
+부모 `mesa43-full`과 시스템 라이브러리는 보존되어 있습니다. 실행 중인 실제
+Shell의 EGL/Gallium/GBM 매핑과 Panfrost render fd를 확인했습니다.
+실제 DSI A/B/A paint p95는 약22..25→11..14→22..25ms, readback200프레임
+오류0 및256MiB 부하 통과. frame-clock dispatch p95는17..24ms로 잔여 지연이 있습니다.
+가상 모니터 비교만으로 개선이 없다고 했던 이전 기록보다 이 실제 출력 증거가 최신입니다.
+
+상태: `/var/lib/g965n-mesa-trial/physical-neon48-final/state.json`.
+수동 복귀는 이 상태의 `session.py restore --state <같은 상태 디렉터리>`를
+root로 실행합니다. 먼저 자식 overlay를 복귀한 뒤 부모 프로필을 변경하세요.
+부모를 먼저 지우거나 기존 라이브러리를 덮어쓰지 않습니다. 새 clean 빌드
+경로는 `neon48-clean-rebuild/neon`이며 검증된 실행 라이브러리와 별개입니다.
+새 builder는 `--variant neon`으로 두 패치를 새 디렉터리에 적용합니다.
+
+재부팅 후 failed0/심각한 커널·GPU 패턴0, 주요 서비스 active, IIO7개,
+Wi-Fi 지정 HTTPS204. 나침반 D-Bus Compass 객체는 Ubuntu 정책상 GeoClue만
+직접 접근합니다. root/ubuntu의 AccessDenied는 결함이 아니며 로컬 전용
+heading.sock 중계를 사용하세요. 정확도 보정은 여전히 별도 미완료입니다.
+
+
+현재 새 clean build는 사용자 unit `g965n-mesa-neon48-clean-build.service`에서
+실행 중입니다(Nice10/CPUQuota100%/jobs2). `neon48-clean-rebuild`의 비공개
+로그/receipt와 unit 결과를 확인한 뒤 성공·실패를 기록하세요. SSH 연결과
+무관하게 실행되지만 재부팅하면 중단될 수 있습니다. 완료된 새 바이너리를
+자동 적용하지 않습니다. 다음 단계는 이 clean 결과의 별도 픽셀/실제 Shell
+시험과 남은 frame-clock dispatch 지연 조사입니다. 현재 화면은 시험 전의
+꺼짐 상태로 복원했습니다. NTP=yes/NTPSynchronized=yes 및 나침반 사용자
+소켓6개 정상 범위 표본도 확인했습니다.

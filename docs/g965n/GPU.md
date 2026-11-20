@@ -167,7 +167,8 @@ did not produce a consistent transition improvement.
 The virtual sessions lacked the physical desktop's DRM/KMS
 presentation path and had no opening paints above 16.7 ms. They
 therefore did not reproduce the behavior being investigated. The
-accepted Mesa remains active on the physical desktop.
+accepted Mesa remained active at that point; the later physical test below
+supersedes that pending comparison.
 
 ### G3D PLL runtime resume
 
@@ -237,3 +238,26 @@ at 58–61 FPS. The early boot had zero DECON latch wait timeouts, and
 neither observation produced a new matching GPU/display fault. The
 previous 11 FPS run was not reproduced; the scene results do not qualify
 GNOME overview animations or long video playback.
+
+
+## Native48 physical DSI NEON follow-up
+
+The actual connected phone display reproduced the hotspot. Three fixed Cairo
+windows and24 overview/grid transitions after warmup per A/B/A phase gave:
+
+| Opening paint p95 (ms) | Baseline1 | NEON | Baseline2 after actual restore |
+|---|---:|---:|---:|
+| Window picker |23.236|10.778|22.519|
+| App grid |23.128|10.835|24.655|
+| Repeated picker |22.297|13.537|22.322|
+
+These are Sysprof operation durations, not presentation FPS. Frame-clock
+dispatch p95 still17.165/23.628/21.849ms, so overall animation smoothness is
+not fully repaired. No clock/governor/thermal override was applied.
+
+A guarded child Shell-only overlay was retained after physical A/B/A, exact
+RGBA/BGRA readback200 frames/13,107,200 bytes/zero mismatches and256MiB
+texture pressure passed. A later warm reboot confirmed coherent candidate
+Shell DSO mapping, actual Panfrost render fd, no matching GPU fault/serious
+kernel patterns and failed units0. Parent Mesa profile and all system libraries
+are intact. See experiments/mesa README for source, build and restore scope.

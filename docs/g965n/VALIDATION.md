@@ -378,3 +378,24 @@ Actual patched magnitude function393,216 ASan/UBSan cases and complete fresh
 module/tool cross-build pass. No stock waveform/calibrated force/endurance/
 suspend/GNOME notification-policy claim. GPS unattended300s regression:
 3,279 valid/0 invalid sentences, satellites0/fixfalse at current placement.
+
+
+Native48 actual DSI Mesa swizzle A/B/A:24 transitions per phase, three fixed
+Cairo windows and four warmups. Opening paint p95 picker/grid/repeat:
+23.236/23.128/22.297 →10.778/10.835/13.537 →22.519/24.655/22.322ms.
+Above16.7ms counts4/4/4 →0/1/0 →4/4/4. Frame-clock dispatch tails remain
+17.165/23.628/21.849ms; no presentation-FPS/all-stutter claim. Actual restore
+recovered baseline DSO mapping; final accepted child overlay preserved parent
+files and survived a separate warm reboot. Actual Shell coherent candidate
+mapping and Panfrost DRM fd confirmed. Two GPU readback runs200 frames,
+13,107,200 bytes/zero mismatches;256MiB live textures passed. Reboot failed
+units0/serious kernel and matching GPU fault patterns0; IIO7, major services
+active and Wi-Fi HTTPS204. Fresh native neon source preparation and1,296
+swizzle regression cases passed; clean full binary rebuild is a separate step.
+
+Post-reboot desktop compass relay6 finite heading samples passed; direct
+D-Bus access denied to root/ubuntu by intentional policy, geoclue HasCompass
+true. Sensor supervisor journal error lines0; standard NTP synchronized true.
+Original screen-off state restored. Separate clean full build running under
+normal-user unit/Nice10/CPUQuota100%/jobs2; first57/1325 no failed compile
+markers. Full clean build and its later hardware adoption remain pending.

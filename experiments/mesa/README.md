@@ -115,3 +115,72 @@ comparison on a virtual monitor showed no consistent animation
 improvement and did not reproduce the physical screen's stutter.
 The live GNOME session continues to use its accepted profile.
 See [the GPU notes](../../docs/g965n/GPU.md) for the timing results.
+
+
+## Qualified physical Shell overlay (native48)
+
+Unlike the earlier virtual-monitor comparison, actual connected DSI A/B/A
+reproduced and reduced opening paint p95 from22..25ms to11..14ms; restoration
+returned22..25ms. Frame-clock dispatch still reaches17..24ms, so this is not a
+complete animation repair. See [GPU evidence](../../docs/g965n/GPU.md).
+
+`physical-session.py` stages only a new per-user Shell wrapper/vendor/drop-in,
+verifies current SM-G965N BOOT and protected backups, and preserves the accepted
+parent profile. `apply --help` lists the explicit model/backup/desktop-restart
+confirmation and source/library pins. Stage the reviewed helper
+`scripts/g965n/mesa-session-trial.py` as a root-private file; do not import a
+user-writable helper as root. Apply first arms an independent240s restore timer.
+Only `keep` with current private physical A/B, pixel and stable Shell mapping
+evidence retains the overlay. This utility is separate from all build scripts.
+
+The qualified on-device child is `physical-neon48-final`; `mesa43-full` remains
+the parent fallback. To undo the child, run as root:
+
+```sh
+python3 /var/lib/g965n-mesa-trial/physical-neon48-final/session.py restore \
+  --state /var/lib/g965n-mesa-trial/physical-neon48-final
+```
+
+Restore this child before changing its parent. Libraries are not overwritten.
+The actual warm reboot retained coherent candidate EGL/Gallium/GBM mappings
+and a Panfrost render descriptor; matching GPU faults and failed units were0.
+
+### Clean source/build reproduction
+
+Use native ARM64 Linux, Python3.12+, the previously documented private
+Meson1.4.1/LLVM18 toolchain and pinned Mesa25.2.8 archive. As a normal user,
+from this repository, choose a new private work directory:
+
+```sh
+python3 scripts/g965n/build-mesa-diagnostic.py prepare --variant neon \
+  --work-dir /path/to/new-private-work --mesa-archive /path/to/mesa-25.2.8.tar.xz
+python3 scripts/g965n/build-mesa-diagnostic.py build --variant neon \
+  --work-dir /path/to/new-private-work --meson /path/to/private-venv/bin/meson
+python3 scripts/g965n/build-mesa-diagnostic.py verify --variant neon \
+  --work-dir /path/to/new-private-work
+```
+
+Both modifier and swizzle patches are SHA-pinned, applied with zero fuzz, and
+resulting source file/tree hashes are verified. Neither build nor verify
+installs libraries, restarts the desktop, writes partitions or flashes.
+Old receipts pin the previous builder: preserve them and use a new directory.
+The qualified running binary was incrementally rebuilt in an isolated copy;
+clean source preparation/configure passed and a separate full clean build is
+in progress. Its output must receive a new hardware trial before adoption.
+
+### Exact RGBA/BGRA readback
+
+As the normal desktop user on the device:
+
+```sh
+cc -O2 -Wall -Wextra -Werror experiments/mesa/gpu-readback-bgra.c \
+  -o /path/to/private-work/readback -lEGL -lGLESv2
+python3 /path/to/completed-build/neon/launch.py -- /path/to/private-work/readback
+python3 /path/to/completed-build/neon/launch.py -- \
+  /path/to/private-work/readback --pressure-mib 256
+```
+
+Check reported renderer and mapped Gallium path against the expected build,
+not just exit status. Qualified incremental candidate passed200 frames,
+13,107,200 bytes and256MiB live textures with zero mismatches. This offscreen
+test checks pixel correctness/pressure, not actual scanout FPS.
