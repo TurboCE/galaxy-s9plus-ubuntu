@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import pwd
+import re
 import select
 import signal
 import socket
@@ -18,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import xml.etree.ElementTree as ET
 
 ROOT = Path('/run/g965n-sensor-runtime/root')
 GPS_DATA = ROOT / 'data/vendor/gps'
@@ -67,6 +69,95 @@ def utc_synchronized():
     return result.returncode == 0 and result.stdout.strip() == 'b true'
 
 
+def diagnostic_message(packet):
+    """Select errors only; discard location records and redact identifiers."""
+    parts = [p for p in packet.split(b'\0') if p]
+    if not parts:
+        return None
+    text = parts[-1].decode('ascii', errors='replace')
+    if not re.search(r'error|fail|timeout|lhd|receiver', text, re.I):
+        return None
+    if re.search(r'\b(?:lat|lon|latitude|longitude|location|position|nmea|imei|imsi|iccid|serial|token|password)\b', text, re.I):
+        return None
+    text = re.sub(r'https?://\S+', '[URL]', text)
+    text = re.sub(r'0x[0-9a-f]+|[-+]?\d[\d.eE+-]*', '#', text, flags=re.I)
+    return re.sub(r'[^a-zA-Z# /_.,:()\[\]=-]', ' ', text)[:240]
+
+
+def log_summary(path):
+    with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as listener:
+        listener.bind(path)
+        os.chmod(path, 0o600)
+        forwarded = 0
+        while True:
+            message = diagnostic_message(listener.recv(8192))
+            if message and forwarded < 60:
+                print('GNSS vendor diagnostic: ' + message, file=sys.stderr, flush=True)
+                forwarded += 1
+
+
+def watch_hal(daemon, client, inject_utc):
+    """Monitor both processes even when the HAL keeps its stdout pipe open."""
+    pending = b''
+    while True:
+        status = daemon.poll()
+        if status is not None:
+            raise RuntimeError(f'Vendor GNSS exited after HAL start: {status}')
+        if not select.select([client.stdout], [], [], 0.5)[0]:
+            continue
+        chunk = os.read(client.stdout.fileno(), 4096)
+        if not chunk:
+            return client.wait()
+        pending += chunk
+        while b'\n' in pending:
+            line, pending = pending.split(b'\n', 1)
+            prefix = b'GNSS UTC injection result: '
+            if inject_utc and line.startswith(prefix):
+                try:
+                    result = int(line[len(prefix):].strip())
+                except ValueError:
+                    continue
+                print(f'GNSS HAL UTC assistance result: {result}', file=sys.stderr, flush=True)
+            elif re.fullmatch(
+                rb'(?:GNSS extension (?:gps-xtra|agps|agps_ril|gps-debug|gnss_configuration) available: [01]|'
+                rb'GNSS callbacks: status=\d+ satellites=\d+ nmea=\d+ location=\d+|'
+                rb'GNSS checksum-valid NMEA: \d+, forwarded: \d+|'
+                rb'GNSS capability mask: \d+|GNSS status code \d+ occurred \d+ times|'
+                rb'GNSS XTRA init result: -?\d+|'
+                rb'GNSS XTRA injection result: -?\d+ \(bytes=\d+\)|'
+                rb'GNSS live: satellite_callbacks=\d+ visible_max=\d+ fixes=\d+ nmea=\d+)', line):
+                print(line.decode('ascii'), file=sys.stderr, flush=True)
+        if len(pending) > 8192:
+            pending = b''
+
+
+def receiver_config(raw):
+    """Disable this daemon's optional Android sensor-service dependency."""
+    document = ET.fromstring(raw)
+    elements = document.findall('{http://www.glpals.com/}hal')
+    if document.tag != '{http://www.glpals.com/}glgps' or len(elements) != 1:
+        raise RuntimeError('Unexpected vendor GNSS configuration structure')
+    text = raw.decode('utf-8')
+    matches = list(re.finditer(r'<hal\b[^>]*>', text))
+    if len(matches) != 1:
+        raise RuntimeError('Expected exactly one GNSS HAL configuration tag')
+    match = matches[0]
+    tag = match.group()
+    if 'SensorsEnable' in elements[0].attrib:
+        tag, count = re.subn(r'\bSensorsEnable\s*=\s*["\'][^"\']*["\']',
+                             'SensorsEnable="false"', tag)
+        if count != 1:
+            raise RuntimeError('Ambiguous GNSS sensor option')
+    else:
+        tag = tag.replace('<hal', '<hal SensorsEnable="false"', 1)
+    result = (text[:match.start()] + tag + text[match.end():]).encode('utf-8')
+    changed = ET.fromstring(result)
+    expected = dict(elements[0].attrib, SensorsEnable='false')
+    if changed.find('{http://www.glpals.com/}hal').attrib != expected:
+        raise RuntimeError('GNSS configuration changed beyond the sensor option')
+    return result
+
+
 def worker(root, supervisor, inject_utc):
     restrict = load(supervisor).drop_vendor_privileges
     for name in ('system', 'vendor', 'apex/com.android.runtime'):
@@ -91,10 +182,23 @@ def worker(root, supervisor, inject_utc):
         os.chdir('/')
         restrict()
 
+    logger = None
+    if os.environ.get('G965N_GNSS_DIAGNOSTICS') == '1':
+        endpoint = root / 'dev/socket/logdw'
+        logger = subprocess.Popen([sys.executable, __file__, '--log-summary', str(endpoint)],
+                                  stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        for _ in range(50):
+            if endpoint.exists():
+                break
+            time.sleep(0.02)
+    config = root / 'trial/gps.xml'
+    config.write_bytes(receiver_config((root / 'vendor/etc/gnss/gps.xml').read_bytes()))
+    config.chmod(0o400)
     environment = {'LD_LIBRARY_PATH': LIBRARIES}
-    daemon = subprocess.Popen(['/vendor/bin/hw/gpsd', '-c', '/vendor/etc/gnss/gps.xml'],
+    daemon = subprocess.Popen(['/vendor/bin/hw/gpsd', '-c', '/trial/gps.xml'],
                               stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                               stderr=subprocess.DEVNULL, env=environment, preexec_fn=enter)
+    client = None
     try:
         time.sleep(2)
         if daemon.poll() is not None:
@@ -104,21 +208,30 @@ def worker(root, supervisor, inject_utc):
         command = ['/trial/hal', '24', '--serve-nmea-fd3']
         if inject_utc:
             command.append('--inject-current-utc')
+        descriptors = (3,)
+        aid = root / 'trial/xtra.dat'
+        if aid.is_file():
+            fd = os.open(aid, os.O_RDONLY | os.O_NOFOLLOW)
+            if fd != 4:
+                os.dup2(fd, 4)
+                os.close(fd)
+            descriptors = (3, 4)
+            command.append('--xtra-fd4')
         client = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                                  pass_fds=(3,), env=environment, preexec_fn=enter)
+                                  pass_fds=descriptors, env=environment, preexec_fn=enter)
+        if len(descriptors) == 2:
+            os.close(4)
         with client.stdout:
-            for line in iter(lambda: client.stdout.readline(128), b''):
-                prefix = b'GNSS UTC injection result: '
-                if inject_utc and line.startswith(prefix):
-                    try:
-                        result = int(line[len(prefix):].strip())
-                    except ValueError:
-                        continue
-                    print(f'GNSS HAL UTC assistance result: {result}', file=sys.stderr, flush=True)
-        sys.exit(client.wait())
+            sys.exit(watch_hal(daemon, client, inject_utc))
     finally:
+        if client and client.poll() is None:
+            client.terminate()
+            stop(client, 2)
         daemon.terminate()
         stop(daemon, 2)
+        if logger:
+            logger.terminate()
+            stop(logger, 2)
 
 
 def serve():
@@ -154,6 +267,13 @@ def serve():
             image = root / 'trial/hal'
             image.write_bytes(hal)
             image.chmod(0o500)
+            assistance = base / 'assistance.py'
+            if assistance.is_file():
+                cached = load(assistance).read_cache()
+                if cached:
+                    aid = root / 'trial/xtra.dat'
+                    aid.write_bytes(cached)
+                    aid.chmod(0o400)
             command = ['unshare', '--mount', '--propagation', 'private',
                 '--net', '--pid', '--fork', '--kill-child', sys.executable, __file__,
                 '--worker', str(root), str(supervisor)]
@@ -196,7 +316,9 @@ def terminate(signum, frame):
 if __name__ == '__main__':
     os.umask(0o077)
     signal.signal(signal.SIGTERM, terminate)
-    if len(sys.argv) >= 2 and sys.argv[1] == '--worker':
+    if len(sys.argv) == 3 and sys.argv[1] == '--log-summary':
+        log_summary(sys.argv[2])
+    elif len(sys.argv) >= 2 and sys.argv[1] == '--worker':
         if len(sys.argv) not in (4, 5) or sys.argv[4:] not in ([], ['--inject-current-utc']):
             raise SystemExit('Invalid GNSS worker arguments')
         worker(Path(sys.argv[2]), Path(sys.argv[3]), len(sys.argv) == 5)

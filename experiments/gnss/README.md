@@ -81,9 +81,8 @@ If synchronization is unavailable, standalone startup continues as
 before. The journal records only the HAL return code, without a time
 value or NMEA content.
 
-This provides a time reference. Satellite ephemeris, a network
-assistance service and a persistent position cache are outside this
-path. A return code of zero acknowledges the input. A valid NMEA fix
+This provides a time reference. The later LTO assistance path is described
+below; prior-position injection remains unimplemented. A return code of zero acknowledges the input. A valid NMEA fix
 and a GeoClue location callback remain the criteria for position
 verification.
 
@@ -149,21 +148,111 @@ summaries, and an absent GSV report means satellite visibility is unknown.
 The startup manager controls ordinary login applications; hardware systemd
 services remain separate.
 
-The wireless 300-second test delivered 14 valid sentences, no invalid
+The initial wireless 300-second test delivered 14 valid sentences, no invalid
 checksums, GSA fix type 1, zero used satellites and no valid GGA/RMC fix.
-Continuous receiver updates and position acquisition remain open.
+The daemon crash correction below supersedes the continuous-update failure.
+The later opened-window trial below established a real position fix.
 
 ## Remaining assistance work
 
 Android can download predicted satellite data and inject it into its GNSS
 HAL; see the primary
 [AOSP GNSS provider](https://android.googlesource.com/platform/frameworks/base/+/master/services/core/java/com/android/server/location/gnss/GnssLocationProvider.java).
-The current port implements only synchronized UTC injection. It does not yet
-download SUPL/PSDS/LTO assistance or inject a prior position, and the vendor
-worker intentionally has an isolated network namespace. Ubuntu can support
-these functions when the hardware backend supplies them. The next work is to
-inventory the actual Broadcom HAL extensions and own-device configuration,
-then implement a compatible, bounded assistance path with expiry and error
-handling. A downloaded file for another receiver is not a valid substitute.
-Do not attribute the observed lack of continuous samples solely to missing
-assistance; IPC, receiver state and RF acquisition still require investigation.
+The HAL exposes gps-xtra, agps, agps_ril, gps-debug and gnss_configuration.
+The port now implements synchronized UTC and the bounded LTO cache below.
+SUPL sessions and prior-position injection remain unimplemented. The vendor
+worker retains its isolated network namespace.
+
+## Android sensor-service crash correction
+
+Native debugging located a null dereference in the vendor daemon's
+`NdkSensorsInfo`, called by `NdkSensorsStart` from its sensor thread. This
+Android HIDL service is absent on Ubuntu. The supervisor formerly waited on
+the still-running HAL pipe and did not notice the daemon's exit, making it
+look like an acquisition wait. `watch_hal` now checks both processes and
+cleans up the remaining client when the daemon exits.
+
+The supervisor creates a private copy of the pinned owner configuration and
+changes only its `hal SensorsEnable` attribute to false. Samsung's published
+[Broadcom GPS configuration](https://android.googlesource.com/device/samsung/manta/+/refs/heads/jb-mr1-dev/gps/gps.xml)
+documents this option, and the owner's daemon contains the matching setting.
+The binary, original vendor configuration, RF values and main Ubuntu sensor
+services stay intact. Optional Android-sensor inertial assistance is disabled.
+The resulting first 300-second native trial delivered 3,291 valid NMEA sentences
+with zero invalid checksums, rather than stopping at 14. That initial window
+trial had no fix; the later reception trial below did.
+
+Diagnostic HAL status is restricted to numeric counters and named capability
+availability. `G965N_GNSS_DIAGNOSTICS=1` optionally starts a private Android log
+socket with a strict error filter: location/identity messages are discarded and
+numbers/URLs redacted. It is disabled by default. Never commit raw crash logs.
+
+## Qualified-source LTO cache and HAL delivery
+
+`assistance.py` reads the owner's read-only SYSTEM `etc/gps_psds.conf` and
+accepts only its configured Broadcom `/4day/v5/latest/lto2.dat` sources. It
+upgrades their transport to certificate-validated HTTPS, bounds the download
+to 512 KiB, rejects HTML, and verifies the server Last-Modified age is under
+four days. Root-only cache metadata pins the source, input configuration and
+blob SHA-256, with a 24-hour reuse limit. Tampered/stale/mismatched data is not
+passed to the HAL. No receiver firmware is flashed and no downloaded blob is
+redistributed. The current source returned a fresh 124,383-byte file.
+
+After the model/BOOT/backup checks, preserve the previous HAL/supervisor/pins,
+build the updated `hal-probe.c` using the same own-Bionic procedure above,
+install it and update `pins.json`'s `hal` hash. Install the updated `serve.py`
+and the following additional files as root on the handset:
+
+```sh
+sudo install -m 0600 assistance.py /usr/local/lib/g965n-gnss/assistance.py
+sudo install -m 0644 g965n-gnss-assistance.service g965n-gnss-assistance.timer \
+  /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start g965n-gnss-assistance.service
+sudo systemctl enable --now g965n-gnss-assistance.timer
+```
+
+The timer checks freshness hourly; fresh data is reused without a download.
+Unavailable networks do not disable standalone GNSS. Cache files live under
+`/var/lib/g965n-gnss-assistance` with owner root and mode 0700/0600. Downloads
+run outside the receiver's network namespace; that isolation is retained.
+The supervisor rechecks cache integrity and passes an already open read-only
+file on FD4 to the HAL's standard gps-xtra API, separate from FD3 NMEA output.
+XTRA init and injection returned zero, and the receiver's stored `lto2.dat`
+matched the downloaded cache hash. This proves delivery/storage, not a position
+fix or a measured time-to-first-fix improvement. A downloaded file for a
+different receiver is not a substitute for the qualified own-device source.
+
+## Physical fix and standard desktop delivery
+
+The owner offered to open the window for the next wireless trial. Its
+300-second summary had 4,448 valid sentences, zero invalid checksums, a real
+GGA/RMC fix and GSA 3D state. GSV reported up to ten satellites in an individual
+constellation and GGA up to eight used satellites. This GSV maximum is not the
+sum across all constellations. No coordinates were printed or committed.
+
+`geoclue-check.py` creates a genuine desktop GeoClue client under the installed
+GPS Test desktop ID. It reads only location existence, timestamp and accuracy;
+it never reads latitude/longitude. After the raw test released the singleton
+source, this client received a fresh location (1.2 seconds old, reported
+accuracy 3 m). That accuracy is the receiver/service estimate, not a surveyed
+error measurement. GNOME Maps' native current-location action was activated
+and no connection/location-disabled error was visible. Map centering ground
+truth, navigation and long-term accuracy were not qualified.
+
+For a reproducible desktop check, after the device/profile checks install:
+
+```sh
+sudo install -m 0644 geoclue-check.py /usr/local/share/g965n-gps-test/
+DESKTOP_UID=$(id -u ubuntu)
+sed "s/@DESKTOP_UID@/$DESKTOP_UID/g" 90-g965n-gps-test.conf.in |
+  sudo tee /etc/geoclue/conf.d/90-g965n-gps-test.conf >/dev/null
+sudo systemctl restart geoclue
+python3 /usr/local/share/g965n-gps-test/geoclue-check.py --seconds 90
+```
+
+Run the last command as the selected desktop account. The permission is scoped
+to this diagnostic ID and UID. This check shares GeoClue's source with Maps;
+do not run the direct NMEA GPS Test unit at the same time. Keep normal location
+preferences enabled. Cold reboot, suspend/resume, moving outdoor accuracy and
+the real effect of assistance expiry remain separate hardware regressions.

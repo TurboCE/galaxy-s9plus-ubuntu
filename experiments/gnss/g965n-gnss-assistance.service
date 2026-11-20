@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Unit]
+Description=Refresh own-device GNSS assistance cache
+After=g965n-sensors.service network-online.target
+Wants=network-online.target
+ConditionPathExists=/run/g965n-sensor-runtime/root/system/etc/gps_psds.conf
+
+[Service]
+Type=oneshot
+UMask=0077
+StateDirectory=g965n-gnss-assistance
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 /usr/local/lib/g965n-gnss/assistance.py
+SuccessExitStatus=2
+TimeoutStartSec=40
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

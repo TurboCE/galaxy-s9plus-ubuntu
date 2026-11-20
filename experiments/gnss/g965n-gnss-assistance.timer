@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Unit]
+Description=Check GNSS assistance freshness hourly
+
+[Timer]
+OnBootSec=90
+OnUnitActiveSec=1h
+RandomizedDelaySec=30
+Unit=g965n-gnss-assistance.service
+
+[Install]
+WantedBy=timers.target

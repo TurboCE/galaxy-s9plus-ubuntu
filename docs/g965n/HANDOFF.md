@@ -43,9 +43,9 @@ RECOVERY/EFS/CPEFS/RADIO 및 부트로더를 복구 편의상 덮어쓰지 않�
 
 | 순서 | 작업·관련 소스 | 관찰된 문제 / 다음 조사 | 완료 판단 |
 |---|---|---|---|
-| 1 | GPS: `experiments/gnss/` | Wi-Fi 300초 시험에서 초기 NMEA 14개 뒤 갱신 없음, 사용 위성 0. HAL/daemon 지속 동작·LHD IPC·수신기/RF 경로 먼저 확인 | 지속 GNSS 샘플과 유효 GGA/RMC fix, 실제 GeoClue 위치 전달. 지도 위치만으로 통과시키지 않음 |
-| 2 | GPS 보조 데이터 | NTP UTC 주입만 구현. standalone + 격리 network namespace라 SUPL/PSDS/LTO 다운로드·이전 위치 주입은 구현하지 않음. 원래 Broadcom HAL extension/지원 형식부터 조사 | 공식/허용된 출처의 올바른 형식, 만료·캐시·오류 처리, 전달 성공 및 실제 첫 fix 시간 비교. 타사 칩 파일을 임의 주입하지 않음 |
-| 3 | RTC: `experiments/rtc/` | alarm IRQ63이 edge로 동작하지만 DT는 IRQ_TYPE_NONE. 먼저 GIC/드라이버 근거에 맞는 명시적 trigger 후보 검토 | BOOT-only 가드 적용 후 경고 없음, 시계 진행·깨어 있을 때 알람·재부팅 회귀 통과 |
+| 1 | GPS 후속 회귀: `experiments/gnss/` | gpsd NdkSensorsInfo 충돌을 private config의 hal SensorsEnable=false로 수정. 창가 재시험 300초/4,448문장/오류0에서 3D fix, 사용 위성8. GeoClue가 1.2초 이내 위치·보고 정확도3m 전달. 기본 수신/연결 문제 수정 확인 | 기본 fix는 확인됨. 추가 야외 이동/냉간 부팅/절전 복귀·장기 정확도·캐시 만료/오프라인 실제 회귀가 남음 |
+| 2 | GPS 보조 데이터 | 순정 gps_psds.conf의 4day/v5 LTO를 HTTPS로 수신. 24h 캐시·4day Last-Modified 제한·해시·원본 설정 일치 검사. XTRA init/inject 모두0, 124,383바이트가 수신기 저장 파일과 일치. hourly 갱신 timer 연결 | 보조 데이터를 사용한 실제 fix는 확인됨. 보조 유무의 첫 fix 시간 A/B 비교는 안 함. SUPL/이전 위치 주입 미구현 |
+| 3 (다음) | RTC: `experiments/rtc/` | DT의 IRQ_TYPE_NONE 때문에 경고. generic IRQ sysfs는 edge라 표시했지만 실제 GICD_ICFGR의 IRQ63/64 필드 값은1이고 bit1=0(level). generic 표시만으로 EDGE_RISING을 적용하면 안 됨. LEVEL_HIGH로 실제 설정을 명시하는 후보 준비 | BOOT-only 가드 적용 후 경고 없음, 시계 진행·깨어 있을 때 알람·재부팅 회귀 통과 |
 | 4 | GPT | `/dev/sda` 논리 섹터 4096. primary header/array CRC 정상, 마지막 backup header 없음. 512바이트 가정의 첫 진단은 잘못된 가정이었음 | 먼저 원본 메타데이터/기하 보존 백업·쓰기 영향 검토. 수리 시 파티션 시작/끝·GUID·보호 파티션 보존 및 재부팅 검증. 검사 없이 자동 `sgdisk -e` 실행 금지 |
 | 5 | 진동·LED: `experiments/pmic/`, `docs/g965n/PMIC_REVIEW.md` | 소스 수정 후보 있음. PWM 실클럭/핀·모터 전원·색상 전류 한계가 빠짐 | 보수적 실제 출력·정지·재부팅·오류 시 복원 확인 후 표준 input/LED 인터페이스·알림 연동 |
 | 6 | 나침반/센서 | IIO/Qt/표준 앱 데이터 전달은 됨. 방향 정확도 미달 | USB/자석 분리한 기준 방향·기울기 비교 및 보정, 재부팅 후 유지 |
@@ -61,6 +61,25 @@ neard는 패치로 active-tag socket을 먼저 닫아야 power-off EBUSY를 피�
 단순 Bluetooth unit의 After만으로는 NFC 준비가 보장되지 않아 `wait-ready.py`가
 필요합니다. 3회 실제 읽기·꺼짐과 수정 후 warm boot 재읽기는 확인했습니다.
 펌웨어/RF-register 파일 업로드는 이 성공 경로에 포함되지 않습니다.
+
+## GPS 회귀를 피하기 위한 기록
+
+`serve.py`는 vendor gps.xml을 그대로 덮어쓰지 않고 private trial 복사본의
+`hal SensorsEnable`만 false로 만듭니다. 원래 gpsd는 Android HIDL sensorservice가
+없을 때 NdkSensorsInfo → NdkSensorsStart에서 null pointer로 충돌했습니다.
+주 Ubuntu IIO/Qt 센서 서비스는 계속 사용하며 GPS daemon의 선택적 관성 보조만 끕니다.
+HAL stdout이 열린 상태에서도 daemon의 종료를 감지하도록 `watch_hal`이 양쪽을
+감시합니다. 예전의 5분 무응답은 대부분 실제 daemon 종료 뒤의 잘못된 대기였습니다.
+
+`assistance.py`는 root 전용 `/var/lib/g965n-gnss-assistance` 캐시만 관리합니다.
+원본 SYSTEM gps_psds.conf에 있는 qualified V5 주소를 HTTPS로 올리고, 다운받은
+blob은 커밋하지 않습니다. 캐시를 FD4로 HAL에 전달하며 FD3의 NMEA와 분리합니다.
+갱신 timer는 daemon의 격리된 network namespace를 풀지 않습니다. 보조 데이터가
+없거나 만료되면 standalone 수신을 계속합니다. 위치 캐시는 아직 주입하지 않습니다.
+
+선택적 `G965N_GNSS_DIAGNOSTICS=1`은 임시 root-owned systemd drop-in으로만 켭니다.
+기본 설정에서는 꺼집니다. 메시지 필터는 좌표/식별자 문장을 버리고 오류 숫자/URL도
+가립니다. 자세한 ptrace/GDB 결과는 private debug 저장소에만 보관합니다.
 
 ## 재현 범위
 

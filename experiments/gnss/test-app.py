@@ -36,7 +36,7 @@ class TestApp(Gtk.Application):
         stop.connect('clicked', lambda _: self.command('StopUnit'))
         box.append(start)
         box.append(stop)
-        box.append(Gtk.Label(label='GPS 좌표를 저장하지 않고 수신 통계만 표시합니다.\n지도 앱의 위치와 GPS 위성 측정은 별도로 확인합니다.', wrap=True))
+        box.append(Gtk.Label(label='GPS 좌표를 저장하지 않고 수신 통계만 표시합니다.\n직접 수신 시험을 시작하기 전에는 지도 앱을 닫아 주세요.', wrap=True))
         window.set_child(box)
         window.present()
         self.refresh()
@@ -61,12 +61,15 @@ class TestApp(Gtk.Application):
             age = time.time() - state['updated_at']
             active = 0 <= age < 45 and not state['final']
             title = 'GPS 위치 확정 확인' if state['fix_observed'] else '아직 GPS 위치가 잡히지 않았습니다.'
+            if state.get('source_closed'):
+                active = False
+                title = 'GPS 수신 서비스 연결이 종료되었습니다.'
             self.status.set_text(title + ('\n측정 중' if active else '\n이전 측정 결과 — 다시 측정할 수 있습니다.'))
             in_view = state['satellites_in_view_max'] if state['sentence_types'].get('GSV') else '미수신'
             self.details.set_text(
                 f"측정 시간: {state['elapsed_seconds']}초\n"
                 f"정상 수신 문장: {state['valid_sentences']}\n"
-                f"보이는 위성(최대): {in_view}\n"
+                f"가시 위성 보고값(위성군별 최대): {in_view}\n"
                 f"사용 위성(최대): {state['satellites_used_max']}\n"
                 f"오류 문장: {state['invalid_sentences']}")
         except (OSError, ValueError, KeyError, TypeError):

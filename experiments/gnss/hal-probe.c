@@ -62,6 +62,9 @@ struct interface {
 
 static atomic_uint fixes, gps_sv, nmea_records, status_records, status_values[8];
 static atomic_uint nmea_valid, nmea_forwarded;
+static atomic_uint capability_mask;
+static atomic_uint xtra_requests;
+static atomic_uint visible_satellites_max;
 static bool forward_nmea;
 struct status_value {
     size_t size;
@@ -86,10 +89,26 @@ static void status(void *value)
             ++status_values[sample->status];
     }
 }
-static void satellites(void *value) { if (value) ++gps_sv; }
+struct satellites_prefix {
+    size_t size;
+    int count;
+};
+static void satellites(void *value)
+{
+    const struct satellites_prefix *sample = value;
+    if (!sample)
+        return;
+    ++gps_sv;
+    if (sample->size >= sizeof(*sample) && sample->count >= 0 && sample->count <= 256) {
+        unsigned previous = atomic_load(&visible_satellites_max);
+        while ((unsigned)sample->count > previous &&
+               !atomic_compare_exchange_weak(&visible_satellites_max, &previous,
+                                             (unsigned)sample->count)) {}
+    }
+}
 static void noop(void) {}
 static void system_info(const void *value) { (void)value; }
-static void capabilities(uint32_t flags) { (void)flags; }
+static void capabilities(uint32_t flags) { atomic_store(&capability_mask, flags); }
 static int hex_value(unsigned char byte)
 {
     if (byte >= '0' && byte <= '9')
@@ -160,6 +179,54 @@ static pthread_t spawn(const char *name, void (*start)(void *), void *context)
     return id;
 }
 
+struct xtra_callbacks {
+    void (*download_request)(void);
+    pthread_t (*thread)(const char *, void (*)(void *), void *);
+};
+struct xtra_interface {
+    size_t size;
+    int (*init)(struct xtra_callbacks *);
+    int (*inject)(char *, int);
+};
+static void request_xtra(void) { ++xtra_requests; }
+
+static void provide_xtra(const struct interface *gps)
+{
+    struct xtra_callbacks callbacks = {.download_request = request_xtra, .thread = spawn};
+    const struct xtra_interface *xtra = gps->extension ? gps->extension("gps-xtra") : NULL;
+    if (!xtra || xtra->size < sizeof(*xtra) || !xtra->init || !xtra->inject) {
+        printf("GNSS XTRA interface unavailable\n");
+        return;
+    }
+    /* Keep callbacks alive for HAL threads after this function returns. */
+    static struct xtra_callbacks persistent;
+    persistent = callbacks;
+    int rc = xtra->init(&persistent);
+    printf("GNSS XTRA init result: %d\n", rc);
+    if (rc)
+        return;
+    off_t bytes = lseek(4, 0, SEEK_END);
+    if (bytes <= 512 || bytes > 512 * 1024 || lseek(4, 0, SEEK_SET) != 0)
+        return;
+    char *data = malloc((size_t)bytes);
+    if (!data)
+        return;
+    off_t received = 0;
+    while (received < bytes) {
+        ssize_t count = read(4, data + received, (size_t)(bytes - received));
+        if (count < 0 && *__errno() == EINTR)
+            continue;
+        if (count <= 0)
+            break;
+        received += count;
+    }
+    if (received == bytes) {
+        rc = xtra->inject(data, (int)bytes);
+        printf("GNSS XTRA injection result: %d (bytes=%ld)\n", rc, (long)bytes);
+    }
+    free(data);
+}
+
 static int64_t milliseconds(const struct timespec *value)
 {
     return (int64_t)value->tv_sec * 1000 + value->tv_nsec / 1000000;
@@ -194,13 +261,19 @@ int main(int argc, char **argv, char **envp)
     };
     int rc;
     unsigned long seconds = 24;
-    const bool inject_utc = argc == 4 && !strcmp(argv[3], "--inject-current-utc");
-    if (inject_utc)
-        --argc;
-    bool on_demand = argc == 3 && !strcmp(argv[2], "--serve-nmea-fd3");
-    if (argc > 3 || (argc == 3 && !on_demand && strcmp(argv[2], "--nmea-fd3")))
-        return 4;
-    forward_nmea = argc == 3;
+    bool inject_utc = false, inject_xtra = false, on_demand = false;
+    for (int i = 2; i < argc; ++i) {
+        if (!strcmp(argv[i], "--inject-current-utc") && !inject_utc)
+            inject_utc = true;
+        else if (!strcmp(argv[i], "--xtra-fd4") && !inject_xtra)
+            inject_xtra = true;
+        else if (!strcmp(argv[i], "--serve-nmea-fd3") && !forward_nmea)
+            forward_nmea = on_demand = true;
+        else if (!strcmp(argv[i], "--nmea-fd3") && !forward_nmea)
+            forward_nmea = true;
+        else
+            return 4;
+    }
     if (argc >= 2) {
         char *end;
         seconds = strtoul(argv[1], &end, 10);
@@ -225,6 +298,14 @@ int main(int argc, char **argv, char **envp)
     printf("HAL init result: %d\n", rc);
     if (rc)
         return 3;
+    if (gps->extension) {
+        static const char *const names[] = {
+            "gps-xtra", "agps", "agps_ril", "gps-debug", "gnss_configuration"
+        };
+        for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); ++i)
+            printf("GNSS extension %s available: %d\n", names[i],
+                   gps->extension(names[i]) != NULL);
+    }
     rc = gps->set_mode(0, 0, 1000, 0, 0);
     printf("Standalone GNSS mode result: %d\n", rc);
     if (!rc) {
@@ -234,12 +315,19 @@ int main(int argc, char **argv, char **envp)
             int waited = 0;
             if (inject_utc)
                 provide_utc(gps);
+            if (inject_xtra)
+                provide_xtra(gps);
             if (on_demand) {
                 struct pollfd control = {.fd = STDIN_FILENO, .events = POLLIN};
                 int status;
+                unsigned idle_seconds = 0;
                 do {
-                    status = poll(&control, 1, -1);
-                } while (status < 0 && *__errno() == EINTR);
+                    status = poll(&control, 1, 1000);
+                    if (!status && ++idle_seconds % 15 == 0)
+                        printf("GNSS live: satellite_callbacks=%u visible_max=%u fixes=%u nmea=%u\n",
+                               atomic_load(&gps_sv), atomic_load(&visible_satellites_max),
+                               atomic_load(&fixes), atomic_load(&nmea_valid));
+                } while (status == 0 || (status < 0 && *__errno() == EINTR));
                 if (status < 0)
                     waited = *__errno();
             } else {
@@ -260,6 +348,7 @@ int main(int argc, char **argv, char **envp)
                    atomic_load(&nmea_records), atomic_load(&fixes));
             printf("GNSS checksum-valid NMEA: %u, forwarded: %u\n",
                    atomic_load(&nmea_valid), atomic_load(&nmea_forwarded));
+            printf("GNSS capability mask: %u\n", atomic_load(&capability_mask));
             for (unsigned i = 0; i < 8; i++) {
                 unsigned count = atomic_load(&status_values[i]);
                 if (count)

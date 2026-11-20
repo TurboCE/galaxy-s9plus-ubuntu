@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Permit the installed GPS diagnostic only for the selected desktop UID.
+[g965n-gps-test]
+allowed=true
+system=true
+users=@DESKTOP_UID@

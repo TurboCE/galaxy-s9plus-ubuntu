@@ -6667,3 +6667,81 @@ neard and the GNSS socket active. The diagnostic unit was inactive/success
 following cancellation, Wi-Fi HTTPS204 passed and no matching GPU/display
 fault appeared in the current ring buffer. This does not clear unrelated
 boot warnings or qualify a GNSS fix.
+
+### 2026-11-20 — Fix GPS daemon crash and verify satellite/desktop location
+
+Resumed GPS over Wi-Fi with the existing exact-BOOT/profile/backup guard.
+All current FIFO inode pairs matched between GPS daemon, HAL and LHD. A
+payload-suppressed metadata trace showed the daemon terminating with SIGSEGV,
+while the HAL and old supervisor stayed waiting. Native GDB (installed from
+Ubuntu, no frame arguments/debuginfod) located a null pointer in NdkSensorsInfo,
+called by NdkSensorsStart and SensorsImpl's thread. The missing dependency is
+Android HIDL sensorservice, not proof of an RF or assistance-only failure.
+Raw traces/backtraces remain private and are not committed.
+
+Added non-coordinate HAL capability/extension counters and strict status-line
+forwarding. The actual HAL exposed gps-xtra, agps, agps_ril, gps-debug and
+configuration interfaces, with capability mask198. UTC injection returned0.
+The supervisor now watches the daemon even when the HAL's output pipe stays
+open, drains complete status bursts, and terminates/reaps the remaining client
+on failure. An opt-in root-owned diagnostic log socket selects errors only,
+drops location/identity messages and redacts numbers/URLs. It was used briefly
+and its temporary systemd environment drop-in was removed for normal trials.
+
+Samsung's published Broadcom config documents hal SensorsEnable=false, and
+this owner's daemon contains the setting. Generate a private copy of the
+pinned gps.xml with only this attribute changed. Preserve the original file,
+RF parameters, daemon binary and main Ubuntu sensor services. This disables
+only the optional Android inertial-sensor dependency. The first 300-second
+trial then produced3,291 valid sentences, invalid0, rather than stopping at14;
+no fix at that initial window placement. The daemon stayed alive.
+
+Added a root-only LTO cache using only the owner's SYSTEM gps_psds.conf V5
+sources, certificate-verified HTTPS, bounded size, server Last-Modified age,
+config/blob hashes and 24-hour reuse. A bare HEAD request received403; the
+configured-source GET with the diagnostic user agent returned200, binary data
+124,383bytes and a recent Last-Modified. No receiver firmware was flashed.
+The standard gps-xtra callback ABI initialized with0 and accepted data with0;
+the receiver's stored lto2.dat matched the cache SHA256. A full aided300s run
+again delivered3,291 valid sentences and invalid0 but initially no fix.
+Added the bounded refresh unit and hourly cache-check timer; service start
+reported success. Downloads stay outside the vendor worker's isolated network
+namespace, and missing/stale aid falls back to standalone. No blob is in Git.
+
+The owner offered opening the window for a new trial. Normal-mode reception
+without the temporary log socket reached a real fix by the138-second summary.
+The full300s observation had4,448 valid sentences, invalid0, GSA3D, GGA/RMC fix,
+GSV maximum10 within one constellation and GGA maximum8 used satellites.
+Clarified that GSV's per-system maximum is not total all-constellation visibility.
+The HAL's separate live count also showed changing satellite callbacks and
+actual location callback counts. No coordinates or NMEA were printed/stored
+by these diagnostics.
+
+Added a real GeoClue delivery checker under the installed GPS Test desktop ID,
+with permission scoped to the selected desktop UID. Root querying another
+client's metadata failed, so no cross-client read was used. Restarted GeoClue
+to load the selected-ID policy, then an ordinary-user client received a fresh
+location1.2s old with reported accuracy3m. The checker reads only existence,
+accuracy and timestamp, never latitude/longitude. Invoked Maps' actual window
+current-location action; accessibility found no connection/location-disabled
+error. This qualifies basic framework delivery, not map-centering ground truth
+or surveyed3m accuracy. Direct raw GPS Test and Maps share a singleton receiver
+source, so the app now tells users to close Maps before a raw test.
+
+Built the successive own-Bionic helpers with warnings as errors; each replaced
+HAL had its pin updated after guard checks and private rollback copies were
+preserved. Tests cover real child-process failure detection, buffered status
+privacy, XML-only option change, malformed config, stale/tampered/foreign aid
+rejection and coordinate-free summaries. Camera/fingerprint were untouched.
+Cold restart, suspend, moving outdoor accuracy, SUPL, previous-position aids
+and a controlled aid/no-aid TTFF comparison remain open.
+
+Read-only preparation for the next RTC step found GICD_ICFGR IRQ63/64 fields1:
+bit1 is clear (level). The generic IRQ sysfs 'edge' label was insufficient and
+would have led to the wrong edge candidate. No IRQ register was written.
+
+After the successful fix/desktop checks, reviewed negative GNSS trial instance
+states were archived privately and reset; their journal/debug evidence was
+retained. This cleanup is separate from the hardware correction. The normal
+receiver run uses no temporary log-capture environment, and Wi-Fi connectivity
+was checked again. RTC-only BOOT preparation is a separate following change.
