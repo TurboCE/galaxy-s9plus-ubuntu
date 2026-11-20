@@ -96,3 +96,23 @@ showed no invalid-IRQ warning or kernel call trace. Audio, Bluetooth, cover and
 sensor services returned after migration and after reboot. Wi-Fi HTTPS returned
 204. NFC enumerated and neard started; this is startup regression evidence,
 not a new physical tag-reading trial.
+
+
+### Modem provenance after recovery
+
+Recovery may change only EFS ext4 superblock mount/write bookkeeping even when
+no identity file changes. Receipt migration does not silently adopt that state.
+If desktop LTE refuses its old private provenance, use the existing explicit
+four-field proof/revalidation procedure in
+[PRIVATE-MODEM-RUNTIME](../../docs/g965n/PRIVATE-MODEM-RUNTIME.md), supplying the
+exact old trusted EFS image and the new complete verified backup. All other
+bytes, CPEFS and RADIO must match. Preserve all working NV and old receipts.
+
+The legacy command expects a prepared runtime. For the isolated desktop stack,
+load its pinned vendor-runtime.py, select_modem_runtime(), acquire exclusive
+STATE_LOCK and RUNTIME_LOCK, refuse any existing modem mount, and prepare with
+create_devices=False. Call revalidate_efs_superblock with explicit confirmation
+and the verified snapshots; always teardown in finally before restarting the
+standard desktop-LTE service. This prepares only a private read-only vendor
+view and never mounts/writes the original identity partitions. A first attempt
+without that prepared view correctly refused with Runtime not mounted.

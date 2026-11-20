@@ -323,3 +323,16 @@ RTC time. Sensor/audio/Bluetooth/cover services active, BT powered, NFC
 node/neard present, seven IIO devices, sound card and Wi-Fi HTTPS204. This
 qualifies RTC awake/warm-reboot operation, not cold power retention or suspend
 wake, nor a repeat of physical NFC/audio/profile tests. GPS regression pending.
+
+
+Native48 secondary GPT repair: full primary/tail snapshots preserved on handset
+and host, checked against receipts and independently rebuilt candidate. Empty
+reserved20KiB secondary array/header restored; primary byte-identical and25
+entries unchanged. Header512/sector4096 correctly distinguished. Initial
+post-write CRC/readback and separate warm reboot pass; alternate-GPT warning0,
+protected RECOVERY/EFS/CPEFS/RADIO/DTB/DTBO unchanged. RTC warning/call trace0,
+Wi-Fi204 and driver/NFC startup pass. LTE private provenance correctly refused
+recovery-only superblock changes; exact old/new backup proof and existing
+bounded revalidation passed without writing originals/working NV. Current SIM
+registration/data needs separate verification. GPS264s output2,852 valid/0
+invalid, no fix; interrupted for this reboot, not a completed five-minute test.

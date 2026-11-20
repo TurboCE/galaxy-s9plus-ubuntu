@@ -6798,3 +6798,58 @@ The remaining bbd_enable_lk timeout:10 sec line is informational watchdog
 scheduling in bbd.c, not evidence that its timer expired. Preserve it and
 separate it from real timeout failures. GPT fallback and missing haptic wiring
 remain unresolved; no GPT/PMIC write has been performed in this RTC step.
+
+
+## 2026-11-20 — Secondary GPT repair preparation
+
+Read-only geometry/CRC checks confirmed 4096-byte logical sectors, 25 used
+partition entries, valid primary header/array, and zero-filled reserved secondary
+array/header sectors outside every partition. The Samsung header length is512
+with a zero extension, not the usual92; the first strict tool refused it before
+any write. Added explicit zero-extension handling preserving512 and tested the
+full-header CRC. Five synthetic tests cover copy consistency, nonzero-tail
+refusal, bad CRC refusal and out-of-bounds partitions.
+
+Saved private primary and tail metadata snapshots on the handset and copied
+them to the host. Host SHA checks and independent regeneration matched the
+candidate. Current SM-G965N BOOT and six protected partition hashes matched
+the verified model/backup receipts. The proposed maintenance writes only the
+five empty reserved tail sectors; no primary/header entry, partition boundary,
+GUID, filesystem, bootloader or protected partition is changed. Reboot and
+post-write kernel/partition checks remain required before marking fixed.
+
+
+The explicit secondary-only maintenance wrote/read back20KiB in the reserved
+empty tail. Both header/array CRCs are valid, all25 primary/secondary entries
+are identical, and Samsung header length512 was retained. A separate warm
+reboot removed Alternate GPT is invalid (0), with original primary metadata
+and restored secondary bytes unchanged. RECOVERY/EFS/CPEFS/RADIO/DTB/DTBO all
+still match the verified backup. RTC invalid IRQ/call trace/panic/Oops/BUG
+markers remain0. Driver services/neard/GNSS timers and Wi-Fi HTTPS204 returned.
+
+The desktop-LTE service then refused its private provenance after recovery's
+six-byte EFS superblock bookkeeping change. The exact trusted old EFS snapshot
+was found; both old/new complete nine-partition backups passed full file/hash
+checks. The existing bounded four-field proof passed; all nonapproved bytes
+were identical. An initial legacy CLI attempt correctly refused Runtime not
+mounted without modifying provenance. Prepared the isolated modem view under
+exclusive state/runtime leases with no character devices or identity bindings,
+ran explicit proof/revalidation, preserved old receipt and all NV/source data,
+and tore the view down in finally. No original partition was written. Requested
+normal desktop-LTE restart; actual current-SIM data service remains unqualified.
+
+GPS warm-reboot regression was interrupted at264s by the GPT verification
+reboot:2,852 valid sentences, invalid0, no visible/used satellites or fix in
+that current placement. This confirms sustained receiver output, not a repeat
+of the earlier successful window fix. No coordinates were retained. Earlier
+basic fix evidence remains valid; warm-reboot fix reacquisition is still open.
+
+
+Immediate LTE restart was refused by its once-per-boot attempt marker, created
+by the earlier provenance failure before hardware load. Preserved that guard
+and used a normal warm reboot rather than deleting the marker. Private runtime
+provenance passed exact live original-partition checks before reboot. Following
+boot again has0 GPT/RTC IRQ warnings, call traces and panic/Oops/BUG markers;
+waiting for sensor-dependent automatic LTE startup. The storage maintenance
+source also explicitly flushes its private receipt and rejects duplicate backup
+entries; these host-only hardening changes do not require another GPT write.
