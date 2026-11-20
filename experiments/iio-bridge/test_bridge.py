@@ -39,6 +39,13 @@ int main(void) {
  p.value[1]=bridge_le32(1);assert(bridge_decode(&p,48,0,&d)==-EINVAL);p.value[1]=0;p.flags=bridge_le32(1);assert(bridge_decode(&p,48,0,&d)==-EINVAL);
  p=packet(G965N_IIO_HEARTBEAT,1);assert(!bridge_decode(&p,48,0,&d));p.value[2]=bridge_le32(1);assert(bridge_decode(&p,48,0,&d)==-EINVAL);
  p=packet(99,1);assert(bridge_decode(&p,48,0,&d)==-EINVAL);
+ p=packet(G965N_IIO_HEADING,1);
+ assert(!bridge_decode(&p,48,0,&d)); /* zero is real magnetic north */
+ p.value[0]=bridge_le32(359999);assert(!bridge_decode(&p,48,0,&d));
+ p.value[0]=bridge_le32(360000);assert(bridge_decode(&p,48,0,&d)==-ERANGE);
+ p.value[0]=bridge_le32((u32)-1);assert(!bridge_decode(&p,48,0,&d));
+ p.value[0]=bridge_le32((u32)-2);assert(bridge_decode(&p,48,0,&d)==-ERANGE);
+ p.value[0]=0;p.value[1]=bridge_le32(1);assert(bridge_decode(&p,48,0,&d)==-EINVAL);
  int identity[9]={1,0,0,0,1,0,0,0,1};assert(bridge_matrix_valid(identity,9));assert(!bridge_matrix_valid(identity,8));
  int malformed[9]={1,0,0,INT_MAX,0,0,0,0,1};assert(!bridge_matrix_valid(malformed,9));malformed[3]=INT_MIN;assert(!bridge_matrix_valid(malformed,9));
  int duplicate[9]={1,0,0,1,0,0,0,0,1};assert(!bridge_matrix_valid(duplicate,9));

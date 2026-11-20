@@ -70,6 +70,10 @@ static inline int bridge_decode(const struct g965n_iio_frame *p, unsigned int by
   for (i=0;i<2;i++)
    if (out->value[i]<-20000 || out->value[i]>90000) return -ERANGE;
   break;
+ case G965N_IIO_HEADING:
+  if (flags || out->value[1] || out->value[2]) return -EINVAL;
+  if (out->value[0]<G965N_IIO_HEADING_UNAVAILABLE || out->value[0]>=360000) return -ERANGE;
+  break;
  default:return -EINVAL;
  }
  return 0;

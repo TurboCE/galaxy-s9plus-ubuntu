@@ -129,10 +129,15 @@ def validate_profile(profile):
     elif 'mount_matrix' in accel or 'orientation_evidence' in profile:
         raise RuntimeError('ALS-only profile must not invent orientation evidence or matrix')
     optional_sensors=('pressure','proximity','gyro','thermistor')
-    if any(key in profile for key in ('magnetic_capture','magnetic_initialization',*optional_sensors)):
+    if any(key in profile for key in ('magnetic_capture','magnetic_initialization','heading',*optional_sensors)):
         program=load_program(profile,'broker')
         program.magnetic_capture_policy(profile)
         program.magnetic_initialization(profile)
+        if 'heading' in profile:
+            program.heading_policy(profile)
+            info=elf_section(pinned(profile['iio_bridge'],64*1024*1024),'.modinfo')
+            if b'parmtype=enable_heading:bool' not in info.split(b'\0'):
+                raise RuntimeError('Selected IIO module has no buffered heading support')
         for name in optional_sensors:
             if name in profile:
                 program.optional_sensor_enabled(profile,name)
@@ -264,6 +269,9 @@ def bridge_policy(profile):
             enabled=profile[name]['enabled']
             params.append(parameter+'='+str(int(enabled)))
             expected[parameter]='Y' if enabled else 'N'
+    if 'heading' in profile:
+        params.append('enable_heading=1')
+        expected['enable_heading']='Y'
     return params,expected
 
 

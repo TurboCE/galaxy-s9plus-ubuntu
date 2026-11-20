@@ -19,6 +19,8 @@ typedef uint64_t g965n_le64;
 #define G965N_IIO_PROXIMITY 5U
 #define G965N_IIO_GYRO 6U
 #define G965N_IIO_THERMISTOR 7U
+#define G965N_IIO_HEADING 8U
+#define G965N_IIO_HEADING_UNAVAILABLE (-1)
 #define G965N_IIO_RANGE_8G_CONFIRMED 1U
 #define G965N_IIO_PRESSURE_TEMP_PRESENT 1U
 /* Little endian, exactly48bytes. value[] encodes signed32-bit integers.
@@ -33,6 +35,8 @@ typedef uint64_t g965n_le64;
  * PROXIMITY: firmware detection bit in value[0]; other values/flags zero.
  * GYRO: three signed32 SSP samples in hub axes; flags zero.
  * THERMISTOR: two signed millicelsius values in channel order, third/flags zero.
+ * HEADING: tilt-compensated magnetic heading in millidegrees (0..359999)
+ * in value[0], or -1 to withdraw the heading device. Other values/flags zero.
  */
 struct g965n_iio_frame {
  g965n_le32 version, size;

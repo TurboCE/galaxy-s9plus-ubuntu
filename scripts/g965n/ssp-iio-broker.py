@@ -61,8 +61,8 @@ def magnetic_initialization(profile):
     entry = profile.get('magnetic_initialization')
     if entry is None:
         return None
-    if magnetic_capture_policy(profile) is None:
-        raise ValueError('Magnetic initialization currently requires an explicit bounded capture')
+    if magnetic_capture_policy(profile) is None and 'heading' not in profile:
+        raise ValueError('Magnetic initialization requires a capture or qualified heading profile')
     raw = read_owned(entry['path'], private=True)
     if (hashlib.sha256(raw).hexdigest() != entry.get('sha256') or
             len(raw) != entry.get('bytes')):
@@ -83,6 +83,53 @@ def magnetic_initialization(profile):
         if not isinstance(digest, str) or len(digest) != 64 or any(c not in '0123456789abcdef' for c in digest):
             raise ValueError('Missing own-backup magnetic provenance')
     return value
+
+
+def heading_policy(profile):
+    if 'heading' not in profile:
+        return None
+    policy = profile['heading']
+    if (not isinstance(policy, dict) or set(policy) != {'evidence', 'geometry'} or
+            not profile['accel']['enabled'] or magnetic_capture_policy(profile) is not None or
+            magnetic_initialization(profile) is None):
+        raise ValueError('Heading requires qualified acceleration and private magnetic initialization')
+    evidence = json.loads(pinned(policy['evidence']))
+    if any(evidence.get(key) != value for key, value in {
+            'model': 'SM-G965N', 'accel_matrix': profile['accel']['mount_matrix'],
+            'initialization_sha256': profile['magnetic_initialization']['sha256']}.items()):
+        raise ValueError('Heading evidence does not match the sensor profile')
+    errors = evidence.get('absolute_errors_degrees', {})
+    if (not isinstance(errors, dict) or set(errors) != {'north', 'east', 'south', 'west', 'north_tilted'} or
+            any(type(error) not in (int, float) or not 0 <= error <= 15 for error in errors.values())):
+        raise ValueError('Heading evidence needs qualified cardinal and tilted poses')
+    geometry = load_module(policy['geometry'], 'g965n_heading_geometry')
+    matrix = evidence['magnetic_matrix']
+    geometry.mounted((0, 0, 0), matrix)
+    return geometry.diagnostic_heading, matrix
+
+
+class HeadingFeed:
+    def __init__(self, policy, accel_matrix):
+        self.calculate, self.mag_matrix = policy
+        self.accel_matrix = accel_matrix
+        self.accel = None
+        self.last_heading_at = None
+
+    def publish(self, samples, now, feed):
+        if samples.get(0):
+            self.accel = now, samples[0][-1]
+        if samples.get(4) and self.accel is not None and now - self.accel[0] <= .25:
+            try:
+                angle = self.calculate(self.accel[1], samples[4][-1], self.accel_matrix, self.mag_matrix)
+            except ValueError:
+                pass
+            else:
+                feed.publish(8, (round(angle * 1000) % 360000, 0, 0))
+                self.last_heading_at = now
+                return
+        if self.last_heading_at is not None and now - self.last_heading_at > 2:
+            feed.publish(8, (-1, 0, 0))
+            self.last_heading_at = None
 
 
 def initialize_magnetic(probe, ssp, identity, value):
@@ -211,6 +258,7 @@ def verify_profile(path):
             raise ValueError('Acceleration mounting evidence does not match')
     magnetic_capture_policy(profile)
     magnetic_initialization(profile)
+    heading_policy(profile)
     for name in (*OPTIONAL_SENSORS, 'thermistor'):
         optional_sensor_enabled(profile, name)
     return profile
@@ -246,6 +294,9 @@ class Feed:
         elif kind == 7:
             if values[2] or any(not -20000 <= value <= 90000 for value in values[:2]):
                 raise ValueError('Invalid thermistor temperature pair')
+        elif kind == 8:
+            if not -1 <= values[0] < 360000 or values[1:] != (0, 0):
+                raise ValueError('Invalid magnetic heading in millidegrees')
         elif kind != 3 or values != (0, 0, 0):
             raise ValueError('Invalid heartbeat')
         if self.seq == 0xffffffffffffffff:
@@ -279,7 +330,7 @@ def publish_actual(probe, selected, feed, seen, last_accel, now):
         elif sensor == 7:
             feed.publish(5, (latest[0], 0, 0))
         elif sensor == 4:
-            pass  # Private raw diagnostic only; never publish an unqualified heading.
+            pass  # Raw samples are read only by the capture or qualified heading path.
         else:
             raise ValueError('Unreviewed sensor in broker')
         probe.samples[sensor] = []
@@ -358,7 +409,10 @@ def run(profile, ssp, ready_fd, stop_fd):
                 if optional_sensor_enabled(profile, name):
                     selected.append(sensor)
             capture_policy = magnetic_capture_policy(profile)
-            if capture_policy is not None:
+            heading_config = heading_policy(profile)
+            heading = (HeadingFeed(heading_config, profile['accel']['mount_matrix'])
+                       if heading_config is not None else None)
+            if capture_policy is not None or heading is not None:
                 selected.append(4)  # Calibrated only; never enable conflicting raw2/3.
             ssp.require_advertised(selected, identity['sensor_mask'])
             thermistor = optional_sensor_enabled(profile, 'thermistor')
@@ -406,6 +460,8 @@ def run(profile, ssp, ready_fd, stop_fd):
                     capture = None
                     print(json.dumps({'magnetic_capture_completed': True,
                                       'magnetic_sensor_removed': True}), flush=True)
+                if heading is not None:
+                    heading.publish(probe.samples, now, feed)
                 last_accel = publish_actual(probe, selected, feed, seen, last_accel, now)
                 if now >= next_heartbeat:
                     feed.publish(3)

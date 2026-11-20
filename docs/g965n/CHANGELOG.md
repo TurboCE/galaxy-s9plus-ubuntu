@@ -5837,3 +5837,10 @@ the transient capture, verified the saved service unit and profile
 byte-for-byte, and confirmed the sensor broker and Sensor Proxy were
 active with all six original IIO devices. The viewer reported
 measurement end. The phone stayed on #46, with no partition writes.
+
+Built the candidate buffered IIO core and bridge object for AArch64
+with the stock Sensor Proxy channel and trigger naming. The broker
+uses the existing heading math and rejects incomplete or out-of-range
+reference evidence. Host tests passed, including stale-angle
+withdrawal. Stopped the full kernel build after the direction trial
+failed. No candidate image was installed or claimed to boot.

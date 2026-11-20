@@ -10,6 +10,12 @@
 #include <linux/ktime.h>
 #include <linux/sysfs.h>
 #include <linux/iio/iio.h>
+#ifdef CONFIG_IIO_TRIGGERED_BUFFER
+#include <linux/iio/buffer.h>
+#include <linux/iio/trigger.h>
+#include <linux/iio/trigger_consumer.h>
+#include <linux/iio/triggered_buffer.h>
+#endif
 #include "bridge-core.h"
 
 static bool enable_g965n;
@@ -40,6 +46,111 @@ static struct iio_dev *thermistor_dev;
 static bool writer_open;
 static struct iio_mount_matrix mount;
 static struct miscdevice bridge_misc;
+
+#ifdef CONFIG_IIO_TRIGGERED_BUFFER
+static bool enable_heading;
+module_param(enable_heading, bool, 0444);
+MODULE_PARM_DESC(enable_heading, "Opt-in calibrated magnetic heading for IIO Sensor Proxy");
+static struct iio_dev *heading_dev;
+static struct iio_trigger *heading_trigger;
+static u32 heading_sample;
+
+static const struct iio_chan_spec heading_channel = {
+ .type=IIO_ROT, .modified=1, .channel2=IIO_MOD_NORTH_MAGN_TILT_COMP,
+ .info_mask_shared_by_type=BIT(IIO_CHAN_INFO_SCALE),
+ .scan_index=0,
+ .scan_type={.sign='u', .realbits=32, .storagebits=32, .endianness=IIO_CPU},
+};
+
+static int heading_scale(struct iio_dev *dev, const struct iio_chan_spec *chan,
+                         int *val, int *val2, long mask)
+{
+ if (mask!=IIO_CHAN_INFO_SCALE) return -EINVAL;
+ *val=0;
+ *val2=1000;
+ return IIO_VAL_INT_PLUS_MICRO;
+}
+
+static irqreturn_t heading_push(int irq, void *data)
+{
+ struct iio_poll_func *poll=data;
+ u32 sample=READ_ONCE(heading_sample);
+
+ iio_push_to_buffers(poll->indio_dev,&sample);
+ iio_trigger_notify_done(poll->indio_dev->trig);
+ return IRQ_HANDLED;
+}
+
+static int heading_validate_device(struct iio_trigger *trigger, struct iio_dev *dev)
+{
+ return iio_trigger_get_drvdata(trigger)==dev?0:-EINVAL;
+}
+
+static const struct iio_info heading_info = { .read_raw=heading_scale };
+static const struct iio_trigger_ops heading_trigger_ops = {
+ .validate_device=heading_validate_device,
+};
+
+/* Producer calls this under lifecycle_lock, from process context. */
+static int publish_heading(u32 sample)
+{
+ struct device *parent=bridge_misc.this_device;
+ struct iio_dev *dev;
+ struct iio_trigger *trigger;
+ int ret;
+
+ if (!enable_heading) return -EACCES;
+ if (!heading_dev) {
+  dev=iio_device_alloc(parent,0);
+  if (!dev) return -ENOMEM;
+  trigger=iio_trigger_alloc(parent,"magn_3d-dev%d",iio_device_id(dev));
+  if (!trigger) {ret=-ENOMEM;goto free_dev;}
+  trigger->ops=&heading_trigger_ops;
+  iio_trigger_set_drvdata(trigger,dev);
+  dev->name="g965n-ssp-compass";
+  dev->info=&heading_info;
+  dev->channels=&heading_channel;
+  dev->num_channels=1;
+  ret=iio_triggered_buffer_setup(dev,NULL,heading_push,NULL);
+  if (ret) goto free_trigger;
+  /* Sensor Proxy discovers the associated trigger on device add. */
+  ret=iio_trigger_register(trigger);
+  if (ret) goto cleanup_buffer;
+  ret=iio_device_register(dev);
+  if (ret) goto unregister_trigger;
+  heading_dev=dev;
+  heading_trigger=trigger;
+ }
+ WRITE_ONCE(heading_sample,sample);
+ iio_trigger_poll_nested(heading_trigger);
+ return 0;
+
+unregister_trigger:
+ iio_trigger_unregister(trigger);
+cleanup_buffer:
+ iio_triggered_buffer_cleanup(dev);
+free_trigger:
+ iio_trigger_free(trigger);
+free_dev:
+ iio_device_free(dev);
+ return ret;
+}
+
+static void remove_heading(void)
+{
+ if (!heading_dev) return;
+ iio_device_unregister(heading_dev);
+ iio_trigger_unregister(heading_trigger);
+ iio_triggered_buffer_cleanup(heading_dev);
+ iio_trigger_free(heading_trigger);
+ iio_device_free(heading_dev);
+ heading_dev=NULL;
+ heading_trigger=NULL;
+}
+#else
+static int publish_heading(u32 sample) { return -EOPNOTSUPP; }
+static void remove_heading(void) { }
+#endif
 
 static const struct iio_mount_matrix *get_mount(const struct iio_dev *dev,
                                                const struct iio_chan_spec *chan)
@@ -206,8 +317,16 @@ static ssize_t bridge_write(struct file *file,const char __user *user,size_t byt
  if (!enable_accel && bridge_le32(packet.type)==G965N_IIO_ACCEL) {ret=-EACCES;goto out;}
  ret=bridge_decode(&packet,bytes,cache.seq,&decoded);
  if (ret) goto out;
+ if (decoded.type==G965N_IIO_HEADING) {
+  if (decoded.value[0]==G965N_IIO_HEADING_UNAVAILABLE) {
+   remove_heading();
+  } else {
+   ret=publish_heading(decoded.value[0]);
+   if (ret) goto out;
+  }
+ }
  mutex_lock(&sample_lock);old=cache;bridge_update(&cache,&decoded,ktime_get_boottime_ns());mutex_unlock(&sample_lock);
- if (decoded.type!=G965N_IIO_HEARTBEAT) {
+ if (decoded.type!=G965N_IIO_HEARTBEAT && decoded.type!=G965N_IIO_HEADING) {
   ret=register_sensor(decoded.type);
   if (ret) {mutex_lock(&sample_lock);cache=old;mutex_unlock(&sample_lock);goto out;}
  }
@@ -220,6 +339,7 @@ static int bridge_close(struct inode *inode,struct file *file)
  mutex_lock(&lifecycle_lock);
  mutex_lock(&sample_lock);memset(&cache,0,sizeof(cache));mutex_unlock(&sample_lock);
  /* Never hold sample_lock across kernfs/IIO removal: active read_raw may use it. */
+ remove_heading();
  if (light_dev) {iio_device_unregister(light_dev);iio_device_free(light_dev);light_dev=NULL;}
  if (accel_dev) {iio_device_unregister(accel_dev);iio_device_free(accel_dev);accel_dev=NULL;}
  if (pressure_dev) {iio_device_unregister(pressure_dev);iio_device_free(pressure_dev);pressure_dev=NULL;}

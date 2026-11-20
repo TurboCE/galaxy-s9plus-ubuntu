@@ -53,7 +53,7 @@ callback. The file's module reference prevents normal unload while a writer is o
 | --- | --- |
 | version / size | 1 / 48 |
 | seq | First accepted frame1, then strictly increasing unsigned64; no wrap |
-| type | 1 acceleration, 2 illuminance, 3 heartbeat, 4 pressure, 5 proximity, 6 gyroscope, 7 thermistor pair |
+| type | 1 acceleration, 2 illuminance, 3 heartbeat, 4 pressure, 5 proximity, 6 gyroscope, 7 thermistor pair, 8 magnetic heading |
 | flags | Acceleration exactly1. Pressure bit0 indicates its temperature field is present. Other sensors use0 |
 | value[3] | Signed32 encoding, constrained by sensor type |
 | reserved[3] | All zero |
@@ -106,6 +106,26 @@ The board thermistors are opt-in with `enable_thermistor=1`. The broker
 converts the two direct ADC readings using the verified revision 26
 tables and sends one pair in channel order. Only temperatures in the
 table range `-20000..90000` millicelsius are accepted.
+
+### Stock Sensor Proxy compass candidate
+
+Build with `S9_EXPERIMENTAL_IIO_COMPASS=1` for built-in IIO buffer and
+trigger support. The bridge then offers the optional `enable_heading`
+parameter. The stock Ubuntu 24.04 Sensor Proxy udev rule looks for
+`in_rot_from_north_magnetic_tilt_comp` and its driver associates the
+matching `magn_3d-devN` trigger. The bridge exposes that channel and scales
+millidegrees to degrees.
+
+The guarded broker profile must pin its own magnetic initialization and
+a `heading` object with two file pins, `geometry` and `evidence`. Use
+`experiments/sensors/heading-math.py` for geometry. The evidence must match
+the acceleration matrix and initialization SHA-256 and record the magnetic
+mounting matrix and absolute errors for north, east, south, west and
+tilted north, with a maximum error of 15 degrees in each pose. Missing or
+failed reference measurements leave heading disabled. The experimental
+path requires real SSP quality 2 or 3, no overflow, and recent matching
+gravity data. After two seconds without a usable angle, the broker
+withdraws the registered device until a new valid heading arrives.
 
 ## Real IIO semantics and freshness
 

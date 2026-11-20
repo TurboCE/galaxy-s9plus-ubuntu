@@ -5,6 +5,7 @@ import os
 import io
 import json
 import hashlib
+import runpy
 from pathlib import Path
 import stat
 import types
@@ -90,6 +91,45 @@ class BrokerTests(unittest.TestCase):
         b.publish_actual(q,[0,9,4],feed,seen,None,1)
         feed.publish.assert_called_once_with(1,(1,2,3))
         self.assertEqual(seen,{0,4});self.assertEqual(q.samples[4],[])
+
+    def test_heading_publishes_only_with_fresh_accel_and_valid_magnetic_sample(self):
+        geometry = runpy.run_path(str(ROOT/'experiments/sensors/heading-math.py'))
+        matrix = (1,0,0,0,1,0,0,0,1)
+        heading = b.HeadingFeed((geometry['diagnostic_heading'], matrix), matrix)
+        feed = unittest.mock.Mock()
+        good = (0,40,30,3,0)
+        heading.publish({4:[good]},1,feed)
+        heading.publish({0:[(0,0,4096)]},2,feed)
+        heading.publish({4:[good]},2.3,feed)
+        heading.publish({0:[(0,0,4096)],4:[(0,40,30,1,0)]},3,feed)
+        heading.publish({4:[(0,40,30,3,1)]},3.1,feed)
+        feed.publish.assert_not_called()
+        heading.publish({4:[good]},3.2,feed)
+        feed.publish.assert_called_once_with(8,(0,0,0))
+        heading.publish({},5.3,feed)
+        heading.publish({},5.4,feed)
+        self.assertEqual(feed.publish.call_args_list,[unittest.mock.call(8,(0,0,0)),
+                                                      unittest.mock.call(8,(-1,0,0))])
+
+    def test_heading_policy_rejects_incomplete_or_unqualified_evidence(self):
+        matrix = [1,0,0,0,1,0,0,0,1]
+        profile = {'accel':{'enabled':True,'mount_matrix':matrix},
+                   'magnetic_initialization':{'sha256':'private'},
+                   'heading':{'evidence':{},'geometry':{}}}
+        evidence = {'model':'SM-G965N','accel_matrix':matrix,
+                    'initialization_sha256':'private','magnetic_matrix':matrix,
+                    'absolute_errors_degrees':dict.fromkeys(('north','east','south','west'),3)}
+        geometry = types.SimpleNamespace(**runpy.run_path(str(ROOT/'experiments/sensors/heading-math.py')))
+        with patch.object(b,'magnetic_initialization',return_value={}),patch.object(b,'load_module',return_value=geometry):
+            for tilt_error in (None,16,float('nan'),7):
+                if tilt_error is not None:
+                    evidence['absolute_errors_degrees']['north_tilted'] = tilt_error
+                with patch.object(b,'pinned',return_value=json.dumps(evidence).encode()):
+                    if tilt_error == 7:
+                        self.assertEqual(b.heading_policy(profile)[1],matrix)
+                    else:
+                        with self.assertRaisesRegex(ValueError,'cardinal and tilted'):
+                            b.heading_policy(profile)
 
     def test_initial_not_ready_is_bounded_receive_only_wait(self):
         ready=unittest.mock.Mock(side_effect=[RuntimeError('Hub transport not ready; no sensor enabled'),None])
