@@ -5733,3 +5733,54 @@ and verified that Linux rejected binding the USB link-local source
 to Wi-Fi. The same helper passed IPv4 DNS and certificate-verified
 HTTPS204 over Wi-Fi. No modem route was involved. IPv6 LTE address
 and route provisioning and actual carrier traffic remain pending.
+
+### 2026-11-20 — Boot and verify GPU clock and GPIO fixes on #46
+
+With the owner's go-ahead, verified SM-G965N in TWRP, took a fresh
+readback-verified nine-partition backup and verified the working #44
+BOOT. Installed only the candidate BOOT and matched its readback.
+Native #46 started and accepted USB SSH.
+
+Three full reads of the GPIO debug listing returned 3,783 bytes
+each and produced no direction warning or call trace. The same
+operation on #44 had produced 23 warnings. The build recipe now
+applies upstream `d761c7e38a00` to the pinned source and verifies
+the patched bytes. A second application is a no-op, and source
+drift is rejected.
+
+Ran six GPU load/idle trials with the original governor and three
+more with a temporary 455 MHz ceiling. Devfreq counted four
+455→260 MHz and five 572→260 MHz transitions. The tests checked
+900 exact RGBA/BGRA readback frames across 109 GPU power-ons.
+No matching Panfrost, PLL lock or PLL rollback error appeared.
+Restored the 572 MHz ceiling, verified 950 mV and Wi-Fi HTTPS204.
+The in-range G3D tuples now match the tested build. These bounded
+trials do not establish a fix for every intermittent resume
+failure or qualify GNOME animation smoothness.
+
+The planned #44 rollback stopped before writing because EFS differed
+from the first backup. The owner requested keeping #46. A second
+complete recovery backup matched installed #46 BOOT. Comparison
+proved EFS differences were confined to the approved ext4 superblock
+fields. RECOVERY, CPEFS, RADIO, DTB and DTBO matched across the two
+backups. Rebooted the already installed #46 without another write.
+
+The four original service pins correctly rejected the different
+kernel. Preserved their settings and rebound them to the verified
+#46 BOOT, backup and unchanged module ABI. The six IIO devices
+returned values, the audio driver exposed playback/capture devices,
+and BlueZ powered its controller. Modem provenance maintenance first
+stopped because its private runtime was down. Repeated under the
+exclusive lease with the isolated runtime mounted read-only from
+SYSTEM/VENDOR and no modem daemon, then tore down the runtime. The
+old provenance and working NV were preserved.
+
+After a separate warm boot, #46 remained active and three GPIO
+listings again produced no direction warning or call trace. The six
+IIO devices and three ALSA PCM endpoints were present, BlueZ reported
+a powered controller, and Wi-Fi-bound HTTPS returned 204. The desktop
+LTE supervisor failed before CBD startup: the transient RIL service
+started and then stopped without reaching confirmed channel readiness.
+Stock ModemManager was active afterward. The earlier #44 no-SIM
+startup result does not qualify this boot, and no LTE data test was
+run on #46.

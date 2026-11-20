@@ -3,7 +3,7 @@
  * Mali-G72 (G3D) clock for the Exynos 9810: the stock maximum by default,
  * lower stock points for the thermal cap in s9p-cpufreq.
  *
- * The stock GPU DVFS tops out at 572 MHz (M=286, P=13, S=0 on the 26 MHz
+ * The stock GPU DVFS tops out at 572 MHz (M=352, P=8, S=1 on the 26 MHz
  * OSC) at 950 mV on S2MPS18 BUCK6 -- the table in the stock device tree ends
  * there. sboot leaves the GPU at 260 MHz on 644 mV, a combination on which
  * Panfrost throws DATA_INVALID_FAULTs every few seconds.
@@ -79,9 +79,10 @@ struct s9p_g3d_step {
  * and lowered only after it has come down, the same ordering s9p-cpufreq
  * uses for the CPU clusters.
  */
+/* PLL_1018X requires a 2–8 MHz reference and a 600–1200 MHz VCO. */
 static const struct s9p_g3d_step s9p_g3d_steps[] = {
-	{ 572000, 286, 13, 0, 0x68 },	/* stock maximum, 950 mV */
-	{ 455000, 455, 26, 0, 0x60 },	/*              900 mV */
+	{ 572000, 352,  8, 1, 0x68 },	/* stock maximum, 950 mV */
+	{ 455000, 280,  8, 1, 0x60 },	/*              900 mV */
 	{ 260000, 160,  4, 2, 0x58 },	/* sboot's clock, 850 mV */
 };
 

@@ -86,5 +86,20 @@ install -m644 "$PROJ/src/gpu/drm/s9p/s9p-decon.c" \
 sed -i 's/\r$//' "$SRC/drivers/gpu/drm/s9p/s9p-decon.c" \
 	"$SRC/drivers/gpu/drm/s9p/Kconfig" "$SRC/drivers/gpu/drm/s9p/Makefile"
 
+echo "--- GPIO diagnostics: optional direction callback ---"
+gpio_source="$SRC/drivers/gpio/gpiolib.c"
+gpio_patched="86f64255ddc9fa39b0094d433d87c7726ad12afd4964ac65fdfc751f7af4cedb"
+case "$(sha256sum "$gpio_source" | cut -d ' ' -f1)" in
+	9afbe2e7e0957d84b9426312db80826320adf23ac85bcf0d89a5c9e52054dd12)
+		git -C "$SRC" apply "$PROJ/patches/kernel/0001-gpiolib-guard-debug-direction.patch" || exit 1
+		test "$(sha256sum "$gpio_source" | cut -d ' ' -f1)" = "$gpio_patched" || exit 1
+		;;
+	"$gpio_patched") ;;
+	*)
+		echo "GPIO core source drifted from the pinned backport input." >&2
+		exit 1
+		;;
+esac
+
 python3 "$PROJ/scripts/build/patch_tree.py" "$SRC" || exit 1
 echo "APPLY_DRIVERS_OK"
