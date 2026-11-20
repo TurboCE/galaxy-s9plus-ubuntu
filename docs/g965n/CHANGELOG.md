@@ -6181,3 +6181,35 @@ Wi-Fi-bound HTTPS request also returned 204. No systemd units
 were failed. The earlier #47 registration timeout did not recur
 in this check. The reason for the previous registration delay,
 long-term reconnect behavior, IPv6, voice and SMS remain open.
+
+### 2026-11-20 — Provide synchronized UTC to the standalone GNSS receiver
+
+On native #48, a three-minute request through the GeoClue socket
+returned GGA, GSA and RMC messages without a valid fix or any satellites
+used. Added UTC assistance through the handset's existing ARM64 Android
+HAL. The worker receives the option only after this Ubuntu boot records
+a time synchronization and timedated confirms the system clock remains
+synchronized. The helper uses CLOCK_BOOTTIME as its monotonic reference.
+Standalone operation continues when that gate is unavailable.
+
+Built with the owner's read-only Android libraries and compiler warnings
+as errors. Checked the model, exact BOOT and complete backup, preserved
+the old private installation, and installed the new helper and matching
+pin while the listener was idle. The live HAL returned zero for UTC
+assistance. The GeoClue account subsequently received 14 checksum-valid
+sentences during a second three-minute observation, with no GGA fix or
+valid RMC position. A fresh socket request received 14 more sentences
+and the worker exited after disconnect. No coordinates or sentence
+content were logged. Five host checks exercised missing, false, failed, valid and timed-out
+clock-state checks. Twenty-two sensor runtime regressions passed.
+
+The read-only driver inventory confirmed that the live kernel exposes
+neither the NFC controller at stock address 0x108e0000 nor the second
+I²C controller at 0x10930000 needed for the PCAL6524 enable/firmware
+GPIOs. The stock design also requires a shared 1.8 V rail and a separate
+clock request. The kernel exposes no V4L2 or TEE devices. Camera streaming
+requires the Exynos FIMC-IS media pipeline, and the ET510 device requires
+the native secure SPI/biometric path. NFC tag reads, camera streaming
+and fingerprint enrollment remain pending. No controller bus was driven
+during this inventory. The mobile modem remained connected, Wi-Fi
+HTTPS204 passed and audio, Bluetooth, cover and sensor services were active.

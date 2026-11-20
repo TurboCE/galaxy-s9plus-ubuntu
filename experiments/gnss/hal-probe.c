@@ -160,6 +160,28 @@ static pthread_t spawn(const char *name, void (*start)(void *), void *context)
     return id;
 }
 
+static int64_t milliseconds(const struct timespec *value)
+{
+    return (int64_t)value->tv_sec * 1000 + value->tv_nsec / 1000000;
+}
+
+static void provide_utc(const struct interface *gps)
+{
+    struct timespec before, utc, after;
+    if (!gps->inject_time || clock_gettime(CLOCK_BOOTTIME, &before) ||
+        clock_gettime(CLOCK_REALTIME, &utc) ||
+        clock_gettime(CLOCK_BOOTTIME, &after))
+        return;
+
+    const int64_t first = milliseconds(&before);
+    const int64_t span = milliseconds(&after) - first;
+    if (span < 0 || span > 100 || utc.tv_sec < 1704067200)
+        return;
+
+    int rc = gps->inject_time(milliseconds(&utc), first + span / 2, 1000);
+    printf("GNSS UTC injection result: %d\n", rc);
+}
+
 int main(int argc, char **argv, char **envp)
 {
     const struct interface *(*get_gps)(void);
@@ -172,6 +194,9 @@ int main(int argc, char **argv, char **envp)
     };
     int rc;
     unsigned long seconds = 24;
+    const bool inject_utc = argc == 4 && !strcmp(argv[3], "--inject-current-utc");
+    if (inject_utc)
+        --argc;
     bool on_demand = argc == 3 && !strcmp(argv[2], "--serve-nmea-fd3");
     if (argc > 3 || (argc == 3 && !on_demand && strcmp(argv[2], "--nmea-fd3")))
         return 4;
@@ -207,6 +232,8 @@ int main(int argc, char **argv, char **envp)
         printf("HAL start result: %d\n", rc);
         if (!rc) {
             int waited = 0;
+            if (inject_utc)
+                provide_utc(gps);
             if (on_demand) {
                 struct pollfd control = {.fd = STDIN_FILENO, .events = POLLIN};
                 int status;

@@ -53,7 +53,21 @@ def stop(process, timeout=8):
             process.wait()
 
 
-def worker(root, supervisor):
+def utc_synchronized():
+    # The marker is per boot. timedated also checks the current kernel state.
+    if not Path('/run/systemd/timesync/synchronized').is_file():
+        return False
+    try:
+        result = subprocess.run(
+            ['busctl', 'get-property', 'org.freedesktop.timedate1',
+             '/org/freedesktop/timedate1', 'org.freedesktop.timedate1',
+             'NTPSynchronized'], capture_output=True, text=True, timeout=3)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0 and result.stdout.strip() == 'b true'
+
+
+def worker(root, supervisor, inject_utc):
     restrict = load(supervisor).drop_vendor_privileges
     for name in ('system', 'vendor', 'apex/com.android.runtime'):
         source, dest = ROOT / name, root / name
@@ -87,9 +101,20 @@ def worker(root, supervisor):
             raise RuntimeError('Vendor GNSS exited before HAL start')
         # Only the HAL gets FD 3. Vendor logs and HAL status text cannot reach GeoClue.
         os.dup2(sys.stdout.fileno(), 3)
-        client = subprocess.Popen(['/trial/hal', '24', '--serve-nmea-fd3'],
-                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        command = ['/trial/hal', '24', '--serve-nmea-fd3']
+        if inject_utc:
+            command.append('--inject-current-utc')
+        client = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                   pass_fds=(3,), env=environment, preexec_fn=enter)
+        with client.stdout:
+            for line in iter(lambda: client.stdout.readline(128), b''):
+                prefix = b'GNSS UTC injection result: '
+                if inject_utc and line.startswith(prefix):
+                    try:
+                        result = int(line[len(prefix):].strip())
+                    except ValueError:
+                        continue
+                    print(f'GNSS HAL UTC assistance result: {result}', file=sys.stderr, flush=True)
         sys.exit(client.wait())
     finally:
         daemon.terminate()
@@ -129,9 +154,12 @@ def serve():
             image = root / 'trial/hal'
             image.write_bytes(hal)
             image.chmod(0o500)
-            session = subprocess.Popen(['unshare', '--mount', '--propagation', 'private',
+            command = ['unshare', '--mount', '--propagation', 'private',
                 '--net', '--pid', '--fork', '--kill-child', sys.executable, __file__,
-                '--worker', str(root), str(supervisor)], stdin=subprocess.PIPE,
+                '--worker', str(root), str(supervisor)]
+            if utc_synchronized():
+                command.append('--inject-current-utc')
+            session = subprocess.Popen(command, stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE)
             frames = 0
             try:
@@ -168,7 +196,9 @@ def terminate(signum, frame):
 if __name__ == '__main__':
     os.umask(0o077)
     signal.signal(signal.SIGTERM, terminate)
-    if len(sys.argv) == 4 and sys.argv[1] == '--worker':
-        worker(Path(sys.argv[2]), Path(sys.argv[3]))
+    if len(sys.argv) >= 2 and sys.argv[1] == '--worker':
+        if len(sys.argv) not in (4, 5) or sys.argv[4:] not in ([], ['--inject-current-utc']):
+            raise SystemExit('Invalid GNSS worker arguments')
+        worker(Path(sys.argv[2]), Path(sys.argv[3]), len(sys.argv) == 5)
     else:
         serve()

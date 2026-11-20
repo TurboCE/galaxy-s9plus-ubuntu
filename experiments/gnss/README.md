@@ -69,3 +69,20 @@ Restart an active GeoClue to read its new source. The socket accepts only
 the GeoClue service account. The worker uses an isolated vendor runtime,
 and stops its GNSS session when GeoClue disconnects. Other GeoClue sources
 and desktop application permissions continue to use Ubuntu's settings.
+
+## UTC assistance
+
+The daemon still uses standalone mode. When Ubuntu's per-boot time-sync
+marker is present and timedated reports NTP synchronization, the
+supervisor passes `--inject-current-utc` to the HAL helper. The helper
+samples UTC and Android's elapsed-realtime equivalent (Linux
+`CLOCK_BOOTTIME`) and calls the existing Android `inject_time` method.
+If synchronization is unavailable, standalone startup continues as
+before. The journal records only the HAL return code, without a time
+value or NMEA content.
+
+This provides a time reference. Satellite ephemeris, a network
+assistance service and a persistent position cache are outside this
+path. A return code of zero acknowledges the input. A valid NMEA fix
+and a GeoClue location callback remain the criteria for position
+verification.
