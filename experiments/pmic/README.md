@@ -154,7 +154,8 @@ For verified installations only, install g965n-led.service under
 /etc/systemd/system, daemon-reload and enable it. Startup defaults to all LEDs
 off. Standard paths are `/sys/class/leds/{red,green,blue}:indicator` with
 max_brightness1. Normal user writes are not granted globally. No GNOME
-notification/charging policy is installed by this trial.
+notification policy is installed by the RGB trial. The separate opt-in battery
+policy below is qualified independently.
 
 Hardware evidence2026-11-20: fifteen on/off pulses passed exact register
 readback; the owner saw blue/red/green light. Stop/start followed by another
@@ -290,3 +291,64 @@ on while a standard feedback daemon keeps evdev open. Use the separately pinned
 `--idle-power` recipe and matching idle-aware diagnostic; the original variant
 is preserved. See [standard feedback integration](feedback/README.md) for actual
 100ms API tests, bounded theme, configuration, limitations and rollback.
+
+
+## Native #48 battery-state LED policy
+
+`power-leds.py` and `g965n-power-leds.service` connect existing low-current LEDs
+to the kernel's `max170xx_battery-charging` (red) and `...-full` (green) triggers.
+They preserve blue and the unregistered white channel. This is a separate
+optional policy, not a change to charger current, voltage, USB power negotiation,
+battery-status semantics or the LED driver/module pins. It requires the existing
+qualified RGB service, exact model/BOOT/protected-backup guard and root-private
+helper/state. Existing manual/nonzero LED use is refused.
+
+USB external power does not guarantee net battery charging. On the tested
+500mA PC USB connection, screen-on load could discharge the battery; screen-off
+load allowed positive average current and the kernel reported Charging. Do not
+raise the USB current limit to force a red LED. The kernel's existing battery
+status decides charging/full. A current reversal did not itself refresh native
+LED triggers on this handset, so the daemon listens to actual UPower `State`
+changes and reactivates the native trigger. It adds no polling timer. Natural
+UPower sampling latency remains. DisplayDevice.Refresh is not assumed usable.
+
+Preserve any existing helper/unit/state in a root0700 private receipt directory
+first. After the existing explicit model/BOOT/backup/consent checks, install
+`power-leds.py` as root0600 at `/usr/local/lib/g965n-led-trial/power-leds.py` and
+the unit root0644 under `/etc/systemd/system`. Review the inherited guard for the
+actual qualified BOOT; never relax its pins to make a different kernel pass.
+Then verify and test before enabling:
+
+```sh
+sudo systemd-analyze verify /etc/systemd/system/g965n-power-leds.service
+sudo systemctl daemon-reload
+sudo systemctl start g965n-power-leds.service
+sudo systemctl stop g965n-power-leds.service
+# Check original red/green off/none restored, other channels unchanged.
+sudo systemctl start g965n-power-leds.service
+sudo systemctl enable g965n-power-leds.service
+```
+
+The service uses Type=notify; readiness requires trigger binding and UPower
+subscription. SIGTERM/SIGINT handling is installed before preflight, and finally
+cleanup covers startup failures as well as normal shutdown. It restores only
+triggers it still owns, preserving a later manual/notification selection. A
+changed policy or malformed/untrusted state is an error, not grounds to delete
+state or overwrite another owner. For rollback, disable/stop this unit first;
+restore only the preserved helper/unit pair and daemon-reload. The base RGB
+module/service can remain. Do not run the RGB pulse test while policy owns LEDs;
+stop this policy first and restart afterward.
+
+2026-11-21 hardware observations: native triggers alone failed to refresh on a
+real charging reversal. The UPower bridge followed actual Charging/red1 then
+Discharging/red0; first red1 was26.6s after screen-off (kernel Charging6.5s), so
+no instantaneous response is claimed. Stop restored original off/none, restart
+passed, manual red survived stop, blue/white enable bits and cap1 remained
+unchanged. An early Type=simple termination race left owned state; fixed with
+early signal handling/finally/notify and repeated lifecycle test passed. Actual
+full-charge/green transition and USB unplug are not yet physically qualified.
+Warm-reboot auto-start passed on the same #48 BOOT with exact model/backup
+checks and current-boot ownership. A48s off repeat stayed off, Charging12.6s
+then UPower/red1 by22.7s; later Discharging/red0/register-enable0 passed.
+Early stop100ms after a nonblocking start also cleaned up; ready restart
+reported NRestarts0/exit0. See the maintained validation matrix for limits.

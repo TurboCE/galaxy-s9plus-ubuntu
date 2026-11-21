@@ -5,7 +5,10 @@
 [VALIDATION](VALIDATION.md)과 [CHANGELOG](CHANGELOG.md)에서 확인하세요.
 이전 행의 pending을 후속 성공 이력보다 우선하지 마세요.
 
-## 최신 요청 — 성능 추가 조정 중단, 로그 오류 우선
+## 최신 요청 — GPS 보류, 로그·기본 기능 우선
+
+GPS 작업은 최신 사용자 요청으로 보류했습니다. 충전 LED 후속과 최신
+재부팅 검증은 이 문서 마지막 절을 보세요.
 
 사용자가 현재 성능이 충분하다고 수용했습니다. 추가 성능 변경과 그 목적의
 재부팅은 중단했습니다. 최신 적용은 g965n-interactive-boost.service:
@@ -45,7 +48,7 @@ CPU strict mask·BT 권한·자동 로그인 또는 포털 설정을 바꾸지 �
 
 카메라·지문을 제외한 드라이버/시스템 기능을 진행합니다. 문서 포털의
 별도 WIP 작업을 합치지 않습니다. 개인 요청인 Tailscale·ChatGPT 설치는
-공용 이미지/Git 구성에 넣지 않습니다. GPS 시험은 Wi-Fi로 진행합니다.
+공용 이미지/Git 구성에 넣지 않습니다. GPS는 보류하며 재개 시 Wi-Fi를 사용합니다.
 카메라·지문을 다시 시작하려면 사용자의 새로운 범위 지시를 확인하세요.
 
 부팅/펌웨어/보정/신원 백업, 자격 증명과 실제 위치는 비공개입니다.
@@ -75,7 +78,7 @@ RECOVERY/EFS/CPEFS/RADIO 및 부트로더를 복구 편의상 덮어쓰지 않�
 - `/run/g965n-gnss/nmea.sock`: GeoClue 전용 실제 GNSS 소켓. 단일 연결이며
   읽는 동안 GNSS 세션을 사용합니다. 원문을 터미널/파일/Git에 남기지 않습니다.
 
-## 다음 작업 순서와 합격 조건
+## 작업별 합격 조건 (GPS 항목 보류)
 
 | 순서 | 작업·관련 소스 | 관찰된 문제 / 다음 조사 | 완료 판단 |
 |---|---|---|---|
@@ -377,3 +380,32 @@ ephemeris0은 Quectel version10 참조의 추론이며 own Samsung version9 공�
 하지 마세요. 다음은 RF 수신/보조 정보 실제 소비 확인, 가능할 때 USB 분리
 대조, 필요 시 정확한 계층을 증명한 뒤 transport 관측입니다. 정적 mixed-frame
 경로 후보는 실제 혼합 패킷을 확인하지 못해 수정하지 않았습니다.
+
+
+## 2026-11-21 — GPS 제외, 충전 LED/시스템 후속
+
+최신 지시는 GPS 제외입니다. RF/보조 데이터 실험을 재개하지 마세요.
+커널/BOOT 변경 없이 같은 #48 일반 재부팅과 정확한 모델/BOOT/보호 백업
+검사 통과. Wi-Fi scan3회/HTTPS204·새 timeout0, warm boot HTTPS204 확인.
+기존 timeout 해결 또는 BT 프로파일 전체 정상으로 쓰지 마세요.
+
+새 experiments/pmic/power-leds.py 및 g965n-power-leds.service 설치/enable,
+재부팅 자동 실행과 현재 boot 소유 상태 확인. red=charging/green=full native
+trigger, blue/white 보존·cap1. 실제 Charging/red1→Discharging/red0 확인.
+커널 트리거만으로 순전류 전환을 못 갱신해 실제 UPower StateChanged에
+재활성화합니다. 전류·전압·PMIC charger 설정은 바꾸지 않습니다.
+UPower 표본 지연 존재; 완충 green/물리 USB unplug/장기·절전은 미검증.
+
+Type=simple 조기 종료 경합은 early signal/finally/Type=notify READY로 수정.
+start/stop 원복·수동 red 소유권·restart 통과. 초기 실패의 알려진 소유 상태는
+guarded stop으로 보존/해제했고 임의 삭제 안 했습니다. 원본 helper/unit은
+root 전용 보존. PMIC README의 설치·중지·복구를 따르고 LED pulse 시험 전에는
+이 정책을 먼저 stop하세요. UPower Refresh 지원은 객체마다 가정하지 마세요.
+
+최신 early ring956줄 CPU52+1/hub1/QoS4 유지, targeted 심각 패턴0,
+새 부팅 failed units0. ALS131lux/IIO7개/관련 서비스 자동 active.
+ModemManager introspection으로 실제 GetCellInfo 제공 interface를 찾아
+21cells/1serving read 확인; registration2/searching이며 LTE data pass 아님.
+온도는 내부 TMU 보호가 이미 있으나 CPU/GPU hwmon 표시는 미연결입니다.
+새 커널은 만들거나 설치하지 않았습니다. 개인 ChatGPT 문서 변경48줄은
+기존 다른 작업이며 이번 공개 커밋에 섞지 마세요.

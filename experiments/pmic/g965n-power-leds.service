@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Unit]
+Description=SM-G965N native battery LED policy
+Requires=g965n-led.service upower.service
+After=g965n-led.service upower.service
+PartOf=g965n-led.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=/usr/bin/python3 /usr/local/lib/g965n-led-trial/power-leds.py run --confirm-sm-g965n-backed-up-power-leds
+Restart=on-failure
+RestartSec=5
+RestartPreventExitStatus=78
+TimeoutStartSec=45
+TimeoutStopSec=45
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

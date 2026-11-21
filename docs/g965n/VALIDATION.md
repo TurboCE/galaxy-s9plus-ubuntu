@@ -1,6 +1,6 @@
 # SM-G965N hardware validation
 
-Evidence updated: 2026-11-20. One Korean SM-G965N rev26 / 256GB,
+Evidence updated: 2026-11-21. One Korean SM-G965N rev26 / 256GB,
 original firmware G965NKSU5FVA2. Target is parity with the hardware features
 supported by the reference LineageOS build, not just desktop startup.
 A build or a driver node is not sufficient evidence of a working function.
@@ -573,3 +573,30 @@ was not a valid RF measurement; five known leftovers preserved under verified
 idle ownership. Final clean60s356 NMEA/257 TPV, mode1/0sat; deployed source
 hashes match, no temporary diagnostic config/logger/ptracer. USB still configured
 and owner cannot unplug currently. No root cause/GPS fix/TTFF pass claim.
+
+
+## 2026-11-21 non-GPS follow-up (in progress)
+
+| Check | Result / limit |
+|---|---|
+| Wi-Fi scan regression | Three LastScan changes;15/23/25 APs, station connection retained, interface-bound HTTPS204 each, new escan timeout0. Historical timeout not fixed/proved. |
+| BT/audio/NFC software readiness | Powered BlueZ with A2DP/AVRCP/HFP UUIDs, PipeWire/WirePlumber active, neard active and one NFC device. No new peer/tag physical validation. |
+| USB power / screen-only load | Actual500mA gadget and charger cap. Ordinary-user35s screen-off: current reversed positive and status Charging; original mode restored. No current-limit write. |
+| Charging LED initial native-trigger trial | Failed to follow real status reversal: red remained0 while battery Charging. New UPower bridge installed but not yet qualified/enabled at boot. |
+| UPower Refresh diagnostic | UnknownMethod on an enumerated device; display mode restored, not counted as transition pass. |
+| CPU/GPU thermal presentation | Existing private TMU policy/cached temperatures present; standard CPU/GPU hwmon export absent. No new kernel built or installed. |
+
+UPower bridge real transition passed: charging red1 by26.6s, later discharging
+red0. Lifecycle first test failed early-start signal race; fixed readiness and
+cleanup, retest pending. Screen woke at32.7s during48s sample; cause unconfirmed.
+
+
+Final qualification supersedes the pending bridge rows above: lifecycle stop/
+restore, restart, manual-owner preservation and warm-reboot auto-start passed.
+Exact source/unit match; model/#48/BOOT/protected backups rechecked.48s screen-
+off repeat stayed mode3, Charging12.6s then UPower/red1 by22.7s; later actual
+Discharging/red0 and LED register enable0. Full/green and USB-unplug pending.
+Fresh ring956lines/early header present; CPU52+1/hub1/modem QoS4 persist; targeted
+calltrace/SError/GPU PLL/GPIO/escan/RGB duplicate0. New boot failed units0,
+ALS131lux/7 IIO devices, Wi-Fi HTTPS204. Modem21cells/1serving, registration
+searching: cell read qualifies, current LTE data does not.

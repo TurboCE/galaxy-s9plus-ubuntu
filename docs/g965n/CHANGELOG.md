@@ -7724,3 +7724,83 @@ GNSS lease, five known artifacts privately preserved. Final clean60s356 NMEA/
 drop-in removed and logger/ptracer count0. Last normal startup works; GPS fix
 remains unresolved. Current RF/aid-consumption cause, disconnected USB control,
 favorable-reception TTFF and newer-code reboot regression remain pending.
+
+
+## 2026-11-21 — Non-GPS system follow-up (in progress)
+
+Owner deferred GPS; camera/fingerprint, document-portal WIP and personal app
+configuration remain outside this work. Exact model/#48/BOOT/protected-backup
+guards passed before LED writes. No kernel/BOOT/charger-current/voltage changes.
+
+Three real NetworkManager scans advanced LastScan and returned15/23/25 APs;
+station stayed connected and Wi-Fi-bound HTTPS204 passed each time, with no
+new escan timeout. Earlier timeout remains unexplained, not marked fixed.
+BlueZ is powered and advertises A2DP/AVRCP/HFP; PipeWire/WirePlumber and actual
+neard service are active. No paired headset/HID peer is available, so these
+checks do not establish current profile-level hardware operation.
+
+Found no charging LED policy. Guarded red/green native battery-trigger trial
+preserved blue/white and original state privately. USB gadget advertises500mA
+and actual charger input cap is500000uA; screen-on load can discharge the
+battery despite external power. A single ordinary-user display connection
+held screen off35s and measured positive net current/Charging after6.5s, then
+restored its prior mode. This is load-dependent charging, not evidence to raise
+USB current limits. A first repeated-runuser trial woke the display and is
+not accepted as a screen-off endurance observation.
+
+Kernel battery triggers alone failed: battery changed to Charging while red
+stayed0 throughout a separate35s screen-off test. Installed backed-up guarded
+UPower StateChanged bridge to resample the native triggers, initially disabled
+for boot; real transition/lifecycle qualification is in progress. A test using
+UPower Device.Refresh encountered UnknownMethod on an enumerated device;
+finally restored display mode. This is a diagnostic API failure, not a battery
+or LED hardware pass. No original failures/logs were cleared.
+
+Thermal inspection: CPU/GPU existing TMU policy polls and caps frequencies;
+cached values were55/47/47C. These cached CPU/GPU channels are not exported to
+standard hwmon, unlike existing battery/IIO temperatures. No protection policy,
+thermal threshold, voltage, polling cadence or kernel config was changed.
+
+Actual StateChanged trial: kernel Charging at6.5s, UPower State1/red1 by26.6s;
+later actual Discharging/State2/red0 passed. Screen remained off through30.7s
+but was on at32.7s; cause is unconfirmed, so this is not screen-off endurance
+evidence. Natural UPower state lag remains; no timer or fake battery state.
+
+Lifecycle test found a startup/termination race: Type=simple reported active
+before the process installed its signal handler, and early stop left owned
+runtime state. Manual red selection itself was preserved. Captured known state
+was released through the guarded stop action, not deleted blindly. Moved signal
+setup ahead of preflight, included start in finally cleanup and changed unit to
+Type=notify/READY after both trigger and UPower subscriptions are installed.
+Callback errors now terminate with cleanup instead of being swallowed by GLib.
+
+Lifecycle retest passed: ready start, graceful stop restoring off/none and no
+owned state; manual red1/none preserved across stop, then restored by the test
+owner; restart passed. Enabled service only after those checks. Same qualified
+#48/BOOT normal warm reboot changed boot ID and again passed exact model/BOOT/
+protected-backup checks. Policy auto-started with current-boot state; RGB,
+haptic, sensors, audio, Bluetooth and neard all active. Deployed source/unit
+match repository bytes, helper0600; unit verification and desktop PipeWire/
+WirePlumber/screen-button active checks passed. No kernel or BOOT replacement.
+
+Warm-boot actual repeat:48s display-off observation stayed mode3 throughout;
+kernel Charging12.6s, UPower State1/red1 by22.7s. Original display mode restored;
+subsequent actual Discharging/red0 and LED enable0 confirmed. Blue/white remain
+off, all current codes<=1. Full-charge/green transition and physical USB unplug
+remain unverified. UPower sampling lag is not claimed eliminated.
+
+Full fresh early ring956lines/header present: CPU variation52+1, hub reset1,
+modem QoS4 remain; escan timeout/call trace/SError/GPU PLL failure/GPIO warning/
+RGB duplicate patterns0. Failed units0 in this new boot; prior GPS failures were
+not cleared. ALS131lux readable,7 IIO devices, Wi-Fi-bound HTTPS204. Current
+modem aggregate21 cells/serving1 but State7/registration2(searching), not LTE
+data success. First diagnostic used GetCellInfo on the wrong3GPP interface and
+received UnknownMethod; introspection located the real method and read passed.
+Two collector wrapper delimiter mistakes caused command/name errors after
+read-only output, not device faults; corrected wrapper used for final checks.
+No GPS test, permission change, log clearing or private-data publication.
+
+Additional fixed-race regression: start --no-block then stop after100ms, before
+readiness, left no owned state and original red/green off/none. Subsequent
+ready start active/running, NRestarts0 and ExecMainStatus0. Source/unit pin
+comparison and post-boot Discharging/LED enable0 passed; policy remains enabled.
