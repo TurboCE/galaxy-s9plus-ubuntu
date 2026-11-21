@@ -6,7 +6,7 @@ m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 class SeedTests(unittest.TestCase):
  def sample(self):return dict(source='network',lat=10.,lon=20.,accuracy=25000.,time=1000.)
  def test_uncertainty_grows_without_mutating_cache(self):
-  r=self.sample();self.assertEqual(m.validate(r,1010)['accuracy'],28500);self.assertEqual(r['accuracy'],25000)
+  r=self.sample();self.assertEqual(m.validate(r,1010)['accuracy'],28500);self.assertEqual(m.validate(r,1010)['sample_accuracy'],25000);self.assertEqual(r['accuracy'],25000)
  def test_invalid_or_stale_never_injected(self):
   for key,vals in {'lat':[True,91,float('nan')],'lon':[-181,float('inf')],'accuracy':[0,100001],'time':[1001,699],'source':['unknown']}.items():
    for val in vals:

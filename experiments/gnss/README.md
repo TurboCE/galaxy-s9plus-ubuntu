@@ -378,8 +378,9 @@ between the host connection manager and vendor HAL, below GeoClue's public app
 API. Do not change the kernel unless evidence locates a failure there.
 
 Then compare actual open-sky cold/warm TTFF with/without assistance, offline and
-expired cache, first-fix versus IP estimate, and suspend/reboot recovery. The
-current no-satellite location cannot qualify Android-equivalent speed.
+expired cache, first-fix versus IP estimate, and suspend/reboot recovery. The current S9+ no-satellite result cannot qualify Android-equivalent speed.
+The owner subsequently confirmed an actual Android satellite fix at the same
+place, so a location-only explanation has been withdrawn.
 
 Native48 qualification: corrected callback handled an actual request without
 exception;180s delivered1688 NMEA/1225 TPV. After a clean session shutdown and
@@ -390,3 +391,71 @@ These no-satellite/mode1 observations qualify the assistance/transport and
 reboot path, not a new position fix or improved TTFF. The network cache expired
 correctly and never populated the separate genuine-GNSS cache; capture/reuse
 of that real-fix cache remains a favorable-reception hardware test.
+
+
+## Same-place RF comparison and request-driven aid (2026-11-21)
+
+The owner confirmed another Android GPS diagnostic obtains a real satellite
+fix at the same place. A subsequent photo directly shows4 signals,2 marked
+in use and about21–27 signal strength, while status is No Fix. That photo
+proves signal reception, not a completed fix at that instant. Earlier
+environment-only interpretations are superseded.
+SM-G965N still delivered0sat/mode1 after300s2996 NMEA/2177 TPV. Transport is
+alive; this does not qualify RF reception or Android-equivalent assistance.
+
+The HAL now services asynchronous location requests on the main control loop,
+using only the already prepared **network** seed as an independent reply.
+The callback thread only increments a counter. A private seed-independent
+marker causes the host to pass --seed-independent; a previous-GNSS cache never
+gets that flag. FD5 is rewound for each request. The host passes original sample
+accuracy/timestamp and the C helper adds350m/s at injection, avoiding double
+ageing while rejecting expired/excessively uncertain input. The location reply
+was actually exercised (two inject0 responses/request replay1), but301s3018
+NMEA/2193 TPV still had no satellites/fix.
+
+A temporary UTC/XTRA callback-response candidate observed0/0 requests and
+181s1699 NMEA/1233 TPV without fix; those request paths were not exercised by
+the handset. Another candidate replayed UTC/XTRA once after first NMEA, with
+one XTRA initialization and two successful inject calls, but receiver state
+and181s1698 NMEA/1232 TPV did not improve. These timing/UTC/XTRA candidates were
+removed; the actually exercised network-only request reply remains installed.
+Do not add repeated aid injection as a presumed fix. Dynamic time/ephemeris
+consumption still needs diagnosis.
+
+`receiver-status.py` is a read-only loopback GPSD observer. Open the authorized
+xgps viewer, or run gpsd-summary.py as the authorized desktop user in another
+terminal, then run:
+
+```sh
+python3 receiver-status.py --seconds 60
+```
+
+It does not activate RF or grant a new GeoClue policy. It emits only checksum-
+checked PGLOR type counts and selected nonlocation STA aggregate fields. It
+never emits NMEA, coordinates, UTC timestamps, cell/satellite IDs or arbitrary
+payload. Invalid/unknown layouts are not decoded. On this handset version9
+STA matched the common marker layout: aid tPeF, ephemeris0, prefix fields4..9
+0/4294.967/0/2000/9999/0, full-power code F. Aiding-state interpretation is
+inferred from the same chipset supplier's published
+[LC29D protocol, STA](https://quectel.com/content/uploads/2024/02/Quectel_LC29D_GNSS_Protocol_Specification_V1.0-1.pdf)
+(version10), not independently qualified Samsung version9 semantics. In that
+reference time/ephemeris aid are unavailable for lowercase t/e; API return0
+must not be presented as proof of receiver consumption or a GPS fix.
+
+Filtered diagnostic logging exposed optional trace-directory and RIL connection
+refusal messages; neither has been proved the RF cause. Temporary logger drop-in
+was removed and its process stopped. No kernel/clock/regulator/GPIO/firmware
+change was made. Existing kernel lacks KPROBES/FTRACE/BPF_EVENTS, so kernel
+packet-level instrumentation was not available. Static inspection of mixed
+sensor/GNSS routing suggests a possible drop condition, but real mixed packets
+were not observed; no speculative driver fix was installed. USB remains connected because the owner cannot disconnect it now; that
+comparison and a direct RF/assistance-consumption diagnosis remain open.
+
+
+File-metadata tracing was inconclusive: supervisor tracing captured validation,
+then interrupted startup left known trial state and a later direct-GPSD attach
+found no daemon. Neither handshake-only run is RF evidence. All tracers were
+detached; after stopped source units/no vendor process/exclusive GNSS lease,
+five known artifacts were privately preserved before resuming the checked
+network-reply baseline. Do not delete unknown state or claim a file/permission
+root cause from this attempt.

@@ -60,6 +60,7 @@ class Supervision(unittest.TestCase):
                 "print('HAL start result: 0'); "
                 "print('GNSS UTC injection result: 0'); "
                 "print('GNSS position injection result: 0'); "
+                "print('GNSS requested network seed replay: 1'); "
                 "print('GNSS position injection result: latitude=12.3'); "
                 "print('GNSS extension gps-xtra available: 1'); "
                 "print('GNSS callbacks: status=2 satellites=1 nmea=14 location=0'); "
@@ -70,6 +71,7 @@ class Supervision(unittest.TestCase):
         self.assertIn('Standalone GNSS mode result: 0', output.getvalue())
         self.assertIn('HAL start result: 0', output.getvalue())
         self.assertIn('GNSS position injection result: 0', output.getvalue())
+        self.assertIn('GNSS requested network seed replay: 1', output.getvalue())
         self.assertIn('satellites=1 nmea=14', output.getvalue())
         self.assertNotIn('12.3', output.getvalue())
         self.assertNotIn('latitude', output.getvalue())

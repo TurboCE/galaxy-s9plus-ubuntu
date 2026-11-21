@@ -7669,3 +7669,58 @@ serve.py/seed.py 소스 해시·0600 일치. 위성0/mode1이며 새 fix 증거�
 Real new fix cache capture/reuse, offline/expired-cache field tests, open-sky
 TTFF A/B, motion/suspend accuracy and SUPL remain pending. Current location is
 owner-confirmed unable to receive satellites, not a new RF failure conclusion.
+
+
+## 2026-11-21 — Same-place Android satellite fix comparison
+
+Owner reported another Android GPS app obtained a satellite fix at the same
+location. Subsequent supplied screenshot directly shows4 signals/2 in use,
+strength21–27 and No Fix: it proves reception, not a completed fix in that
+frame. Earlier environment-only interpretation is withdrawn; do not replace
+it with an unproved driver/hardware diagnosis. USB remains configured because
+the owner currently cannot disconnect it. All commands/measurements use Wi-Fi.
+
+Fresh exact model/#48/BOOT/protected-backup/HAL-pin checks passed.300s same-
+place observation2996 NMEA/2177 TPV,0sat/no GSV/mode1. Added existing filtered
+logger through a temporary runtime unit drop-in, with private rollback receipt.
+180s1677/1217 likewise no fix. Logger saw optional trace-directory failure and
+RIL connection refusal; neither is proved to cause RF failure. No clock,
+GPIO/regulator, kernel/BOOT/firmware/protected-partition change.
+
+Found async location callback was counted but not answered after startup aid.
+Added main-loop network-only seed reply, FD5 rewind and strict independence
+flag; prior-GNSS cache is never replayed as an independent network reply.
+Preserve original sample accuracy/time in host handoff and inflate uncertainty
+350m/s at each C injection, including late replies; reject over100km/300s.
+Fresh source built natively, exact pins updated under private HAL/pins/helpers
+snapshots. Actual initial+requested position injections returned0, replay1;
+301s3018 NMEA/2193 TPV still0sat/mode1. This qualifies request handling, not RF.
+
+Tested a UTC/XTRA callback-response candidate: request counters0/0,181s1699/
+1233 no fix; those paths not exercised. Tested one-shot UTC/XTRA after first
+NMEA: both API0, one XTRA init/two injections,181s1698/1232 and receiver state
+unchanged. Extra candidates removed; rebuilt/retained the actually exercised
+network-request baseline SHA d1c926ca325e678e782e64ee121febe3f2752adc88d6f8602902432eee70373a.
+
+Added checksum-checked aggregate-only receiver-status.py, installed ordinary-
+user readable with private installation receipt.60s actual observation32 STA/
+32 UNC records; common version9 prefix matched, tPeF, TimeSource0, ephemeris0,
+field5=4294.967, full-power F. Mapping time/ephemeris availability from published
+same-chipset-supplier version10 is explicitly an inference, not qualified
+Samsung semantics/root cause. No NMEA/coordinates/UTC timestamps/cell or
+satellite IDs emitted.26 current GNSS host tests pass, including actual C seed
+parser/callback policy ASan/UBSan, privacy/layout/invalid receiver records.
+
+Readonly private interface inspection found an80-byte standard legacy table;
+no extra-slot ABI theory or immediate-return-zero explanation was adopted.
+Private vendor traces/disassembly never published. Kernel KPROBES/FTRACE/
+BPF_EVENTS unavailable; a possible static mixed-frame routing issue was not
+proved with real packets and no driver change installed. File-metadata ptrace
+was inconclusive; next direct attach had no daemon because interrupted startup
+left known trial state. Handshake-only runs are not RF observations. All
+ptracers detached; with source units stopped/no vendor/HAL process/exclusive
+GNSS lease, five known artifacts privately preserved. Final clean60s356 NMEA/
+257 TPV, mode1/no fix, source hashes match deployed helpers. Temporary logger
+drop-in removed and logger/ptracer count0. Last normal startup works; GPS fix
+remains unresolved. Current RF/aid-consumption cause, disconnected USB control,
+favorable-reception TTFF and newer-code reboot regression remain pending.

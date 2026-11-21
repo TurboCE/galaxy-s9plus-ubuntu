@@ -149,14 +149,14 @@ Remaining layers:
 |---|---|---|
 | GeoClue | App permission, existing network/NMEA sources, MM cell gathering | Actual cell-specific DB coordinate result and accuracy |
 | Host assistance | UTC/NTP, LTO/XTRA, approximate start seed, private last-fix cache | Actual new GNSS fix capture/reuse, offline/expired-cache field tests, bounded-latency tuning |
-| Vendor HAL | Start, inject_time/inject_location/XTRA, explicit own-device location-request callback | Dynamic independent-location reply and qualified AGPS/AGPS_RIL lifecycle |
+| Vendor HAL | Start, inject_time/inject_location/XTRA, explicit own-device location-request callback | Network-only independent reply now exercised; qualified AGPS/AGPS_RIL lifecycle remains |
 | SUPL transport | Vendor extension presence only | Callback/network lifecycle, compatible server/TLS, least-privilege transport across current network isolation |
 | Hardware/RF | Historical genuine fix retained; current checksum-valid NMEA | Open-sky cold/warm TTFF A/B, movement and accuracy, suspend/recovery |
 
 Do not globally remove vendor network isolation, substitute an IP estimate for
-GNSS, or change the kernel without identifying a failure at that layer. The
-current owner-confirmed no-satellite location cannot qualify Android-equivalent
-first-fix performance.
+GNSS, or change the kernel without identifying a failure at that layer. The then-current environment-only explanation was later withdrawn after the
+owner confirmed an Android satellite fix at the same place. See the comparison
+below; Android-equivalent first-fix performance remains unqualified.
 
 Corrected-HAL final hardware evidence:180s1688 NMEA/1225 TPV, request callback1,
 no exception in that instance. Clean shutdown left no known trial artifacts.
@@ -165,3 +165,38 @@ GPSD/cache units;91s687 NMEA/498 TPV, request callback1, GNSS exceptions0 in
 that new boot. Start/standalone/UTC/position/XTRA0, XTRA124383bytes. Mode1 with
 zero satellites throughout; no new fix/TTFF claim. No private identifiers,
 coordinates or firmware artifacts are needed to reproduce these public checks.
+
+
+## Same-place comparison supersedes environment-only interpretation
+
+2026-11-21 owner clarification: another Android GPS diagnostic got an actual
+satellite fix here, not just an IP/map location. That comparison is owner-
+reported, not an independently captured side-by-side RF log. S9+300s2996 NMEA/
+2177 TPV remained0sat/mode1. Filtered diagnostic180s1677/1217 likewise no fix.
+Existing receiver transport/callbacks are alive; the RF/assistance path remains
+under investigation and must not be labelled healthy from return0.
+
+Request-driven network-only position reply was exercised (initial+requested
+inject0),301s3018 NMEA/2193 TPV still no fix. A UTC/XTRA response candidate observed request counters0/0 and181s1699/1233,
+without exercising those paths. A first-NMEA one-shot aid retry returned0 with
+one XTRA init, but181s1698/1232 and receiver metadata did not improve. Both
+additional candidates were removed; network-only location reply was retained.
+
+Public receiver-status.py reproduces privacy-preserving PGLOR aggregates while
+an authorized location client holds the receiver. Own version9 STA common
+prefix matched; tPeF, ephemeris0 and field5=4294.967 were stable. Interpreting
+these against the linked chipset-supplier version10 reference suggests time/
+ephemeris aid not usable. This is an inference, not a validated Samsung field
+specification or proof of the root cause. Do not use invalid NMEA time as a
+measured UTC clock drift. Runtime logging was restored off; private vendor
+inspection/receipts remain private. No RF register or kernel change was made.
+USB was still configured in recorded tests; disconnected comparison pending.
+
+
+The subsequent supplied Android screenshot directly shows4 signals/2 in use,
+strength21–27 and No Fix. It supports actual RF signal reception at the site,
+not a completed fix in that frame; the earlier fix is owner-reported. USB cannot
+be disconnected now per owner, so that RF control is unavailable. No current
+root cause is confirmed. A metadata-ptrace attempt was inconclusive and left
+five known trial artifacts; verified-idle preservation restored normal receiver
+startup. Handshake-only diagnostic failures are excluded from RF evidence.

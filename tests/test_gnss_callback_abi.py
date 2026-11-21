@@ -31,4 +31,35 @@ int main(void) {
    p=Path(d);(p/'test.c').write_text(program)
    subprocess.run(['cc','-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined',str(p/'test.c'),'-o',str(p/'test')],check=True)
    subprocess.run([str(p/'test')],check=True)
+ def test_request_reply_requires_independent_seed_and_is_not_repeated(self):
+  source=(Path(__file__).parents[1]/'experiments/gnss/hal-probe.c').read_text()
+  a=source.index('static void service_location_request(');fn=source[a:source.index('\n}',a)+2]
+  program='''
+#include <stdbool.h>
+#include <stdatomic.h>
+#include <stdio.h>
+#include <assert.h>
+struct interface {int unused;};
+static atomic_uint location_requests;
+static unsigned injections;
+static void provide_seed(const struct interface *gps){(void)gps;injections++;}
+'''+fn+'''
+int main(void){
+ struct interface gps={0};unsigned served=0;
+ atomic_store(&location_requests,1);
+ service_location_request(&gps,false,true,&served);
+ service_location_request(&gps,true,false,&served);
+ assert(injections==0&&served==0);
+ service_location_request(&gps,true,true,&served);
+ assert(injections==1&&served==1);
+ service_location_request(&gps,true,true,&served);assert(injections==1);
+ atomic_store(&location_requests,2);
+ service_location_request(&gps,true,true,&served);assert(injections==2&&served==2);
+ return 0;
+}
+'''
+  with tempfile.TemporaryDirectory() as d:
+   p=Path(d);(p/'test.c').write_text(program)
+   subprocess.run(['cc','-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined',str(p/'test.c'),'-o',str(p/'test')],check=True)
+   subprocess.run([str(p/'test')],check=True,stdout=subprocess.DEVNULL)
 if __name__=='__main__':unittest.main()

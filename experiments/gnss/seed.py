@@ -19,6 +19,7 @@ def validate(r, now, aged=True):
     age=now-r['time']
     if not(-90<=r['lat']<=90 and -180<=r['lon']<=180 and 1<=r['accuracy']<=100000 and 0<=age<=300):return None
     result=dict(r)
+    result['sample_accuracy']=r['accuracy']
     # Conservative travel allowance, never pretend old/coarse data is precise.
     result['accuracy']=r['accuracy']+(350*age if aged else 0)
     return result if result['accuracy']<=100000 else None

@@ -549,3 +549,27 @@ NMEA687/TPV498, 위치 요청 콜백1회, 해당 부팅 GNSS 예외0 확인.
 serve.py/seed.py 소스 해시·0600 일치. 위성0/mode1이며 새 fix 증거는 아님.
 No new satellite fix or TTFF improvement claim. Real fix cache capture/reuse,
 offline/expired assistance field test, SUPL and open-sky accuracy remain pending.
+
+
+## 2026-11-21 — Same-place Android satellite fix comparison
+
+Same-place control is owner-reported plus screenshot:4 signals/2 in use,
+strength21–27, No Fix in the image. Environment-only conclusion withdrawn.
+S9+300s2996 NMEA/2177 TPV,0sat/mode1; filtered180s1677/1217 also no fix.
+Independent network-only request replay exercised (two position inject0,
+request replay1),301s3018/2193 still no fix. Current26 host GNSS tests pass;
+actual C parser and callback independence/repeat tests under ASan/UBSan.
+
+UTC/XTRA candidate181s1699/1233 with request counts0/0; ready-time one-shot
+181s1698/1232, API0 but no metadata/RF improvement. Both extras removed.
+Native reproducible final network-reply helper d1c926ca... installed with exact
+model/BOOT/backup/pin checks, protected partitions untouched. New-code reboot
+regression is not yet qualified.
+
+Public receiver-status tool60s32 STA/32 UNC, matched common version9 layout,
+tPeF/TimeSource0/ephemeris0/field5=4294.967/F. Interpretation against supplier
+version10 is inferred. Raw payload/position/date/IDs not emitted. Tracing attempt
+was not a valid RF measurement; five known leftovers preserved under verified
+idle ownership. Final clean60s356 NMEA/257 TPV, mode1/0sat; deployed source
+hashes match, no temporary diagnostic config/logger/ptracer. USB still configured
+and owner cannot unplug currently. No root cause/GPS fix/TTFF pass claim.

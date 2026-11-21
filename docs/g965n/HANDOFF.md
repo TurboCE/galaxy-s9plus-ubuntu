@@ -310,9 +310,9 @@ LOCATION_REVIEW.md를 우선 읽으세요. 새 root-only cell-list-request/cell-
 갱신하고 once-per-boot guard를 지우지 말고 정상 재부팅을 사용하세요.
 
 GPSD 관찰만으로는 receiver가 켜지지 않습니다. gpsd-summary.py를 허용된
-데스크톱 사용자로 실행하면 GeoClue client를 유지합니다. 현재 장소에서는
-위성을 못 받는다고 사용자가 명시했으므로 window0sat/no-fix는 환경 제약으로
-기록합니다. 수신 가능한 장소에서 최종 fix 확인이 남고 GPS 드라이버 임의
+데스크톱 사용자로 실행하면 GeoClue client를 유지합니다. 당시 사용자 설명에 따라 window0sat/no-fix를 환경 제약으로 기록했으나,
+같은 위치의 다른 Android 신호 사진으로 그 단독 원인 판단을 철회했습니다.
+아래 최신 동일 위치 비교를 우선합니다. 수신 가능한 장소에서 최종 fix 확인이 남고 GPS 드라이버 임의
 수정은 하지 않았습니다. standalone/start/UTC/XTRA0와 유효 NMEA 전달 확인.
 과거 실기기 fix 성공 증거는 유지합니다. BeaconDB/submit-data=false 보존.
 
@@ -348,3 +348,32 @@ serve.py/seed.py 소스 해시·0600 일치. 위성0/mode1이며 새 fix 증거�
 쓰지 마세요. SUPL은 AGPS callback/network lifecycle·server/TLS·제한된 transport
 설계가 남았습니다. 전역 vendor network isolation 해제는 하지 않았습니다.
 GPS는 Wi-Fi로 계속 검증하며 커널/BOOT/펌웨어 변경은 없었습니다.
+
+
+## 2026-11-21 — Same-place Android satellite fix comparison
+
+환경만으로 위성0을 설명하지 마세요. 다른 Android의 같은 위치 사진은
+4신호/2사용·21–27·No Fix입니다. 앞선 실제 fix 보고와 사진이 직접 증명하는
+수신을 구분하세요. 사용자는 현재 USB 분리가 어려움; 새 질문으로 반복하지
+마세요. GPS 제어는 계속 Wi-Fi이며 USB configured 상태에서만 측정했습니다.
+
+현재 HAL은 network-only request reply가 실제 동작한 d1c926ca... baseline.
+seed.py의 sample_accuracy와 FD5 원래 timestamp를 C가 매번350m/s로 증폭해
+late replay를 검증합니다. --seed-independent는 network source만 받습니다.
+UTC/XTRA callback/first-NMEA retry는 효과/실제 이벤트 검증이 부족해 제거.
+source/핀/원본 롤백은 기기에 비공개. 마지막 clean60s356 NMEA/257 TPV,
+mode1/0sat입니다. 정상 NMEA를 GPS fix 성공으로 쓰지 마세요.
+
+receiver-status.py는 별도 authorized GeoClue/xgps/GPSD summary가 수신기를
+유지할 때 일반 사용자로 --seconds60 실행. checksum/STA common-prefix를
+검사하고 식별자·좌표·실제 UTC 없이 aggregate만 출력합니다. tPeF/TimeSource0/
+ephemeris0은 Quectel version10 참조의 추론이며 own Samsung version9 공식
+규격 확인이 아닙니다. NMEA invalid time을 실제 UTC drift로 계산하지 마세요.
+
+자세한 수치·부정 결과·재현법은 LOCATION_REVIEW/README/CHANGELOG에 있습니다.
+임시90-rf-diagnostic.conf 제거·logger/ptracer0 확인. metadata tracing은
+불완전했고 남은 known trial state5개를 owner 종료/exclusive lease 후 비공개
+보존하여 복구했습니다. unknown state 자동 삭제·수신기 GPIO/전원 추측 변경
+하지 마세요. 다음은 RF 수신/보조 정보 실제 소비 확인, 가능할 때 USB 분리
+대조, 필요 시 정확한 계층을 증명한 뒤 transport 관측입니다. 정적 mixed-frame
+경로 후보는 실제 혼합 패킷을 확인하지 못해 수정하지 않았습니다.

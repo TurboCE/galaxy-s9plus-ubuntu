@@ -266,6 +266,7 @@ static void provide_seed(const struct interface *gps)
     char data[192], *cursor, *end;
     double values[4], lat, lon, accuracy, stamp;
     struct timespec now;
+    if (lseek(5, 0, SEEK_SET) != 0) return;
     ssize_t n = read(5, data, sizeof(data)-1);
     if (n <= 0 || n == (ssize_t)sizeof(data)-1 || !gps->inject_location) return;
     if (memchr(data, 0, (size_t)n)) goto invalid;
@@ -288,11 +289,24 @@ static void provide_seed(const struct interface *gps)
         now.tv_sec + now.tv_nsec/1e9 - stamp > 300) {
         goto invalid;
     }
+    accuracy += 350 * (now.tv_sec + now.tv_nsec/1e9 - stamp);
+    if (accuracy > 100000) goto invalid;
     printf("GNSS position injection result: %d\n", gps->inject_location(lat, lon, (float)accuracy));
     return;
 invalid:
     puts("GNSS position injection result: -22");
 }
+
+static void service_location_request(const struct interface *gps, bool enabled,
+                                     bool independent_seed, unsigned *served)
+{
+    unsigned requests = atomic_load(&location_requests);
+    if (!enabled || !independent_seed || requests == *served) return;
+    provide_seed(gps);
+    *served = requests;
+    printf("GNSS requested network seed replay: %u\n", requests);
+}
+
 
 int main(int argc, char **argv, char **envp)
 {
@@ -308,11 +322,14 @@ int main(int argc, char **argv, char **envp)
     int rc;
     unsigned long seconds = 24;
     bool inject_utc = false, inject_xtra = false, inject_seed = false, on_demand = false;
+    bool seed_independent = false;
     for (int i = 2; i < argc; ++i) {
         if (!strcmp(argv[i], "--inject-current-utc") && !inject_utc)
             inject_utc = true;
         else if (!strcmp(argv[i], "--seed-fd5") && !inject_seed)
             inject_seed = true;
+        else if (!strcmp(argv[i], "--seed-independent") && !seed_independent)
+            seed_independent = true;
         else if (!strcmp(argv[i], "--xtra-fd4") && !inject_xtra)
             inject_xtra = true;
         else if (!strcmp(argv[i], "--serve-nmea-fd3") && !forward_nmea)
@@ -322,6 +339,7 @@ int main(int argc, char **argv, char **envp)
         else
             return 4;
     }
+    if (seed_independent && !inject_seed) return 4;
     if (argc >= 2) {
         char *end;
         seconds = strtoul(argv[1], &end, 10);
@@ -371,8 +389,11 @@ int main(int argc, char **argv, char **envp)
                 struct pollfd control = {.fd = STDIN_FILENO, .events = POLLIN};
                 int status;
                 unsigned idle_seconds = 0;
+                unsigned served_requests = 0;
                 do {
                     status = poll(&control, 1, 1000);
+                    if (!status)
+                        service_location_request(gps, inject_seed, seed_independent, &served_requests);
                     if (!status && ++idle_seconds % 15 == 0) {
                         printf("GNSS live: satellite_callbacks=%u visible_max=%u fixes=%u nmea=%u\n",
                                atomic_load(&gps_sv), atomic_load(&visible_satellites_max),

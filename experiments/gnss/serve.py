@@ -126,6 +126,7 @@ def watch_hal(daemon, client, inject_utc):
                 rb'GNSS capability mask: \d+|GNSS status code \d+ occurred \d+ times|'
                 rb'GNSS position injection result: -?\d+|'
                 rb'GNSS location assistance requests: \d+|'
+                rb'GNSS requested network seed replay: \d+|'
                 rb'GNSS XTRA init result: -?\d+|'
                 rb'GNSS XTRA injection result: -?\d+ \(bytes=\d+\)|'
                 rb'GNSS live: satellite_callbacks=\d+ visible_max=\d+ fixes=\d+ nmea=\d+)', line):
@@ -229,6 +230,8 @@ def worker(root, supervisor, inject_utc):
             seed_fd = 5
             descriptors += (5,)
             command.append('--seed-fd5')
+            if (root / 'trial/seed-independent').is_file():
+                command.append('--seed-independent')
         client = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                   pass_fds=descriptors, env=environment, preexec_fn=enter)
         if 4 in descriptors:
@@ -293,9 +296,12 @@ def serve():
                 try:
                     seed = load(seed_helper).prepare()
                     if seed:
+                        seed['accuracy'] = seed.get('sample_accuracy', seed['accuracy'])
                         (root / 'trial/seed.dat').write_text(
                             'v1 {lat:.12g} {lon:.12g} {accuracy:.12g} {time:.6f}\n'.format(**seed))
                         (root / 'trial/seed.dat').chmod(0o400)
+                        if seed['source'] == 'network':
+                            (root / 'trial/seed-independent').touch(mode=0o400)
                 except Exception:
                     print('GNSS position assistance unavailable; standalone continues', flush=True)
             command = ['unshare', '--mount', '--propagation', 'private',
