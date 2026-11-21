@@ -124,6 +124,8 @@ def watch_hal(daemon, client, inject_utc):
                 rb'GNSS callbacks: status=\d+ satellites=\d+ nmea=\d+ location=\d+|'
                 rb'GNSS checksum-valid NMEA: \d+, forwarded: \d+|'
                 rb'GNSS capability mask: \d+|GNSS status code \d+ occurred \d+ times|'
+                rb'GNSS position injection result: -?\d+|'
+                rb'GNSS location assistance requests: \d+|'
                 rb'GNSS XTRA init result: -?\d+|'
                 rb'GNSS XTRA injection result: -?\d+ \(bytes=\d+\)|'
                 rb'GNSS live: satellite_callbacks=\d+ visible_max=\d+ fixes=\d+ nmea=\d+)', line):
@@ -218,10 +220,21 @@ def worker(root, supervisor, inject_utc):
                 os.close(fd)
             descriptors = (3, 4)
             command.append('--xtra-fd4')
+        seed = root / 'trial/seed.dat'
+        seed_fd = None
+        if seed.is_file():
+            seed_fd = os.open(seed, os.O_RDONLY | os.O_NOFOLLOW)
+            if seed_fd != 5:
+                os.dup2(seed_fd, 5); os.close(seed_fd)
+            seed_fd = 5
+            descriptors += (5,)
+            command.append('--seed-fd5')
         client = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                   pass_fds=descriptors, env=environment, preexec_fn=enter)
-        if len(descriptors) == 2:
+        if 4 in descriptors:
             os.close(4)
+        if seed_fd is not None:
+            os.close(seed_fd)
         with client.stdout:
             sys.exit(watch_hal(daemon, client, inject_utc))
     finally:
@@ -275,6 +288,16 @@ def serve():
                     aid = root / 'trial/xtra.dat'
                     aid.write_bytes(cached)
                     aid.chmod(0o400)
+            seed_helper = base / 'seed.py'
+            if seed_helper.is_file():
+                try:
+                    seed = load(seed_helper).prepare()
+                    if seed:
+                        (root / 'trial/seed.dat').write_text(
+                            'v1 {lat:.12g} {lon:.12g} {accuracy:.12g} {time:.6f}\n'.format(**seed))
+                        (root / 'trial/seed.dat').chmod(0o400)
+                except Exception:
+                    print('GNSS position assistance unavailable; standalone continues', flush=True)
             command = ['unshare', '--mount', '--propagation', 'private',
                 '--net', '--pid', '--fork', '--kill-child', sys.executable, __file__,
                 '--worker', str(root), str(supervisor)]
@@ -290,8 +313,9 @@ def serve():
                         break
                     chunk = os.read(session.stdout.fileno(), 4096)
                     if not chunk:
-                        if session.wait() != 0:
-                            raise RuntimeError('GNSS worker exited unsuccessfully')
+                        status = session.wait()
+                        if status != 0:
+                            raise RuntimeError(f'GNSS worker exited unsuccessfully: {status}')
                         break
                     peer.sendall(chunk)
                     # Optional read-only diagnostic fanout. Never wait for a viewer

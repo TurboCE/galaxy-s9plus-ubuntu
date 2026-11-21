@@ -525,3 +525,27 @@ Initial GPSD observer without an active location client is not RF evidence.
 Fallback follow-up: authorized location request enabled MM source1 on demand,
 GeoClue accuracy25000m. Cell-specific coordinate lookup success is unverified;
 coarse network estimate must not be labelled a GNSS/cell-position pass.
+
+
+## 2026-11-21 — GNSS start-position assistance
+
+Native Bionic build +21 host GNSS tests pass, including actual C parser and
+callback-slot ASan/UBSan tests. Initial candidate's return0 was not a pass:
+no NMEA/worker245, private debugger confirmed missing extended request callback.
+The corrected104-byte persistent callback table handled a real request and
+180s delivered1688 NMEA/1225 TPV, mode1/no fix, latest GNSS-instance exception0.
+Standalone/start/UTC/position/XTRA-init/inject0, XTRA124383bytes. Old-source
+post-recovery241s control2348/1706; early no-seed control was confounded by
+stale trial artifacts and is not isolated evidence of seed failure.
+
+Root cache0700/files0600, network-only record;671s-old sample refused, fresh
+network25km prepared1.14s. Watcher automatically active after earlier reboot;
+mode1 never created the GNSS cache. Corrected session clean shutdown left0
+known trial artifacts before ordinary reboot.
+수정 HAL 일반 재부팅 후 모델/#48/BOOT/보호 백업/실행파일 핀 재확인.
+센서·GNSS 소켓·GPSD bridge·캐시 서비스 자동 active. 재시험91초에서
+NMEA687/TPV498, 위치 요청 콜백1회, 해당 부팅 GNSS 예외0 확인.
+시작/standalone/UTC/위치/XTRA init/inject0. unit 검증 통과, 배포된
+serve.py/seed.py 소스 해시·0600 일치. 위성0/mode1이며 새 fix 증거는 아님.
+No new satellite fix or TTFF improvement claim. Real fix cache capture/reuse,
+offline/expired assistance field test, SUPL and open-sky accuracy remain pending.

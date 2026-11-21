@@ -45,6 +45,8 @@ struct callbacks {
     void (*utc_time)(void);
     void (*system_info)(const void *);
     void (*gnss_satellites)(void *);
+    /* Own-device Samsung extension following the 96-byte legacy prefix. */
+    void (*request_location)(bool independent_from_gnss, bool user_emergency);
 };
 
 struct interface {
@@ -59,12 +61,15 @@ struct interface {
     int (*set_mode)(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
     const void *(*extension)(const char *);
 };
+_Static_assert(offsetof(struct callbacks, request_location) == 96,
+               "SM-G965N callback extension requires the LP64 legacy prefix");
 
 static atomic_uint fixes, gps_sv, nmea_records, status_records, status_values[8];
 static atomic_uint nmea_valid, nmea_forwarded;
 static atomic_uint capability_mask;
 static atomic_uint xtra_requests;
 static atomic_uint visible_satellites_max;
+static atomic_uint location_requests;
 static bool forward_nmea;
 struct status_value {
     size_t size;
@@ -109,6 +114,13 @@ static void satellites(void *value)
 static void noop(void) {}
 static void system_info(const void *value) { (void)value; }
 static void capabilities(uint32_t flags) { atomic_store(&capability_mask, flags); }
+static void request_location(bool independent_from_gnss, bool user_emergency)
+{
+    (void)independent_from_gnss;
+    (void)user_emergency;
+    /* Never reenter GeoClue or inject a GNSS fix from the callback thread. */
+    ++location_requests;
+}
 static int hex_value(unsigned char byte)
 {
     if (byte >= '0' && byte <= '9')
@@ -249,22 +261,58 @@ static void provide_utc(const struct interface *gps)
     printf("GNSS UTC injection result: %d\n", rc);
 }
 
+static void provide_seed(const struct interface *gps)
+{
+    char data[192], *cursor, *end;
+    double values[4], lat, lon, accuracy, stamp;
+    struct timespec now;
+    ssize_t n = read(5, data, sizeof(data)-1);
+    if (n <= 0 || n == (ssize_t)sizeof(data)-1 || !gps->inject_location) return;
+    if (memchr(data, 0, (size_t)n)) goto invalid;
+    data[n] = 0;
+    if (strncmp(data, "v1 ", 3)) goto invalid;
+    cursor = data + 3;
+    for (int i=0; i<4; i++) {
+        values[i] = strtod(cursor, &end);
+        if (end == cursor || (*end && *end != ' ' && *end != '\n' && *end != '\r' && *end != '\t')) goto invalid;
+        cursor = end;
+    }
+    while (*cursor==' ' || *cursor=='\n' || *cursor=='\r' || *cursor=='\t') cursor++;
+    if (*cursor) goto invalid;
+    lat=values[0]; lon=values[1]; accuracy=values[2]; stamp=values[3];
+    if (!__builtin_isfinite(lat) || !__builtin_isfinite(lon) ||
+        !__builtin_isfinite(accuracy) || !__builtin_isfinite(stamp) ||
+        lat < -90 || lat > 90 || lon < -180 || lon > 180 ||
+        accuracy < 1 || accuracy > 100000 || clock_gettime(CLOCK_REALTIME, &now) ||
+        stamp > now.tv_sec + now.tv_nsec/1e9 ||
+        now.tv_sec + now.tv_nsec/1e9 - stamp > 300) {
+        goto invalid;
+    }
+    printf("GNSS position injection result: %d\n", gps->inject_location(lat, lon, (float)accuracy));
+    return;
+invalid:
+    puts("GNSS position injection result: -22");
+}
+
 int main(int argc, char **argv, char **envp)
 {
     const struct interface *(*get_gps)(void);
     const struct interface *gps;
-    struct callbacks cb = {
+    static struct callbacks cb = {
         .size = sizeof(cb), .location = location, .status = status,
         .satellites = satellites, .nmea = nmea, .capabilities = capabilities,
         .acquire = noop, .release = noop, .thread = spawn, .utc_time = noop,
-        .system_info = system_info, .gnss_satellites = satellites
+        .system_info = system_info, .gnss_satellites = satellites,
+        .request_location = request_location
     };
     int rc;
     unsigned long seconds = 24;
-    bool inject_utc = false, inject_xtra = false, on_demand = false;
+    bool inject_utc = false, inject_xtra = false, inject_seed = false, on_demand = false;
     for (int i = 2; i < argc; ++i) {
         if (!strcmp(argv[i], "--inject-current-utc") && !inject_utc)
             inject_utc = true;
+        else if (!strcmp(argv[i], "--seed-fd5") && !inject_seed)
+            inject_seed = true;
         else if (!strcmp(argv[i], "--xtra-fd4") && !inject_xtra)
             inject_xtra = true;
         else if (!strcmp(argv[i], "--serve-nmea-fd3") && !forward_nmea)
@@ -315,6 +363,8 @@ int main(int argc, char **argv, char **envp)
             int waited = 0;
             if (inject_utc)
                 provide_utc(gps);
+            if (inject_seed)
+                provide_seed(gps);
             if (inject_xtra)
                 provide_xtra(gps);
             if (on_demand) {
@@ -323,10 +373,12 @@ int main(int argc, char **argv, char **envp)
                 unsigned idle_seconds = 0;
                 do {
                     status = poll(&control, 1, 1000);
-                    if (!status && ++idle_seconds % 15 == 0)
+                    if (!status && ++idle_seconds % 15 == 0) {
                         printf("GNSS live: satellite_callbacks=%u visible_max=%u fixes=%u nmea=%u\n",
                                atomic_load(&gps_sv), atomic_load(&visible_satellites_max),
                                atomic_load(&fixes), atomic_load(&nmea_valid));
+                        printf("GNSS location assistance requests: %u\n", atomic_load(&location_requests));
+                    }
                 } while (status == 0 || (status < 0 && *__errno() == EINTR));
                 if (status < 0)
                     waited = *__errno();

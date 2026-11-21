@@ -44,9 +44,10 @@ are excluded. A network/IP estimate is not a GNSS fix or cell measurement.
 
 ## Cell path
 
-The samsung_sipc plugin provides typed status and bearer operations through the
-single RIL owner. It has no cell-info/location interface implementation and
-no AT serial port. Generic MM AT scans therefore cannot establish whether CP
+At the start of this review, the samsung_sipc plugin provided typed status
+and bearer operations through the single RIL owner, without cell-info/location
+interfaces or an AT serial port. The LTE GetCellInfo/location implementation
+added later is described above; an AT port is still absent. Generic MM AT scans therefore cannot establish whether CP
 can measure cells. Do not create a fake AT device or infer no RF detection.
 
 The existing registration parser deliberately excluded LAC/CI. Actual SIPC0805
@@ -102,3 +103,65 @@ new failures, and mark outdoor comparison unverified if unavailable.
 
 Preserve configured network-location provider and submit-data=false. A25km IP
 estimate is independent of GNSS and does not demonstrate valid cellular data.
+
+## 2026-11-21 — GNSS assistance, callback ABI and remaining work
+
+The host now prepares a private approximate start position for the legacy HAL,
+using a recent genuine GNSS cache or an HTTPS network estimate. GeoClue retains
+application policy and output selection; this does not manufacture a satellite
+fix. See the GNSS README for build, separate guarded installation, cache policy,
+provider disclosure and rollback. Cell-only BeaconDB lookup returned HTTP404 in
+this observation; permitting IP fallback returned accuracy25000m. Neither result
+establishes permanent database coverage or cell-derived coordinate success.
+
+The initial rebuilt client accepted inject_location with0 but crashed before
+NMEA delivery. Numeric worker exit245 led to private GDB confirmation of SIGSEGV
+in the vendor IPC callback dispatcher. The own-device HAL requests an additional
+two-boolean location callback following the96-byte legacy callback prefix;
+the previous client supplied only that prefix. Reading beyond it could produce
+an invalid callback target when the client stack layout changed. This is not
+an invalid position fix or a proven RF/kernel failure. No proprietary code,
+trace, disassembly, memory dump or binary is published. The independently
+written extension has a compile-time offset assertion and persistent callback
+storage. Its handler counts requests without reentering GeoClue, launching
+network work on the callback thread, or feeding a GNSS-derived fix back as an
+independent network answer.
+
+Negative controls are retained: early no-seed retry was blocked by five known
+stale trial artifacts; these were privately preserved only with GNSS owners
+stopped, no vendor/HAL process and exclusive GNSS lease. Earlier source/pins
+were restored and an ordinary reboot performed. After guarded preservation of
+remaining stale known state, the old-source baseline241s delivered2348 NMEA/
+1706 TPV, mode1/no fix. A clean retry of the initial candidate again crashed;
+the callback extension then survived an actual location request and resumed
+NMEA delivery. Final counts and reboot evidence are in VALIDATION/CHANGELOG.
+Unknown GPS state must still be preserved, not removed by a blanket cleanup.
+
+The private cache service started automatically after reboot; a671s-old network
+record was rejected, a fresh25km estimate was prepared in1.14s, and no mode1/IP
+record created the genuine GNSS cache. Real fix cache capture and reuse need a
+reception-capable placement. Native Bionic build and21 host tests pass, including
+ASan/UBSan tests of the actual C seed parser and the extended callback slot.
+
+Remaining layers:
+
+| Layer | Present | Remaining evidence/implementation |
+|---|---|---|
+| GeoClue | App permission, existing network/NMEA sources, MM cell gathering | Actual cell-specific DB coordinate result and accuracy |
+| Host assistance | UTC/NTP, LTO/XTRA, approximate start seed, private last-fix cache | Actual new GNSS fix capture/reuse, offline/expired-cache field tests, bounded-latency tuning |
+| Vendor HAL | Start, inject_time/inject_location/XTRA, explicit own-device location-request callback | Dynamic independent-location reply and qualified AGPS/AGPS_RIL lifecycle |
+| SUPL transport | Vendor extension presence only | Callback/network lifecycle, compatible server/TLS, least-privilege transport across current network isolation |
+| Hardware/RF | Historical genuine fix retained; current checksum-valid NMEA | Open-sky cold/warm TTFF A/B, movement and accuracy, suspend/recovery |
+
+Do not globally remove vendor network isolation, substitute an IP estimate for
+GNSS, or change the kernel without identifying a failure at that layer. The
+current owner-confirmed no-satellite location cannot qualify Android-equivalent
+first-fix performance.
+
+Corrected-HAL final hardware evidence:180s1688 NMEA/1225 TPV, request callback1,
+no exception in that instance. Clean shutdown left no known trial artifacts.
+Ordinary warm reboot preserved own HAL/pins and auto-started sensor/socket/
+GPSD/cache units;91s687 NMEA/498 TPV, request callback1, GNSS exceptions0 in
+that new boot. Start/standalone/UTC/position/XTRA0, XTRA124383bytes. Mode1 with
+zero satellites throughout; no new fix/TTFF claim. No private identifiers,
+coordinates or firmware artifacts are needed to reproduce these public checks.

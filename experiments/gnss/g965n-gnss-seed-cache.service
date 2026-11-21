@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Unit]
+Description=Private GNSS warm-start position cache
+After=g965n-xgps.service
+[Service]
+Type=simple
+UMask=0077
+ExecStart=/usr/bin/python3 /usr/local/lib/g965n-gnss/seed.py --watch
+Restart=on-failure
+RestartSec=5
+[Install]
+WantedBy=multi-user.target

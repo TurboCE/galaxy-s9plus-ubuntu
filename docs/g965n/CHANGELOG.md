@@ -7612,3 +7612,60 @@ it was disabled on demand. GeoClue returned accuracy25000m. This confirms
 a network estimate, not successful cell-database resolution. CP cell exposure
 and actual cell-derived coordinates remain distinct; no provider/settings
 change made for this read-only check.
+
+
+## 2026-11-21 — GNSS start-position assistance
+
+Added independently authored seed.py, legacy inject_location FD5 support,
+strict numeric-only status forwarding and a private real-GPS-fix cache service.
+Root cache0700/files0600; no coordinates/cell IDs logged or published. User
+location preference gates lookup/cache use. HTTPS BeaconDB queries use at most
+32 observed LTE cells, bounded reads/timeouts and no redirects; no submissions.
+Network estimates remain separate from genuine GPS fixes. Only fresh GPSD TPV
+mode2/3 with valid timestamp/uncertainty enters the GNSS cache. Seeds expire
+at300s, uncertainty grows350m/s and values above100km are rejected. No aiding
+data deletion, kernel/BOOT/firmware/partition/bootloader change.
+
+Exact SM-G965N/current #48/protected-backup checks passed at each deployment.
+Compiled own source natively against private read-only Bionic DSOs, removing
+temporary library copies afterward. Initial build harness placeholder collision
+failed before device execution; corrected unique placeholders. pytest was
+unavailable; unittest ran21 GNSS tests including ASan/UBSan of the actual C
+seed parser and callback slot. Original HAL/pins/supervisor/helper privately
+snapshotted; only owned source, rebuilt HAL and its exact pin/unit installed.
+Existing provider and submit-data=false preserved. Cell-only lookup returned
+HTTP404 in this observation; IP-fallback-allowed network lookup accuracy25000m.
+
+Initial candidate returned0 for position/start/UTC/XTRA but produced no NMEA
+and repeated worker exits. Early no-seed control was confounded by five stale
+known trial artifacts; stopped GNSS owners, checked no vendor/HAL process and
+exclusive lease, preserved artifacts privately before retry. Restored old HAL/
+supervisor/pins and ordinary rebooted. After guarded known-state preservation,
+old-source241s baseline delivered2348 NMEA/1706 TPV, mode1/no fix. Clean initial
+candidate retry again exited245; private GDB confirmed SIGSEGV in vendor IPC
+location-request dispatch. No private trace/disassembly/binary published.
+
+Cause: own-device Samsung HAL reads a two-boolean location-request callback
+after the96-byte legacy callback prefix, absent from the previous client.
+Added explicit104-byte callback layout, compile-time offset assertion and
+persistent callback table. Handler only counts requests, with no reentrant
+GeoClue/network call or GNSS-to-independent-location feedback. Added safe
+numeric request counters and worker exit status for diagnosis. This corrects
+the ABI gap rather than suppressing the signal or changing receiver/kernel.
+
+Corrected candidate180s hardware test:1688 NMEA/1225 TPV, one real location
+assistance callback, no exception in that GNSS instance, mode1/no fix. HAL
+start/standalone/UTC/position/XTRA-init/inject all0; XTRA124383bytes. Private cache
+service auto-started after the earlier reboot;671s-old network seed rejected,
+fresh25km estimate prepared in1.14s. No mode1/IP record became a GNSS cache.
+Successful receiver session stopped cleanly with no known trial artifacts;
+new ordinary reboot performed for corrected-HAL persistence qualification.
+
+수정 HAL 일반 재부팅 후 모델/#48/BOOT/보호 백업/실행파일 핀 재확인.
+센서·GNSS 소켓·GPSD bridge·캐시 서비스 자동 active. 재시험91초에서
+NMEA687/TPV498, 위치 요청 콜백1회, 해당 부팅 GNSS 예외0 확인.
+시작/standalone/UTC/위치/XTRA init/inject0. unit 검증 통과, 배포된
+serve.py/seed.py 소스 해시·0600 일치. 위성0/mode1이며 새 fix 증거는 아님.
+Real new fix cache capture/reuse, offline/expired-cache field tests, open-sky
+TTFF A/B, motion/suspend accuracy and SUPL remain pending. Current location is
+owner-confirmed unable to receive satellites, not a new RF failure conclusion.

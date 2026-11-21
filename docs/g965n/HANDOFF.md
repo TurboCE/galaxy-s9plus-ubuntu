@@ -1,6 +1,6 @@
 # SM-G965N 작업 재개
 
-2026-11-20 KST. 현재 작업 브랜치는 `codex/g965n-lte-audio`입니다.
+2026-11-21 KST. 현재 작업 브랜치는 `codex/g965n-lte-audio`입니다.
 먼저 [STATUS](STATUS.md)의 최신 요약을 읽고, 필요한 항목만
 [VALIDATION](VALIDATION.md)과 [CHANGELOG](CHANGELOG.md)에서 확인하세요.
 이전 행의 pending을 후속 성공 이력보다 우선하지 마세요.
@@ -80,7 +80,7 @@ RECOVERY/EFS/CPEFS/RADIO 및 부트로더를 복구 편의상 덮어쓰지 않�
 | 순서 | 작업·관련 소스 | 관찰된 문제 / 다음 조사 | 완료 판단 |
 |---|---|---|---|
 | 1 | GPS 후속 회귀: `experiments/gnss/` | gpsd NdkSensorsInfo 충돌을 private config의 hal SensorsEnable=false로 수정. 창가 재시험 300초/4,448문장/오류0에서 3D fix, 사용 위성8. GeoClue가 1.2초 이내 위치·보고 정확도3m 전달. 기본 수신/연결 문제 수정 확인 | 기본 fix는 확인됨. 추가 야외 이동/냉간 부팅/절전 복귀·장기 정확도·캐시 만료/오프라인 실제 회귀가 남음 |
-| 2 | GPS 보조 데이터 | 순정 gps_psds.conf의 4day/v5 LTO를 HTTPS로 수신. 24h 캐시·4day Last-Modified 제한·해시·원본 설정 일치 검사. XTRA init/inject 모두0, 124,383바이트가 수신기 저장 파일과 일치. hourly 갱신 timer 연결 | 보조 데이터를 사용한 실제 fix는 확인됨. 보조 유무의 첫 fix 시간 A/B 비교는 안 함. SUPL/이전 위치 주입 미구현 |
+| 2 | GPS 보조 데이터 | 순정 gps_psds.conf의 4day/v5 LTO를 HTTPS로 수신. 24h 캐시·4day Last-Modified 제한·해시·원본 설정 일치 검사. XTRA init/inject 모두0, 124,383바이트가 수신기 저장 파일과 일치. hourly 갱신 timer 연결 | 보조 데이터를 사용한 실제 fix는 확인됨. 보조 유무의 첫 fix 시간 A/B 비교는 안 함. SUPL 미구현. 시작 위치 주입은 아래2026-11-21 후속 참고 |
 | 3 (확인) | RTC: `experiments/rtc/` | DT의 IRQ_TYPE_NONE 때문에 경고. generic IRQ sysfs는 edge라 표시했지만 실제 GICD_ICFGR의 IRQ63/64 필드 값은1이고 bit1=0(level). generic 표시만으로 EDGE_RISING을 적용하면 안 됨. LEVEL_HIGH 적용 후 초기 부팅·별도 재부팅에서 경고/호출 추적0, 시계 진행·실제 알람·시간 유지 통과. 서비스 receipt 이관 및 재시작 확인 | 기본 회귀 완료. 냉간 전원·절전 깨우기·자동 시각 동기화는 미검증 |
 | 4 (확인) | GPT: `experiments/storage/` | 실제 섹터4096, Samsung 헤더512. 원본 메타데이터를 기기·호스트에 보존하고 비어 있던 보조 영역20KiB만 복원 | 재부팅 경고0, 주 메타데이터 불변, 보조 CRC·25개 엔트리 동일 및6개 보호 파티션 불변 확인. 일반 자동 수리 명령으로 대체하지 않음 |
 | 5 (기본 출력 확인) | 진동·LED: `experiments/pmic/`, `docs/g965n/PMIC_REVIEW.md` | RGB 실제 세 색·15회 읽기 검증·모듈 정지/재시작·재부팅 자동 구동 통과. g965n-led.service, max_brightness1. 진동은 실제26MHz 카운터·GPIO 공급·FF_RUMBLE·IMU 반응·재부팅 통과 | LED/진동 알림 정책과 장기·절전·파형 보정은 미완료. 이전 SIGBUS/의존성 경고는 아래 후속 정정 참고 |
@@ -320,3 +320,31 @@ GPSD 관찰만으로는 receiver가 켜지지 않습니다. gpsd-summary.py를 �
 위치 fallback 질문 후속: 요청 중 MM source1 활성화/요청 종료 후 비활성은
 정상 on-demand 동작. GeoClue accuracy25000m 반환; 기지국 데이터 전달 완료와
 기지국 DB 좌표 조회 성공을 구분하세요. 아직 cell-specific 좌표 검증은 남음.
+
+
+## 2026-11-21 — GNSS start-position assistance
+
+experiments/gnss/README.md와 LOCATION_REVIEW.md를 읽으세요. seed.py와
+FD5 시작 위치 주입, g965n-gnss-seed-cache.service 설치. private cache는
+root0700/files0600, 원본 timestamp300s·350m/s 불확실성·100km 상한 정책입니다.
+실제 GPSD mode2/3만 GNSS 캐시가 되며 현재 mode1은 저장되지 않았습니다.
+좌표·캐시·pin·rollback·원본 디버그 로그는 기기에 비공개 보존합니다.
+
+중요한 ABI 수정: Samsung 위치 요청 콜백이96-byte legacy prefix 뒤에 있어
+이전 짧은 테이블이 IPC thread SIGSEGV를 유발했습니다. 명시적104-byte 정적
+테이블/offset assert/카운터 핸들러로 고쳤고 실제 콜백1회 및180초 유효 데이터
+전달을 확인했습니다. upstream legacy GpsCallbacks에 그 필드가 있다고
+가정하지 마세요. 수신 thread 안에서 GeoClue 재진입·네트워크 조회나
+GNSS-derived 위치를 independent 응답으로 재주입하지 않습니다.
+
+수정 HAL 일반 재부팅 후 모델/#48/BOOT/보호 백업/실행파일 핀 재확인.
+센서·GNSS 소켓·GPSD bridge·캐시 서비스 자동 active. 재시험91초에서
+NMEA687/TPV498, 위치 요청 콜백1회, 해당 부팅 GNSS 예외0 확인.
+시작/standalone/UTC/위치/XTRA init/inject0. unit 검증 통과, 배포된
+serve.py/seed.py 소스 해시·0600 일치. 위성0/mode1이며 새 fix 증거는 아님.
+이전 실패·복원·재부팅·known state 보존 절차는 CHANGELOG에 있습니다.
+알 수 없는 GPS 상태를 자동 삭제하거나 검증 guard를 우회하지 마세요.
+셀-only404와 coarse25km를 구분하고 실제 새 fix cache/TTFF/SUPL을 완료로
+쓰지 마세요. SUPL은 AGPS callback/network lifecycle·server/TLS·제한된 transport
+설계가 남았습니다. 전역 vendor network isolation 해제는 하지 않았습니다.
+GPS는 Wi-Fi로 계속 검증하며 커널/BOOT/펌웨어 변경은 없었습니다.

@@ -8,7 +8,14 @@ It does not record coordinates or NMEA strings. Passing `90 --nmea-fd3`
 streams checksum-validated NMEA through a private pipe already open on
 file descriptor 3. NMEA may contain coordinates on a successful fix.
 
-The interface layouts follow [AOSP Android 10 gps.h](https://android.googlesource.com/platform/hardware/libhardware/+/android-10.0.0_r47/include/hardware/gps.h).
+The legacy interface prefix follows [AOSP Android 10 gps.h](https://android.googlesource.com/platform/hardware/libhardware/+/android-10.0.0_r47/include/hardware/gps.h).
+This handset additionally calls a two-boolean location-request callback after
+the96-byte callback prefix. The own-device extension is explicit, with a
+compile-time offset check and persistent callback storage; it is not a claim
+that the upstream legacy GpsCallbacks has this field. The handler only records
+requests, never reenters GeoClue or reuses GNSS output as an independent
+network-location reply. Its semantics correspond to the separate
+[AOSP location request contract](https://android.googlesource.com/platform/hardware/interfaces/+/27178421050682d91f1da59a96092cbea673a547/gnss/aidl/android/hardware/gnss/IGnssCallback.aidl).
 The executable startup uses the Android 10 [Bionic startup ABI](https://android.googlesource.com/platform/bionic/+/android-10.0.0_r47/libc/arch-common/bionic/crtbegin.c).
 Build against private, read-only copies of the owner's Bionic DSOs. These
 libraries and the Samsung HAL are not included. For example, on AArch64
@@ -305,3 +312,81 @@ fix modes, NMEA types and aggregate GSV/CN0 values, never raw positions or IDs.
 HAL standalone-mode/start numeric status now passes the existing strict status
 log filter. Window-only tests received valid NMEA but had0 satellites/mode1;
 open-sky reproduction is pending. See LOCATION_REVIEW.md for exact limits.
+
+## Start-position assistance and private previous-fix cache
+
+`seed.py` implements host-side assistance, not a new GeoClue location provider.
+It respects the ubuntu desktop location switch. First it considers the private
+previous real GPS fix and network estimate; otherwise it makes one bounded
+HTTPS BeaconDB lookup using existing ModemManager LTE cell records, permitting
+IP fallback. No crowdsourcing/submission is performed. This query sends cell
+identities to the configured fixed HTTPS provider; it never logs those identities,
+coordinates or raw responses. Redirects are rejected. A cell-only diagnostic
+(`sudo python3 /usr/local/lib/g965n-gnss/seed.py --cell-only`) prints only status
+and accuracy, and never silently enables IP fallback.
+
+Root-only `/var/lib/g965n-gnss-seed` (0700) contains at most `network.json` and
+`gnss.json` (0600). Network estimates remain distinct from real GNSS fixes.
+Only fresh timestamped GPSD TPV mode2/3 with valid coordinates/uncertainty enters
+the GNSS cache; watching GPSD alone does not activate the receiver. Seeds expire
+after300s, gain350m uncertainty per second of age and are rejected above100km.
+That travel allowance is deliberately conservative and is not a model of actual
+movement. Old files can remain privately stored but cannot be reused after
+expiry. Delete only this private cache directory to erase remembered positions,
+with the cache service stopped. Never publish it or include it in an image.
+
+`serve.py` passes a validated text seed through inherited read-only FD5; no
+coordinates enter command-line arguments or journal messages. The HAL helper
+revalidates finite values, age and accuracy before calling standard
+[GpsInterface.inject_location](https://source.android.com/reference/hal/struct_gps_interface).
+This is an approximate starting location, not satellite-derived output. Failure
+of optional assistance leaves standalone GNSS available. A cache miss can add
+bounded lookup latency (MM calls2s/2.5s, HTTPS socket timeout3s); end-to-end TTFF
+benefit is unqualified. A cached seed avoids that network lookup.
+
+Build the updated own C helper with the command at the top of this document;
+building never installs or flashes. Before separate deployment verify the model,
+current BOOT, protected backups and original HAL pin. Privately snapshot the
+installed `hal`, `pins.json`, `serve.py`, and any preexisting `seed.py`. Install
+own `hal`0500, `serve.py`/`seed.py`0600 in the existing0700 root GNSS directory,
+and update **only** the HAL SHA-256 field of existing private pins.json0600.
+Preserve the vendor input pins. Install `g965n-gnss-seed-cache.service`0644,
+daemon-reload, enable/start it and restart GeoClue once. Keep normal peer ACLs,
+network/PID/mount isolation and existing sensor/firmware configuration.
+
+The cache watcher reads only loopback GPSD2948, does not request a GeoClue session
+or start RF, and saves at most once per10s when location is enabled. Rollback:
+stop GeoClue and GNSS sessions, disable/stop only the seed cache service, restore
+the privately backed-up HAL/pins/supervisor/helper, remove only the owned unit,
+daemon-reload, restart the original GNSS socket/GeoClue. Preserve XTRA, sensors
+and user configuration. Never remove unknown GPS state while an owner is active.
+Current device qualification and negative controls are recorded in
+[LOCATION_REVIEW.md](../../docs/g965n/LOCATION_REVIEW.md).
+
+### Remaining assistance work
+
+UTC and LTO/XTRA are connected already. This seed/cache layer supplies an
+additional input; it does not implement SUPL. The vendor exposes `agps` and
+`agps_ril`, but extensions being present is not proof of an operating session.
+[AOSP AGpsInterface](https://source.android.com/reference/hal/struct_a_gps_interface)
+requires initialization/status callbacks and data connection open/closed/failed
+lifecycle, not just a server hostname. The current vendor process has an
+isolated network namespace. A future SUPL bridge needs qualified callback ABI,
+connection/TLS/server support and a narrowly constrained transport; removing
+network isolation globally is not an acceptable shortcut. Integration belongs
+between the host connection manager and vendor HAL, below GeoClue's public app
+API. Do not change the kernel unless evidence locates a failure there.
+
+Then compare actual open-sky cold/warm TTFF with/without assistance, offline and
+expired cache, first-fix versus IP estimate, and suspend/reboot recovery. The
+current no-satellite location cannot qualify Android-equivalent speed.
+
+Native48 qualification: corrected callback handled an actual request without
+exception;180s delivered1688 NMEA/1225 TPV. After a clean session shutdown and
+ordinary warm reboot, exact model/BOOT/protected-backup/HAL pin checks passed;
+sensor/socket/GPSD bridge/cache units auto-started. A further91s delivered687
+NMEA/498 TPV with one request callback and numeric start/UTC/position/XTRA0.
+These no-satellite/mode1 observations qualify the assistance/transport and
+reboot path, not a new position fix or improved TTFF. The network cache expired
+correctly and never populated the separate genuine-GNSS cache; capture/reuse
+of that real-fix cache remains a favorable-reception hardware test.
