@@ -600,3 +600,15 @@ Fresh ring956lines/early header present; CPU52+1/hub1/modem QoS4 persist; target
 calltrace/SError/GPU PLL/GPIO/escan/RGB duplicate0. New boot failed units0,
 ALS131lux/7 IIO devices, Wi-Fi HTTPS204. Modem21cells/1serving, registration
 searching: cell read qualifies, current LTE data does not.
+
+
+## Vehicle power-on — 2026-11-21
+
+| Check | Evidence / limit |
+|---|---|
+| Full shutdown then USB power | Owner reports Ubuntu does not boot. Current installation does not qualify automatic cold power-on. Attach screen/kernel entry not yet observed. |
+| Current read-only access | Exact model/#48/BOOT/protected-backup guard PASS, Ubuntu reachable/charger online1, pstore0 files. Not a cold-attach trial. |
+| Source review | No charger-only branch in shim; embedded DT replaces incoming FDT. Existing reset/recovery magic and normal service autostart do not prove cold USB boot. No device change or fix installed. |
+
+See [vehicle power review](VEHICLE_POWER.md) for the pending physical evidence
+and bounded test. GPS remains deferred; camera/fingerprint excluded.

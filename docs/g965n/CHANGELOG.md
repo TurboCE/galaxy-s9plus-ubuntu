@@ -7804,3 +7804,23 @@ Additional fixed-race regression: start --no-block then stop after100ms, before
 readiness, left no owned state and original red/green off/none. Subsequent
 ready start active/running, NRestarts0 and ExecMainStatus0. Source/unit pin
 comparison and post-boot Discharging/LED enable0 passed; policy remains enabled.
+
+
+## 2026-11-21 — Vehicle USB cold-power-on is not qualified
+
+Owner confirmed that USB connection after full shutdown does not boot Ubuntu.
+This is a hardware-use failure report, distinct from prior warm-reboot/service
+passes. Requested charging-attach screen state; that evidence is pending.
+Read-only actual model/#48/BOOT/protected-backup guard passed, running Ubuntu
+reachable and charger online1; pstore had0 files. Current uptime/previous
+shutdown markers do not reproduce the off-mode failure. No shutdown, register
+write, boot/firmware replacement or agent service installation.
+
+Inspected actual shim entry/main/board/kernel handoff and native init/DT:
+no charger-only shim decision, incoming bootloader FDT replaced by embedded DT;
+existing INFORM2/3 recovery/reset support is not USB cold-start support.
+Samsung GPL sec_reboot reference distinguishes power-off/reset and low-power
+charging, but the current early path/root cause remains unmeasured. Recorded
+bounded observation/test and recovery conditions in VEHICLE_POWER.md. Do not
+apply Android lpm edits or speculative INFORM/charger writes, or update/relock
+Samsung bootloaders. Source review is not an implemented/verified autoboot fix.

@@ -409,3 +409,16 @@ ModemManager introspection으로 실제 GetCellInfo 제공 interface를 찾아
 온도는 내부 TMU 보호가 이미 있으나 CPU/GPU hwmon 표시는 미연결입니다.
 새 커널은 만들거나 설치하지 않았습니다. 개인 ChatGPT 문서 변경48줄은
 기존 다른 작업이며 이번 공개 커밋에 섞지 마세요.
+
+
+## 2026-11-21 — 차량 전원 자동 부팅 실패 보고
+
+사용자가 종료 후 USB 전원을 넣어도 Ubuntu로 부팅되지 않는다고 확인.
+자동 시작 앱/일반 재부팅과 구분하고 차량 cold-power-on은 미지원/미검증으로
+기록하세요. VEHICLE_POWER.md의 소스 점검과 bounded 시험 경로를 읽으세요.
+현재 guard/접속/charger online1만 확인했으며 새 종료·케이블 재연결 시험은
+하지 않았습니다. 충전 아이콘/삼성 로고/검은 화면 여부 질문의 답이 필요합니다.
+shim은 incoming FDT 대신 embedded DT를 쓰므로 현재 cmdline에 charging
+인자가 없다는 사실로 충전 모드가 없다고 단정하지 마세요. INFORM2/3/PMIC
+임의 쓰기·S-Boot 업데이트/재잠금 없이 실제 진입 지점을 먼저 확인합니다.
+현재 BOOT·설정·개인 앱·GPS는 변경하지 않았고 Codex 차량 서비스도 아직 없습니다.
