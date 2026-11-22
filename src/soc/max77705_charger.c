@@ -21,9 +21,74 @@
 #include <linux/mfd/max77705-private.h>
 #include <linux/power/max77705_charger.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/regmap.h>
+#include <linux/sysfs.h>
+
+/* Policy intent is distinct from CHG readback, as in Samsung is_charging.
+ * This records accepted requests only; it does not automatically override
+ * thermal, full-charge, input-power or manual inhibition decisions.
+ */
+struct max77705_charge_policy {
+	struct max77705_charger_data hw;
+	struct mutex lock;
+	bool requested;
+	bool ready;
+};
+
+static struct max77705_charge_policy *charge_policy(struct max77705_charger_data *chg)
+{
+	return container_of(chg, struct max77705_charge_policy, hw);
+}
+
+static int max77705_set_charge_request(struct max77705_charger_data *chg, bool enable)
+{
+	struct max77705_charge_policy *policy = charge_policy(chg);
+	int ret;
+
+	mutex_lock(&policy->lock);
+	ret = policy->ready ?
+		regmap_field_write(chg->rfield[MAX77705_CHG_EN], enable) : -EAGAIN;
+	if (!ret)
+		policy->requested = enable;
+	mutex_unlock(&policy->lock);
+	return ret;
+}
+
+static ssize_t charge_requested_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct max77705_charge_policy *policy = charge_policy(dev_get_drvdata(dev));
+	bool requested;
+
+	mutex_lock(&policy->lock);
+	requested = policy->requested;
+	mutex_unlock(&policy->lock);
+	return sysfs_emit(buf, "%u\n", requested);
+}
+static DEVICE_ATTR_RO(charge_requested);
+
+static ssize_t charge_enabled_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct max77705_charger_data *chg = dev_get_drvdata(dev);
+	unsigned int enabled;
+	int ret = regmap_field_read(chg->rfield[MAX77705_CHG_EN], &enabled);
+
+	return ret ? ret : sysfs_emit(buf, "%u\n", enabled);
+}
+static DEVICE_ATTR_RO(charge_enabled);
+
+static struct attribute *max77705_charge_policy_attrs[] = {
+	&dev_attr_charge_requested.attr,
+	&dev_attr_charge_enabled.attr,
+	NULL,
+};
+static const struct attribute_group max77705_charge_policy_group = {
+	.attrs = max77705_charge_policy_attrs,
+};
 
 static const char *max77705_charger_model		= "max77705";
 static const char *max77705_charger_manufacturer	= "Maxim Integrated";
@@ -520,11 +585,10 @@ static int max77705_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
 		switch (val->intval) {
 		case POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO:
-			err = max77705_charger_enable(chg);
+			err = max77705_set_charge_request(chg, true);
 			break;
 		case POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE:
-			err = regmap_field_write(chg->rfield[MAX77705_CHG_EN],
-						 MAX77705_CHG_DISABLE);
+			err = max77705_set_charge_request(chg, false);
 			break;
 		default:
 			err = -EINVAL;
@@ -689,6 +753,7 @@ err:
 
 static int max77705_charger_probe(struct i2c_client *i2c)
 {
+	struct max77705_charge_policy *policy;
 	struct power_supply_config pscfg = {};
 	struct max77705_charger_data *chg;
 	struct regmap_irq_chip *chip_desc;
@@ -698,9 +763,11 @@ static int max77705_charger_probe(struct i2c_client *i2c)
 
 	dev = &i2c->dev;
 
-	chg = devm_kzalloc(dev, sizeof(*chg), GFP_KERNEL);
-	if (!chg)
+	policy = devm_kzalloc(dev, sizeof(*policy), GFP_KERNEL);
+	if (!policy)
 		return -ENOMEM;
+	mutex_init(&policy->lock);
+	chg = &policy->hw;
 
 	chg->dev = dev;
 	i2c_set_clientdata(i2c, chg);
@@ -767,7 +834,14 @@ static int max77705_charger_probe(struct i2c_client *i2c)
 	if (ret)
 		return dev_err_probe(dev, ret, "failed to enable charge\n");
 
-	return devm_add_action_or_reset(dev, max77705_charger_disable, chg);
+	mutex_lock(&policy->lock);
+	policy->requested = true;
+	policy->ready = true;
+	mutex_unlock(&policy->lock);
+	ret = devm_add_action_or_reset(dev, max77705_charger_disable, chg);
+	if (ret)
+		return ret;
+	return devm_device_add_group(dev, &max77705_charge_policy_group);
 }
 
 static const struct of_device_id max77705_charger_of_match[] = {

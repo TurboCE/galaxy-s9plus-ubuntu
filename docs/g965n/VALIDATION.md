@@ -622,3 +622,15 @@ and bounded test. GPS remains deferred; camera/fingerprint excluded.
 | Guarded restoration | Owner request, exact model/#48/BOOT/protected backups checked; only charge_behaviour=auto, private before/after receipt. |
 | Actual charging |5–20s charger and battery Charging, net+60..98mA, average+57mA, voltage3.225V. Input500mA/charge450mA/CV4.2V unchanged. |
 | Still unresolved | Why CHG_EN became0, charging endurance/reboot/full behavior, exact repeated-reset cause. Prior kernel coverage incomplete; old archived SError not attributed to new incident. |
+
+
+## 2026-11-23 — Android charge policy candidate (not deployed)
+
+| Check | Result / limit |
+|---|---|
+| Public reference | Exact Samsung/Lineage commit and charger/battery/ADC/common/DT hashes pinned; exact owner Korean policy still not compared. |
+| Intent ownership | Actual production C with faultable regmap: accepted enable/inhibit, failed writes preserving intent, startup rejection, hardware-bit loss distinct from intent, existing properties8tests PASS. |
+| Source migration | Prior reviewed charger SHA6df1e5a... accepted; unknown source drift rejected. |
+| ARM64 compile | Driver C-object PASS. Initial plural devm API corrected. Full external module NOT linked: qualified Module.symvers missing; no bypass. No full new kernel or hardware boot. |
+| Current hardware | Read-only0%/22C/3.314V/+63mA average, Charging/auto. Sensor unit failed before readiness, root IIO devices0. No restart or write this task. |
+| Android parity | NOT complete: real battery/USB/charger ADC, thermal/swelling/full/recharge/cable/safety-time policies and hardware qualification remain. Candidate not installed. |

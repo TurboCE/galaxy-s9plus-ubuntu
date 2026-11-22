@@ -31,6 +31,11 @@ PRELUDE = r'''
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
+#define container_of(p,t,m) ((t *)((char *)(p)-offsetof(t,m)))
+struct mutex { bool held; };
+static void mutex_lock(struct mutex *m) { assert(!m->held);m->held=true; }
+static void mutex_unlock(struct mutex *m) { assert(m->held);m->held=false; }
 #define BIT(n) (1U << (n))
 #define clamp_t(t,v,lo,hi) ((t)(v) < (t)(lo) ? (t)(lo) : (t)(v) > (t)(hi) ? (t)(hi) : (t)(v))
 #define dev_dbg(...) ((void)0)
@@ -110,12 +115,13 @@ static int regmap_field_write(struct regmap_field *f,unsigned int v) {
 
 TESTS = r'''
 static struct regmap m;
-static struct max77705_charger_data chg;
+static struct max77705_charge_policy policy;
+#define chg policy.hw
 static struct regmap_field fields[N_FIELDS];
 static struct power_supply psy;
 static struct battery_info bat={4400000};
 static void setup(void) {
- memset(&m,0,sizeof m);memset(&chg,0,sizeof chg);chg.regmap=&m;chg.bat_info=&bat;psy.data=&chg;
+ memset(&m,0,sizeof m);memset(&policy,0,sizeof policy);policy.requested=true;policy.ready=true;chg.regmap=&m;chg.bat_info=&bat;psy.data=&chg;
  for(int i=0;i<N_FIELDS;i++){fields[i]=(struct regmap_field){&m,max77705_charger_reg_field(i)};chg.rfield[i]=&fields[i];}
  m.regs[MAX77705_CHG_REG_CNFG_00]=5;m.regs[MAX77705_CHG_REG_CNFG_09]=0x93;
  m.regs[MAX77705_CHG_REG_INT_OK]=MAX77705_BATP_OK|MAX77705_CHGIN_OK;
@@ -183,7 +189,21 @@ static void mapping(void) {
  f=max77705_charger_reg_field(MAX77705_CHG_CHGIN_LIM);assert(f.reg==0xc0&&f.lsb==0&&f.msb==6);
  f=max77705_charger_reg_field(MAX77705_CHG_CC_LIM);assert(f.reg==0xb9&&f.lsb==0&&f.msb==5);
 }
-int main(int argc,char **argv){assert(argc==2);if(!strcmp(argv[1],"currents"))currents();else if(!strcmp(argv[1],"status"))status();else if(!strcmp(argv[1],"errors"))errors();else if(!strcmp(argv[1],"aicl"))aicl();else if(!strcmp(argv[1],"mapping"))mapping();else return 2;return 0;}
+static void intent(void) {
+ setup();policy.ready=false;assert(max77705_set_charge_request(&chg,false)==-EAGAIN);assert(m.writes==0);assert(policy.requested);assert(!policy.lock.held);
+ setup();unsigned int before=m.regs[MAX77705_CHG_REG_CNFG_00];
+ assert(max77705_set_charge_request(&chg,false)==0);assert(!policy.requested);
+ assert(m.regs[MAX77705_CHG_REG_CNFG_00]==(before&~1U));
+ m.fail_write=1;assert(max77705_set_charge_request(&chg,true)==-EIO);assert(!policy.requested);assert(!policy.lock.held);
+ m.fail_write=0;assert(max77705_set_charge_request(&chg,true)==0);assert(policy.requested);
+ m.regs[MAX77705_CHG_REG_CNFG_00]&=~1U; /* Hardware changed after accepted request. */
+ assert(policy.requested);int status;assert(max77705_get_status(&chg,&status)==0);assert(status==POWER_SUPPLY_STATUS_NOT_CHARGING);
+ union power_supply_propval value={.intval=POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE};
+ assert(max77705_set_property(&psy,POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR,&value)==0);assert(!policy.requested);
+ m.fail_write=1;value.intval=POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO;
+ assert(max77705_set_property(&psy,POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR,&value)==-EIO);assert(!policy.requested);
+}
+int main(int argc,char **argv){assert(argc==2);if(!strcmp(argv[1],"currents"))currents();else if(!strcmp(argv[1],"status"))status();else if(!strcmp(argv[1],"errors"))errors();else if(!strcmp(argv[1],"aicl"))aicl();else if(!strcmp(argv[1],"mapping"))mapping();else if(!strcmp(argv[1],"intent"))intent();else return 2;return 0;}
 '''
 
 
@@ -194,14 +214,17 @@ class ChargerPropertiesTests(unittest.TestCase):
         cls.temporary = tempfile.TemporaryDirectory()
         directory = Path(cls.temporary.name)
         source = (ROOT / 'src/soc/max77705_charger.c').read_text()
-        names = ['max77705_aicl_irq', 'max77705_charger_enable', 'max77705_get_online',
+        names = ['charge_policy', 'max77705_set_charge_request',
+                 'max77705_aicl_irq', 'max77705_charger_enable', 'max77705_get_online',
                  'max77705_charger_reg_field', 'max77705_set_integer', 'max77705_check_battery',
                  'max77705_get_charge_type', 'max77705_get_status', 'max77705_get_vbus_state',
                  'max77705_get_battery_health', 'max77705_get_health', 'max77705_get_input_current',
                  'max77705_get_charge_current', 'max77705_get_float_voltage',
                  'max77705_chg_get_property', 'max77705_set_property']
         harness = directory / 'charger.c'
-        harness.write_text(PRELUDE + '\n'.join(function(source, n) for n in names) + TESTS)
+        start = source.index('struct max77705_charge_policy {')
+        policy_struct = source[start:source.index('};', start)+2]
+        harness.write_text(PRELUDE + policy_struct + '\n'.join(function(source, n) for n in names) + TESTS)
         cls.binary = directory / 'charger'
         subprocess.run(['cc', '-std=gnu11', '-Werror', str(harness), '-o', str(cls.binary)], check=True,
                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=30)
@@ -227,6 +250,9 @@ class ChargerPropertiesTests(unittest.TestCase):
 
     def test_register_mapping_does_not_repurpose_input_control(self):
         self.run_case('mapping')
+
+    def test_intent_survives_hardware_drop_and_rejects_failed_policy_writes(self):
+        self.run_case('intent')
 
 
 class ChargerSourceGuardTests(unittest.TestCase):

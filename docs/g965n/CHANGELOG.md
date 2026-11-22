@@ -7849,3 +7849,38 @@ Post-reboot persistence, full-charge behavior and reason CHG_EN became0 are
 unresolved. No new service, periodic auto-enable, kernel/BOOT/firmware change or
 current/voltage increase. Earlier read-only restriction superseded only for
 owner-requested normal charging restoration. Private receipt remains on device.
+
+
+## 2026-11-23 — Android charging parity review and intent candidate
+
+Compared pinned LineageOS/android_kernel_samsung_exynos9810 commit6a9461f9
+(charger/sec-battery/sec-adc/common header/public EUR rev26 DT). Wrong repository
+fetches returned404; corrected repository and pinned hashes recorded in
+experiments/charging/REFERENCE.json. No extracted firmware redistribution.
+Android keeps charge_mode/is_charging separate from CHG hardware and selects
+charge modes through cable, ADC temperature/hysteresis/swelling, full/recharge,
+voltage faults and safety-time policy. Native charge IRQ currently only notifies
+power_supply; equivalent upper policy and real ADC channels are absent.
+
+Source candidate wraps unchanged charger data with mutex-protected accepted
+request intent and readiness. Manual charge behaviour touches the same CHG bit;
+failed I/O preserves prior intent, early requests returnEAGAIN. Added read-only
+charge_requested and charge_enabled on the charger I2C device. Existing standard
+charge_behaviour/status semantics and current/CV/input limits unchanged. No
+periodic force-enable, protection bypass, thermal setpoint or automatic recovery
+was implemented. This is the first diagnostic/ownership layer, not policy parity.
+
+Actual-C property/error/neighbor-bit/startup/intent tests8pass; exact prior
+reviewed source migration pass. ARM64 v7.1 driver-object compile pass. First
+compile failed unavailable plural devm_device_add_groups; corrected singular
+API. External-module linkage failed missing qualified Module.symvers/unresolved
+exports; no bypass. Object compile is not module linkage/kernel build/device boot.
+
+Device read-only follow-up: still0%,22C,3.314V/average+63mA/Charging/auto.
+No new device writes/reboot/BOOT/module trial. Actual sensor service failed
+this boot with Sensor child exited before readiness, root IIO provider count0.
+Did not restart/reset sensors or infer SSP board thermistors equal battery ADC.
+Battery depletion and missing/failed temperature paths preclude deploying an
+Android-equivalent automatic enable policy now. The existing one-time charge
+restoration remains active. Further ADC/provider/policy work and actual thermal/
+full/recharge/reconnect/boot qualification remain explicitly incomplete.

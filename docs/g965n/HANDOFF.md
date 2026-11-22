@@ -437,3 +437,21 @@ CHG_EN off 이유는 미확정이며 고장 상태를 주기적으로 auto 덮�
 추가하지 않았습니다. 이전 커널 로그 공백 때문에 패닉/워치독 배제 불가;
 11/19 archived SError를 이번 사건으로 단정하지 마세요. 현재0%라 실제
 충전 유지·잔량 상승 확인이 필요. boot/firmware/current/voltage 변경은 없습니다.
+
+
+## 2026-11-23 — 안드로이드 충전 정책 동일화 후속
+
+새 요청: Android와 CHG 허용비트 운영을 맞추기. experiments/charging/README.md,
+REFERENCE.json부터 읽으세요. Native와 같은 PMIC지만 sec-battery 상위 정책과
+ADC 온도 입력이 빠져 있어 CHG=1 반복으로 대체하면 안 됩니다.
+소스 후보는 intent/actual 분리·mutex·probe-ready gating·read-only 두 속성만
+추가. 실제 C 테스트8PASS/이전 source migrationPASS/ARM64 objectPASS.
+외부 모듈 link는 qualified Module.symvers 없어 실패; 우회 안 함. 새 커널/
+module/기기 적용/자동 enable은 안 했습니다. 빌드와 장치 동작을 구분하세요.
+기기는 여전히0%/22C/3.314V/순충전이고 sensor unit failed(하위프로세스
+readiness 전 종료)/root IIO0. 재시작·허브 리셋은 하지 않았습니다.
+실제 배터리 ADC4/USB ADC1/충전부 ADC3(provider exynos-adc-v3,0x14230000)
+및 보정·freshness/오류 처리가 먼저 필요. SSP thermistor와 FG 온도를 대체
+입력으로 쓰지 마세요. 공개 EUR rev26 한계값은 소유 Korean firmware와 아직
+대조 전이므로 실제 setpoint로 적용하지 않습니다. 저잔량에서 BOOT 교체/
+재부팅을 강행하지 마세요. 원래 GPS/카메라/지문/개인앱 제외 유지.
