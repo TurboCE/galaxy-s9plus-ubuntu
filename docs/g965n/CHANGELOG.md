@@ -7824,3 +7824,28 @@ charging, but the current early path/root cause remains unmeasured. Recorded
 bounded observation/test and recovery conditions in VEHICLE_POWER.md. Do not
 apply Android lpm edits or speculative INFORM/charger writes, or update/relock
 Samsung bootloaders. Source review is not an implemented/verified autoboot fix.
+
+
+## 2026-11-23 — Low battery / disabled charging recovery
+
+Owner reported unexpected shutdown and repeated Samsung logo/vibration with
+USB connected. Read-only observation: charger online1 but charge_behaviour
+auto[inhibit-charge], battery0%,3.08–3.20V and net discharge, temperature22C.
+Input cap500mA, charge current450mA/CV4.2V. Earlier LOW Battery journal entries
+exist. Latest prior boot lacks complete retained kernel/end-of-system evidence;
+current panic/OOM/lockup/thermal patterns0 do not exclude a previous fault.
+Archived SError panic file mtime2026-11-19, not attributed to this incident.
+Low battery/disabled charging is the leading explanation, not proven exclusive
+reset cause. Charge-behaviour getter reflects hardware CHG_EN; it does not
+prove a person or userspace policy deliberately disabled charging.
+
+Owner then requested charging restoration. Wi-Fi unavailable, USB SSH worked.
+Exact model/#48/BOOT/protected-backup guard PASS, charger online/healthGood and
+22C checked; pre-change values preserved root-private. Wrote only auto through
+standard charge_behaviour sysfs. Readback[auto], input/current/CV caps unchanged.
+After5–20s charger and battery Charging, net current+60..98mA, average+57mA
+at20s, voltage3.225V,22C. Actual charging restored;0% recovery takes longer.
+Post-reboot persistence, full-charge behavior and reason CHG_EN became0 are
+unresolved. No new service, periodic auto-enable, kernel/BOOT/firmware change or
+current/voltage increase. Earlier read-only restriction superseded only for
+owner-requested normal charging restoration. Private receipt remains on device.

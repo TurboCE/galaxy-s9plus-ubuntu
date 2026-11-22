@@ -422,3 +422,18 @@ shim은 incoming FDT 대신 embedded DT를 쓰므로 현재 cmdline에 charging
 인자가 없다는 사실로 충전 모드가 없다고 단정하지 마세요. INFORM2/3/PMIC
 임의 쓰기·S-Boot 업데이트/재잠금 없이 실제 진입 지점을 먼저 확인합니다.
 현재 BOOT·설정·개인 앱·GPS는 변경하지 않았고 Codex 차량 서비스도 아직 없습니다.
+
+
+## 2026-11-23 — 배터리0%/충전 비활성 복구
+
+사용자 삼성 로고/진동 반복 보고. actual USB online1/22C이지만
+charge_behaviour=inhibit-charge·배터리0%/3.08–3.20V·순방전 확인.
+사용자 충전 복구 요청 후 기존 exact model/#48/BOOT/protected backup guard
+통과, private before/after 보존하고 charge_behaviour=auto만 적용했습니다.
+5–20초 실제 Charging/순충전60–98mA/평균57mA/3.225V. 입력500mA·충전
+450mA·CV4.2V 불변. Wi-Fi는 안 돼 USB SSH 사용; 접속 helper를 메모리에서만
+USB 목적지로 바꿔 실행했고 자격 증명·원본 helper는 출력/변경 안 했습니다.
+CHG_EN off 이유는 미확정이며 고장 상태를 주기적으로 auto 덮어쓰는 서비스는
+추가하지 않았습니다. 이전 커널 로그 공백 때문에 패닉/워치독 배제 불가;
+11/19 archived SError를 이번 사건으로 단정하지 마세요. 현재0%라 실제
+충전 유지·잔량 상승 확인이 필요. boot/firmware/current/voltage 변경은 없습니다.

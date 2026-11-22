@@ -612,3 +612,13 @@ searching: cell read qualifies, current LTE data does not.
 
 See [vehicle power review](VEHICLE_POWER.md) for the pending physical evidence
 and bounded test. GPS remains deferred; camera/fingerprint excluded.
+
+
+## 2026-11-23 — Charge recovery after reported reboot loop
+
+| Check | Actual evidence / limit |
+|---|---|
+| Fault state | USB online1, CHG_EN reflected as inhibit-charge, battery0%/3.08–3.20V/net discharge,22C. Low-voltage explanation likely; exact reset cause not proven. |
+| Guarded restoration | Owner request, exact model/#48/BOOT/protected backups checked; only charge_behaviour=auto, private before/after receipt. |
+| Actual charging |5–20s charger and battery Charging, net+60..98mA, average+57mA, voltage3.225V. Input500mA/charge450mA/CV4.2V unchanged. |
+| Still unresolved | Why CHG_EN became0, charging endurance/reboot/full behavior, exact repeated-reset cause. Prior kernel coverage incomplete; old archived SError not attributed to new incident. |
