@@ -699,3 +699,12 @@ fault. At qualification38.9C/current+171mA/SOC6%. No reboot or forced enable.
 Eleven host tests pass. Sustained workloads/full-cycle/voice and reboot remain
 unqualified. ChatGPT remains closed; do not claim its rendering problem fixed.
 Do not enable historically failed idle voltage/PSCI or Wi-Fi power-save paths.
+
+
+Post-cycle idle check: battery38.7C, mean+171mA and Charging, GPU suspended,
+observer/guardian/cooling active. Started a NEW bounded10800s read-only
+g965n-charging-soak-cooled50.service from this cooled charging baseline.
+Stopped the earlier pre-cool soak intentionally; its thermal pauses never
+qualified uninterrupted charging. New three-hour result is PENDING; inspect
+/var/lib/g965n-charge-observer/latest-soak-path/result.json. This does not reset
+guardian safety budgets, change charging controls or auto-restart ChatGPT.

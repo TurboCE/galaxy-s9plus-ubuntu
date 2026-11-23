@@ -847,3 +847,12 @@ is cooling improvement, not resumed or long-duration charging qualification.
 | Reboot/full-cycle/active app/build/voice thermal endurance | UNQUALIFIED; ChatGPT remains closed |
 
 No voltage/current/temperature-threshold or package/kernel changes in this phase.
+
+
+Post-cycle idle check: battery38.7C, mean+171mA and Charging, GPU suspended,
+observer/guardian/cooling active. Started a NEW bounded10800s read-only
+g965n-charging-soak-cooled50.service from this cooled charging baseline.
+Stopped the earlier pre-cool soak intentionally; its thermal pauses never
+qualified uninterrupted charging. New three-hour result is PENDING; inspect
+/var/lib/g965n-charge-observer/latest-soak-path/result.json. This does not reset
+guardian safety budgets, change charging controls or auto-restart ChatGPT.

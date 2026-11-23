@@ -8223,3 +8223,12 @@ Sensors/audio/BT and charging/cooling services remained active; targeted new
 BUG/Oops/panic/G3D timeout search empty. Service state is not full hardware QA.
 ChatGPT remains closed; offscreen rendering, PLL/deep-idle and sustained load
 thermal/energy behavior remain unresolved. This is short idle qualification.
+
+
+Post-cycle idle check: battery38.7C, mean+171mA and Charging, GPU suspended,
+observer/guardian/cooling active. Started a NEW bounded10800s read-only
+g965n-charging-soak-cooled50.service from this cooled charging baseline.
+Stopped the earlier pre-cool soak intentionally; its thermal pauses never
+qualified uninterrupted charging. New three-hour result is PENDING; inspect
+/var/lib/g965n-charge-observer/latest-soak-path/result.json. This does not reset
+guardian safety budgets, change charging controls or auto-restart ChatGPT.
