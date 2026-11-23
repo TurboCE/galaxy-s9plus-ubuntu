@@ -8072,3 +8072,18 @@ boot's targeted BUG/Oops/panic/charge-failed search returned no entries
 (journalctl exit1 means no match here). Foreground ChatGPT/desktop CPU load
 was substantial; requested ordinary GNOME screen blanking to reduce display
 load without terminating user apps. Full thermal/load qualification remains open.
+
+
+## 2026-11-23 — heat investigation, read-only snapshot
+
+Calibrated battery45.0C/USB40.6C/charger51.9C; CHGoff/input valid, guardian
+swelling stop and no hardware/config latch. Battery gauge reports35.5C,
+so its thermal-zone reading underreports relative to calibrated battery ADC.
+Reported battery average -748mA, SOC14%. CPU snapshot96% idle, yet cpufreq
+reports cluster maxima2.327/1.499GHz; big min1.066GHz vs hardware min400MHz.
+GPU reports572MHz; devfreq residency787668ms at572 vs28108ms at260 and880ms
+at455. ScreenSaver GetActive=true; touch IRQ unchanged across3s (no storm
+in that interval). Thus earlier app load alone does not explain sustained heat.
+Investigate GPU idle/devfreq accounting, CPU QoS minimums and thermal/cooling
+integration; clock/residency readback alone does not prove actual powered GPU
+utilization. No charging/clock/protection settings changed by this diagnostic.
