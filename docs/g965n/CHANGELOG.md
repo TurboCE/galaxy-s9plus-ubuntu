@@ -8170,3 +8170,7 @@ reapply260MHz. Immediate CPU readback can precede async QoS policy work; do
 not interpret an immediate unchanged bound as failed request removal.
 Root-private observer/guardian/cooling remain enabled+active. Actual reboot
 and full cold-to-hot-to-recovery cycle for the new service remain pending.
+
+Final QoS release verification waited0.5s for asynchronous CPU policy work:
+released bounds1499.333/2327MHz, reapplied650/1066MHz, controller restarted.
+This confirms the overlay removes only its own CPU requests. No reboot used.
