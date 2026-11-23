@@ -403,5 +403,6 @@ observer/guardian/cooling active. Started a NEW bounded10800s read-only
 g965n-charging-soak-cooled50.service from this cooled charging baseline.
 Stopped the earlier pre-cool soak intentionally; its thermal pauses never
 qualified uninterrupted charging. New three-hour result is PENDING; inspect
-/var/lib/g965n-charge-observer/latest-soak-path/result.json. This does not reset
+the result.json inside the directory named by
+/var/lib/g965n-charge-observer/latest-soak-path (a private pointer file). This does not reset
 guardian safety budgets, change charging controls or auto-restart ChatGPT.
