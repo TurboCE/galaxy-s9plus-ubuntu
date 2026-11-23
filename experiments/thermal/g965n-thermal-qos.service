@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Unit]
+Description=G965N calibrated battery CPU and GPU cooling requests
+Wants=g965n-charge-observer.service
+After=g965n-charge-observer.service
+StartLimitIntervalSec=600
+StartLimitBurst=3
+[Service]
+Type=simple
+UMask=0077
+ExecStart=/usr/bin/python3 /usr/local/lib/g965n-thermal-qos/thermal-control.py --confirm-sm-g965n-backed-up-cooling
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+[Install]
+WantedBy=multi-user.target

@@ -574,3 +574,86 @@ boot's targeted BUG/Oops/panic/charge-failed search returned no entries
 (journalctl exit1 means no match here). Foreground ChatGPT/desktop CPU load
 was substantial; requested ordinary GNOME screen blanking to reduce display
 load without terminating user apps. Full thermal/load qualification remains open.
+
+
+## 2026-11-23 — calibrated thermal cooling overlay, live trial
+
+Model/current#50 BOOT/protected-backup guard passed before writes. No reboot or
+partition/voltage change. Existing idle undervolt switches remain OFF because
+of documented historical hangs. Screen was truly DPMSoff/backlight0, not merely
+a locked desktop. GPU remained runtime-active; no touch IRQ growth in3s.
+
+Bounded guarded120s trial capped CPU650/1066MHz and GPU260MHz with independent
+240s compare-before-restore rollback. Reported average discharge fell from
+about748mA to450-470mA; calibrated battery46.8C did not yet cool. CPU PLL timeout
+counter continued~39.5/s. Increasing standard schedutil rate_limit_us20ms→200ms
+reduced this counter to~4.7/s over30s; hardware PLL lock handling itself remains
+unfixed. Do not claim zero warnings or complete thermal normalization.
+
+Built/loaded dedicated g965n-thermal-qos module against qualified native ABI,
+with exact model/BOOT/backup and module hash/vermagic checks. Independent
+CPU MAX QoS requests and GPU DEV_PM_QOS_MAX_FREQUENCY requests cap650/1066/260
+without replacing user requests or bypassing kernel protections. Actual effective
+CPU bounds and GPU260MHz read back. Guarded root-owned enabled service uses
+fresh calibrated battery41C/recover39C hysteresis; invalid/stale data retains
+cooling. Service failure/stop retains cooling; unloading only the owned module
+removes its requests. Cadence ownership preserves later external changes.
+Actual restart retained module ownership and cap. Host4 policy tests PASS.
+
+At last sample battery47.1C/USB40.9C/charger51.4C, SOC10%, CHGoff and mean
+reported discharge497mA. Upper charging protection still blocks charging. This
+is mitigation evidence, NOT a thermal/energy/endurance qualification. GPU idle
+reference diagnosis continues with a separate read-only counter module candidate;
+no forced runtime suspend, raw rail writes, undervolting or reboot attempted.
+
+
+### Thermal investigation follow-up — GPU work source and rollback
+
+Optional GPU snapshot read busy1/jobs1/PMref1, then changing job fence sequences
+owned by ChatGPT, followed by busy0/jobs0/PMref0. No stuck-job claim. A guarded
+20s SIGSTOP of only the verified GPU helper, with PID-start checked independent
+35s resume fallback, yielded actual runtime suspended and instantaneous battery
+current~+4/+2/-8/-4mA versus~-584mA initially. GPU helper resumed normally;
+this demonstrates a material offscreen-rendering contribution, not a completed
+long-term thermal test. No automatic app pause is installed.
+
+A separate bounded1% CPU-budget scope experiment did NOT improve GPU runtime
+suspension and was rejected. CLI CPUQuota=infinity restore syntax failed; native
+D-Bus UINT64_MAX property restored unlimited quota immediately, confirmed by
+systemd. The GPU helper was returned to the matching browser/zygote original
+cgroup after checking parent relationship. An initial restoration precondition
+incorrectly assumed user-0.slice and refused without moving; actual app parent
+was in user-1000 app.slice. It was corrected and original grouping verified.
+No app pause, CPU quota or permanent app configuration change remains.
+
+Read-only owner snapshot first compile failed on opaque panfrost_job_slot;
+corrected exact pinned source-layout definitions retain upstream copyright,
+compiled and actually read safely under locks. QA module unloaded afterward.
+Cooling service remains active/enabled with actual independent CPU650/1066 and
+GPU260MHz limits, cadence200ms. Timer restored the earlier trial's direct user
+limits successfully; QoS overlay continues separately. Four policy tests PASS.
+Battery48.6C/SOC7%/continued discharge was still observed after app resumed.
+Therefore heat, offscreen app rendering and energy balance are NOT resolved.
+No hot/depleted reboot qualification or Android-parity claim. See thermal README.
+
+
+### Latest thermal state — app closed for recovery, cooling retained
+
+Because battery depleted to7% while hot, verified main ChatGPT executable
+received graceful SIGTERM (no configuration/data/autostart changes). Main
+process exited; at15/30/45s GPU runtime was suspended and instantaneous battery
+current approximately+10/-7/+3mA. Later calibrated battery fell48.6→47.3C and
+charger52.6→49.5C, mean battery current~-3mA, SOC6%, VBAT3.61V. This confirms
+a substantial active offscreen rendering load; no forced charging or app pause
+remains. App can be launched normally; reopening may reproduce the workload.
+
+Native cpuidle driver reports none/state count0. Architecture WFI fallback may
+still exist; absence of deep idle is a port limitation, not proof of CPU100%
+utilization. No speculative PSCI/idle voltage/CPU-off changes made.
+
+Cooling source now also refuses nonprivate/symlink state/install directories;
+updated controller restart active. GPU request release exposed572MHz and
+reapply260MHz. Immediate CPU readback can precede async QoS policy work; do
+not interpret an immediate unchanged bound as failed request removal.
+Root-private observer/guardian/cooling remain enabled+active. Actual reboot
+and full cold-to-hot-to-recovery cycle for the new service remain pending.
