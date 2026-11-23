@@ -195,3 +195,20 @@ CPU/GPU 내부 TMU 보호는 기존대로이며 CPU/GPU 표준 hwmon 표시는 �
 현재 배터리0%지만 auto/Charging·3.314V/평균+63mA. 이번 부팅 센서 서비스가
 readiness 전에 실패해 IIO0개인 것도 확인했습니다. 재시작·리셋하지 않았으며
 온도 입력 검증 없이 강제 충전 루프를 적용하지 않았습니다. 동일화 완료가 아닙니다.
+
+
+## 2026-11-23 — 최신 충전 상태 및 ADC 진전
+
+배터리8%에서 CHG_EN1인데 NotCharging/Dead였고, 사용자 USB10초 재연결 뒤
+실제 Charging/Good·순충전+80–122mA·평균+34mA·약3.67V로 복구했습니다.
+원인은 미확정이며 재연결 해제 증거를 소프트웨어 영구 해결로 표시하지 않습니다.
+CHGPROT0은 고장/정상 양쪽에 존재합니다. 충전 설정/BOOT은 바꾸지 않았습니다.
+
+ADC v3 4채널 bounded trial 성공·모듈 제거/clock·controls·IRQ 원복 확인.
+순정 wired 보정표 대조 완료, 저장 실측 battery37.7/USB35.5/charger39.9C.
+이전 FG22C만으로 정상 온도를 판단하지 않습니다. 진단모듈3종 build/link 및
+호스트13tests PASS. 상시 calibrated thermal service·상위 보호/완충/재충전
+정책·장기/재부팅 charging qualification은 남습니다. README에 재현/한계 기록.
+
+재연결 후 추가4표본/30초에서 Charging/Good 유지, 마지막3.716V/평균+236mA.
+순간 부하 방전 표본은 있으므로 공급 상태와 net 평균을 함께 봅니다.

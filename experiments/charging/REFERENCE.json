@@ -8,8 +8,10 @@
     "drivers/battery_v2/sec_battery.c": "ef83212f8608b1e76da15b2906a51628da5c08b77027922c04b68f16cc15a3ce",
     "drivers/battery_v2/include/sec_charging_common.h": "03887b9ba125d1162b4db71ec123254b41830c97c074bbc5b99c98f79eb72ac2",
     "drivers/battery_v2/sec_adc.c": "2c98727dc8d51414fb4362526374afdd7e219b22748914324a0ca385a2ec7fec",
-    "arch/arm64/boot/dts/exynos/exynos9810-star2lte_eur_open_26.dts": "954177d0a2a12c9892a885ad832eb6c38d0596b35c8b148a1645e8405f9e579d"
+    "arch/arm64/boot/dts/exynos/exynos9810-star2lte_eur_open_26.dts": "954177d0a2a12c9892a885ad832eb6c38d0596b35c8b148a1645e8405f9e579d",
+    "drivers/iio/adc/exynos_adc.c": "81a507b45cdd9e21a2debd19a7084ce14c5ba6d36392e5192a0ce1c9682c63ca",
+    "drivers/battery_v2/max77705_fuelgauge.c": "c51d02886a0756ae8261bed71f0ae14017385469a3e57a28c8a71842db4df85f"
   },
-  "device_scope": "Public EUR rev26 reference; exact owner Korean firmware policy not yet compared",
+  "device_scope": "Public EUR rev26 wired battery/USB/charger calibration and protection fields compared read-only against three rev26 variants in owner original BOOT; no firmware redistributed. Wireless variant selection not qualified.",
   "reference_only": true
 }

@@ -455,3 +455,26 @@ readiness 전 종료)/root IIO0. 재시작·허브 리셋은 하지 않았습니
 입력으로 쓰지 마세요. 공개 EUR rev26 한계값은 소유 Korean firmware와 아직
 대조 전이므로 실제 setpoint로 적용하지 않습니다. 저잔량에서 BOOT 교체/
 재부팅을 강행하지 마세요. 원래 GPS/카메라/지문/개인앱 제외 유지.
+
+
+## 2026-11-23 — ADC 실측·충전 중단 재현 후속 (최신)
+
+experiments/charging/README.md 및 REFERENCE.json의 최신 기록부터 읽으세요.
+qualified #48 ABI45d68e…로3개 diagnostic 모듈 compile/modpost/link 성공,
+실제 ADC5×4 및 regmap snapshot 완료 후 제거. ADC는 firmware-held clock
+readiness만 확인하며 gate/PLL/rate를 소유하지 않음; 상시 PM 지원 아님.
+저장 sample 변환37.7/35.5/39.9C, FG22C. original BOOT wired table 대조 완료.
+public calibration로 diagnostic 변환은 가능하지만 과거 receipt를 live 보호
+입력으로 쓰면 안 됨. 공급자 상시화/freshness/thermal policy/full/recharge 남음.
+
+CHG1/NotCharging 상태 snapshot charge6/battery2/input3/lock0. 사용자 USB
+10초 재연결 뒤 charge1/battery4/input3/lock0 및 net+80–122mA·8%/3.67V.
+입력 재연결로 이 fault가 해제된 실물 증거; 원인과 안전한 software recovery
+미확정. lock0만 보고 reset/reinit하지 말 것. Exact Samsung conditional
+recovery는8/11에 한정되며6의 복구를 임의 확장하면 안 됨. 장기 charging
+관찰 및 persistent calibrated temperature integration을 다음에 진행하세요.
+private 설치/receipt는 기기 root 전용; credential helper 출력 금지.
+재부팅/BOOT/보호/전류·전압 변경 없음. 이 boot 센서 service 실패는 별도 잔여.
+
+재연결 후30초4표본의 마지막3.716V/평균+236mA, Charging/Good 유지.
+이는 짧은 관찰이며 다음에는 장시간 상태/잔량 상승부터 확인하세요.

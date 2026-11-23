@@ -7884,3 +7884,43 @@ Battery depletion and missing/failed temperature paths preclude deploying an
 Android-equivalent automatic enable policy now. The existing one-time charge
 restoration remains active. Further ADC/provider/policy work and actual thermal/
 full/recharge/reconnect/boot qualification remain explicitly incomplete.
+
+
+## 2026-11-23 — ADC v3 실측 및 충전 IC 입력 재연결 복구
+
+- exact SM-G965N/native #48/BOOT/RECOVERY·EFS·CPEFS·RADIO 백업 guard 확인 후
+  opt-in ADC v3 두 모듈과 read-only charger snapshot 모듈을 root 전용 경로에
+  배치. 자격 증명/firmware/실측 원본/개인 식별 정보는 private receipt로 보존.
+- 첫 external module modpost는 잘못된 out의 Module.symvers 부재로 실패.
+  qualified #47 export ABI(45d68e…)/RTC-only #48 incremental을 대조해 올바른
+  out으로 3모듈 compile/modpost/link 성공. API of_node_to_fwnode는 지원되는
+  of_fwnode_handle로 수정. 빌드 전용 재현 스크립트 추가(설치/flash 없음).
+- ADC v3 DATA0x08/reset4→2/CTIME6/12bit/IRQ completion·100ms timeout 구현.
+  firmware-held gate readiness만 확인하고 CMU/PLL/gate/rate는 쓰지 않음.
+  SPI8 기존 owner 거부, 변환 전 제어값 보존, stale/중복 IRQ 방어 및 finally
+  unload. 첫 trial은 charger health fault로 거부. 충전 판단과 독립적인
+  진단 읽기만 허용하도록 수정했으며 충전 보호/전류/전압은 변경하지 않음.
+- 실기 5회×4채널 완료: ADC4 1474–1475, ADC1 1558, ADC3 1385–1391,
+  ADC11 2357–2673. 모듈 제거·clock 관찰값/ADC controls/IRQ type 원복 확인.
+  상시 서비스/재부팅/절전 qualification은 아님.
+- original BOOT manifest와 일치하는 private 원본을 읽기 전용 분석.
+  rev26 3종의 wired battery/USB/charger 보정표·관련 보호/완충/재충전 항목은
+  pinned 공개 소스와 일치. 총74필드 중 2종74/74,1종73/74이며 차이는
+  wireless LCD-on 항목. private DT/원본 firmware는 공개하지 않음.
+- temperature.py의 5개 trimmed mean 및 C signed division 변환/invalid·
+  오래된 capture 거부 추가. 저장된 실측 battery37.7C/USB35.5C/charger39.9C.
+  FG22C와 달라 FG 온도만으로 정책 판정 불가. ADC11 전압 변환 미검증.
+- live charger owner regmap의 non-clearing 값만 읽고 snapshot 제거.
+  충전 중단 시 CHG_DTLS6/BAT_DTLS2/CHGIN3/CHG_EN1/CHGPROT0/WDTEN0.
+  8%/3.64V/near-zero discharge였으며 Dead 표시는 영구 배터리 고장 증거가 아님.
+- 사용자 10초 USB 분리/재연결 뒤 Charging/Good, net+80–122mA, 평균+34mA,
+  약3.67V. read-only snapshot CHG_DTLS1/BAT4/CHGIN3/CHG_EN1/CHGPROT0.
+  모듈 제거 확인. 입력 재연결로 이 발생 건은 해제됐지만 최초 원인/소프트웨어
+  복구 절차는 미확정. lock0은 정상 충전에도 존재하므로 reset 증거로 쓰지 않음.
+- 호스트 실제 ADC C IRQ/오류/ownership/cleanup ASan·UBSan 및 보정 전체구간
+  C 대조 5PASS, 기존 charger8PASS. 커널/BOOT/charger limits/firmware 미변경.
+  Android 동일화·지속 충전·완충/재충전·상시 온도 정책·재부팅 검증은 미완료.
+
+추가 30초×4표본 확인: Charging/Good 유지, 약3.66→3.72V,
+마지막 평균+236mA. 순간 부하로 음전류 표본도 있어 상태명만으로 판단하지
+않았으며 평균 양전류를 확인했습니다. 장기/완충 qualification은 아닙니다.

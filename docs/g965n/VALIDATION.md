@@ -634,3 +634,22 @@ and bounded test. GPS remains deferred; camera/fingerprint excluded.
 | ARM64 compile | Driver C-object PASS. Initial plural devm API corrected. Full external module NOT linked: qualified Module.symvers missing; no bypass. No full new kernel or hardware boot. |
 | Current hardware | Read-only0%/22C/3.314V/+63mA average, Charging/auto. Sensor unit failed before readiness, root IIO devices0. No restart or write this task. |
 | Android parity | NOT complete: real battery/USB/charger ADC, thermal/swelling/full/recharge/cable/safety-time policies and hardware qualification remain. Candidate not installed. |
+
+
+## 2026-11-23 — charging ADC qualification / latest
+
+| 항목 | 결과 | 범위/남은 검증 |
+|---|---|---|
+| ADC v3 raw | 실기 PASS: 5rows×channels4/1/3/11 | bounded 진단만; 상시/절전/재부팅 미검증 |
+| ADC cleanup | 실기 PASS: 모듈 제거·clock/controls/IRQ type 동일 | gate/PLL/rate 쓰기 없음 |
+| Wired calibration | original BOOT rev26 3종과 공개 battery/USB/charger tables 일치 | wireless variant 미선택; 절대 온도 외부계기 대조 미실시 |
+| 변환 | receipt37.7/35.5/39.9C; 전체 구간 C arithmetic·invalid/freshness tests PASS | live thermal consumer/충전 정책 미연결 |
+| Charge fault | CHG1/charge6/battery2/input3/lock0 실제 확인 | 최초 원인 미확정; 영구 battery failure 판정 아님 |
+| Input reattach | 사용자 USB10초 재연결 후 charge1/battery4/ChargingGood/net+80–122mA | 해당 발생 건 해제; 자동 software recovery/장기충전 미검증 |
+| Build/host checks | 3모듈 compile+modpost+link, ADC/temperature5 + charger8 tests PASS | 새 BOOT/커널 설치 없음; build를 boot 성공으로 표시 안 함 |
+
+이 기록은 앞선 low-battery Charging 및 이후 중단을 모두 보존하고 최신
+재연결 복구로 갱신합니다. Android 동일화/완충/재충전/상시 온도 정책은 미완료.
+
+재연결 후 추가30초4표본: Charging/Good 유지, 마지막3.716V/평균+236mA.
+일시 부하 방전 표본 존재; 지속/완충/재부팅 시험과 구분합니다.

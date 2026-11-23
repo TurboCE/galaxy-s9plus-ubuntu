@@ -1,7 +1,9 @@
 # Samsung charging policy parity — incomplete
 
 This is a source candidate and gap analysis, **not Android-equivalent charging
-on the handset**. No new charger driver, module or kernel has been installed.
+on the handset**. Bounded ADC diagnostics and a read-only charger snapshot
+were loaded and removed on native #48; no replacement charger driver or
+new kernel has been installed.
 The owner's earlier one-time auto restoration is separate from this work.
 
 ## Reference and ownership
@@ -25,7 +27,7 @@ selects that mode. It is not a periodic unconditional CHG=1 implementation.
 | Manual inhibit | Explicit charge mode OFF | Existing inhibit ABI preserved. Candidate keeps last accepted intent; failed I/O cannot change it. |
 | Before probe completes | Initialization precedes normal policy | Candidate rejects charge requests with EAGAIN until initialization finishes, preventing accepted inhibit being silently overwritten by startup. |
 | Input attach/detach | Cable work selects charge policy/current | Native CHGIN work currently only notifies power_supply. Full cable-policy integration missing. |
-| Temperature | Dedicated battery/USB/charger ADC sources, hysteresis, swelling policy | Fuel-gauge temperature and SSP board thermistors exist, but they are not substitutes for these calibrated channels. Not connected. |
+| Temperature | Dedicated battery/USB/charger ADC sources, hysteresis, swelling policy | ADC channels 4/1/3 read successfully in a bounded trial; public calibration matches owner wired tables. Persistent fresh thermal service and upper charging policy still missing; fuel-gauge/SSP values are not substitutes. |
 | Full/recharge | Charge-complete detection, full and recharge state/counters, temperature-dependent thresholds | Native hardware status available, equivalent upper policy missing. |
 | Charger protection/reset | Unlock/readback/init and conditional fault handling | Equivalent qualified recovery absent. Do not blindly unlock/reinitialize or set CHG periodically. |
 | Runtime safety time/current | Cable/current-dependent timing, abnormal-voltage and battery protection | Equivalent upper policy missing; retain current input/current/CV limits. |
@@ -46,14 +48,18 @@ battery high50C/recover45C, low0C/recover5C, USB high-limit80C/recover75C.
 Separate swelling policy starts at41C/recover39C, with additional cold limits,
 current/voltage restrictions and recharge conditions. Normal recharge uses
 VCELL <=4280mV (type4), not simply SOC<=98; full-condition configuration and
-swelling state also gate it. These are reference values, not verified policy
-for the owner's Korean firmware. Nothing has programmed them into hardware.
+swelling state also gate it. The wired battery/USB/charger calibration and relevant protection/full/recharge
+fields match the owner's original rev26 firmware variants in a read-only
+comparison. One wireless LCD-on field differs in one variant; wireless policy
+is not qualified. These references have not been programmed into hardware.
 
 Its ADC provider is `samsung,exynos-adc-v3` at0x14230000; named inputs are
 adc-temp=channel4, adc-chg-temp=3, adc-in-bat=11, adc-wpc-temp=4,
 adc-usb-temp=1. This provider is absent from the native board description.
-Bring up its real clock/reset/IRQ, IIO channels, calibrated conversion and
-sample validity first. Do not substitute SSP thermistor channels, fuel-gauge
+The opt-in diagnostic now verifies inherited gate readiness, performs ADC v3
+reset/conversion with IRQ completion and restores controls. It does not own
+clock gate/rate policy; production clock/runtime power management and a
+persistent calibrated thermal consumer remain to implement. Do not substitute SSP thermistor channels, fuel-gauge
 temperature, zero/missing values or guessed thermal thresholds.
 
 ## Validation and build-only reproduction
@@ -93,3 +99,81 @@ Charging/auto. The sensor unit failed this boot before child readiness and
 root IIO inventory was empty. No sensor restart/reset was attempted while the
 battery is depleted. This is an additional unavailable-temperature dependency,
 not a reason to guess temperatures or enable an unconditional charge loop.
+
+
+## 2026-11-23 hardware-qualified diagnostic path
+
+`g965n-adc-v3.c` implements the vendor v3 register sequence (DATA at 0x08,
+reset then non-reset, CTIME6, 12-bit samples, 100ms completion timeout).
+`g965n-adc-board.c` requires the observed firmware-held ADC access gates and
+an unowned SPI8 mapping. Its CCF handle only checks readiness; it neither
+programs CMU/PLL nor supplies an invented rate. This limited wiring must not
+be mistaken for a complete runtime-PM/suspend implementation.
+
+`adc-trial.py` requires the existing exact SM-G965N/#48/BOOT/protected-backup
+preflight, root-only package pins, qualified export ABI, at least 5%/3.5V,
+external power and bounded fuel-gauge prerequisites. These prerequisites only
+permit diagnostics; the gauge reading does not qualify physical temperature.
+The first trial refused a charger fault; allowing **diagnostic-only** sampling
+during that fault subsequently succeeded. No protection was bypassed to charge.
+Five rows of channels 4/1/3/11 completed; both ADC modules were removed, ADC
+controls/gate observations/IRQ type matched the pretrial snapshots. No service,
+auto-enable loop, charger limits or firmware were installed/changed.
+
+`temperature.py` converts the private five-row receipt for channels 4/1/3
+using the pinned public tables, trimmed mean and Samsung C signed-division
+rounding. Out-of-range samples, missing samples, non-monotonic captures and
+captures longer than five seconds are rejected, including invalid outliers.
+A completed receipt is historical evidence, **not a fresh thermal-policy input**.
+One capture gave battery 37.7C / USB 35.5C / charger 39.9C, while the gauge
+reported 22C. Android also writes externally measured temperature into its
+fuel gauge; the native gauge reading alone cannot qualify these thermistors.
+Channel 11 remains raw: no guessed voltage-divider conversion.
+
+`g965n-charge-snapshot.c` reads only non-clearing status/configuration through
+the bound owner's regmap, then is removed. It never reads IRQ-clear status or
+writes configuration. Actual CHG_DTLS=6, BAT_DTLS=2, CHGIN_DTLS=3, CHG_EN=1,
+CHGPROT=0 and WDTEN=0 were observed. Native health reports Dead, but this is
+not proof of a permanently failed battery. Exact Samsung source reports
+NotCharging for this charge state; its qualified conditional recovery handles
+states 8/11, not this state. Related-chip timer-fault descriptions are not an
+exact MAX77705 qualification. CHGPROT=0 alone does not prove a chip reset.
+No speculative reset/unlock/reinitialization has been performed.
+
+Before reattach: 8%, about 3.64V, USB online, auto/NotCharging and average
+near-zero net discharge. The owner then disconnected/reconnected USB for ten
+seconds: Charging/Good returned, battery net current reached +80..122mA,
+average rose to +34mA and voltage reached about 3.67V. The same read-only
+snapshot now showed CHG_DTLS=1 / BAT_DTLS=4 / CHGIN_DTLS=3, with CHG_EN=1,
+CHGPROT=0 and the input code unchanged. The diagnostic module was removed.
+This demonstrates physical input reattachment cleared this occurrence; it
+does not identify what originally caused the fault or qualify a software
+reset sequence. CHGPROT=0 also exists while charging normally, so lock state
+alone cannot diagnose the fault. Sustained charging is **not yet qualified**. Do not shut down a low-battery phone: cold USB autoboot
+is not supported. Persistent calibrated thermal policy, fault recovery,
+full/recharge, long-duration charging and reboot qualification remain open.
+
+Build all three diagnostic modules without device access:
+
+```sh
+KERNEL_SOURCE=/reviewed/kernel/source KERNEL_OUT=/qualified/kernel/out \
+DIAGNOSTIC_OUT=/new/private/output experiments/charging/build-diagnostics.sh
+python3 -m unittest discover -s tests -p 'test_charging*.py' -v
+```
+
+The builder rejects a mismatching Module.symvers hash and requires a new
+output directory. The qualified #48 export ABI is inherited from its reviewed
+#47 base (RTC-only incremental #48 build); an unrelated configured output's
+missing Module.symvers was the initial modpost failure. Correct qualified
+output subsequently passed compilation, modpost and linkage of all three
+modules. No warning bypass. Source availability and matching exports are
+necessary, not sufficient to authorize loading on another kernel/device.
+The initial board build's unavailable of_node_to_fwnode was corrected to
+of_fwnode_handle. Host tests exercise actual driver conversion/IRQ/error paths
+with ASan/UBSan and compare every calibration interval with C arithmetic.
+
+Public source is GPL-2.0-only with the ADC author's original GPL2-or-later
+notice preserved and version 2 elected. Builds/receipts/stock firmware are
+private and excluded from Git. Diagnostic installation must use the existing
+model/BOOT/backup guards and newly generated root-only package pins; this
+builder intentionally performs no installation or flashing.
