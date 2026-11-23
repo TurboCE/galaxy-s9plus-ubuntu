@@ -1,0 +1,19 @@
+[Unit]
+Description=SM-G965N private charging and ADC diagnostic recorder
+After=local-fs.target systemd-modules-load.service auditd.service
+Wants=auditd.service
+StartLimitIntervalSec=600
+StartLimitBurst=3
+
+[Service]
+Type=simple
+UMask=0077
+ExecStart=/usr/bin/python3 /usr/local/lib/g965n-adc-trial/charge-observer.py --confirm-sm-g965n-backed-up-observation
+Restart=on-failure
+RestartSec=60
+TimeoutStopSec=20
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

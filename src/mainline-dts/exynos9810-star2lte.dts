@@ -657,7 +657,8 @@
 		energy-full-design-microwatt-hours = <13480000>;
 		charge-full-design-microamp-hours = <3500000>;
 		constant-charge-current-max-microamp = <2150000>;
-		constant-charge-voltage-max-microvolt = <4400000>;
+		/* Wired stock rev26 float target; battery design rating is separate. */
+		constant-charge-voltage-max-microvolt = <4350000>;
 	};
 
 	/* Both LDOs are left on by sboot; the driver only needs the handles. */

@@ -478,3 +478,35 @@ private 설치/receipt는 기기 root 전용; credential helper 출력 금지.
 
 재연결 후30초4표본의 마지막3.716V/평균+236mA, Charging/Good 유지.
 이는 짧은 관찰이며 다음에는 장시간 상태/잔량 상승부터 확인하세요.
+
+
+## 2026-11-23 — 연속기록 운영·다음 충전 조사 (최신)
+
+experiments/charging/README.md·CAUSES.md를 먼저 읽으세요. actual IC CNFG01
+0x91(timer1/restart1/prequal1) vs native init0/3/0 불일치가 새 근거입니다.
+locked0은 정상충전에도 보였으며 init write가 안 먹었는지 이후 변경됐는지는
+모릅니다. upper safety-time/thermal policy 없이 unlock/타이머 disable을
+복구라며 강행하지 마세요. charge6 의미를 타 chip datasheet로 단정 금지.
+
+기기 root /usr/local/lib/g965n-adc-trial에 pinned observer5scripts/3modules/
+observer-pins.json 설치. g965n-charge-observer.service active/enable.
+/var/lib/g965n-charge-observer/samples*.jsonl(4×4MiB), /var/log/audit/
+audit.log(4MiB·3files)는 private; boot IDs/raw로그 공개 금지. audit sysfs
+3개 owned watch는 helper가 normal discovery 후 복구하며 타 rule 삭제 안 함.
+ausearch -if /var/log/audit/audit.log -k g965n_charge_control --raw 사용;
+기본 query는 no matches였지만 explicit input 실제 SYSCALL/python/path 검증.
+open-for-write만 시험했고 제어 write는 안 했음. kernel 내부 write는 audit
+대상이 아님. module getter는 현재 regmap 값을 읽으며 IRQ-clear register 제외.
+
+후보 source readback/mismatch/error propagation/caller/init/cleanup 로깅은
+아직 새 커널로 적용 안 함. full/recharge/current/time/swelling enforcement
+및 재부팅/절전/장기 관찰이 다음 작업. 온도 gate는 shadow이고 auto-enable
+루프 없음. battery15%/기록38개·온도 오류0 확인. startup guard 충분한 잔량
+요건 때문에 저잔량 reboot를 강행하지 말 것. 반복 upgrade stop/start의
+start-limit-hit는 정상 exit/원복 확인 후 unit reset-failed로 복구했습니다.
+개인 문서48줄은 별도 기존 변경이므로 이번 커밋에도 섞지 마세요.
+
+추가 후보: src/mainline-dts battery charge ceiling4.35V(순정3종 일치),
+initializer는 design rating 대신 charge ceiling을 쓰고 design 상한/4.2V
+fallback/지원범위·에러를 검사. ARM64 object 및 C tests PASS·미설치,
+live4.2V 불변. 최종 observeractive/Resultsuccess·auditlost0·dpkgclean.

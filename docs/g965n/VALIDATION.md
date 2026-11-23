@@ -653,3 +653,25 @@ and bounded test. GPS remains deferred; camera/fingerprint excluded.
 
 재연결 후 추가30초4표본: Charging/Good 유지, 마지막3.716V/평균+236mA.
 일시 부하 방전 표본 존재; 지속/완충/재부팅 시험과 구분합니다.
+
+
+## 2026-11-23 — continuous charging investigation
+
+| 항목 | 실제 확인 | 미검증/한계 |
+|---|---|---|
+| Live status module | 12 non-clearing regmap 값 반복 읽기, ARM64 link PASS | IRQ status 안 읽음; snapshot atomic 아님 |
+| Observer | one-shot·stop/restart 원복·active+enabled, 15초 표본38개 온도 오류0 | actual reboot/suspend 미검증; 과거 overwritten log 복구 불가 |
+| Private retention | observer4×4MiB fsync·root-only, audit4MiB/3files 설정 | 장기 실제 rotation 실기는 아직; host rotation/error tests PASS |
+| Audit attribution | 3 sysfs watch; no-write open의 process/path/SYSCALL 기록·control 불변 | explicit -if 필요; kernel 내부 write/accepted buffer 전체 미포함 |
+| Init mismatch | CNFG01=0x91의1/1/1 vs source0/3/0 | 최초 write 실패 vs 이후 변경 미구분 |
+| Thermal gates | pinned normal hot/cold/USB 및 swelling flag shadow 계산 | enforcement/full/recharge/current/time policy 미완료 |
+| Candidate native | readback/ignored-write·read error fault tests, init error 전달·로그, ARM64 object PASS | 새로운 kernel/device trial 미실시 |
+| Charging now | capacity15%·ChargingGood, 약38.3/36.1/40.6C | 최초원인·장기충전·완충/재충전 성공 아님 |
+
+23 host tests PASS. 감사 도구 network install timeout은 공식 패키지 해시 검증
+전송으로 해결; dpkg clean. 반복 검증으로 발생한 unit start-limit-hit는
+정상 stop/원복 확인 후 실행 카운터 초기화로 복구. 보호 guard는 우회 안 함.
+
+추가 CV 후보: owner wired4.35V vs native ceiling4.4V 차이 확인,
+source/DT수정과 실제 C 경계/누락/부적합 입력 및 ARM64 compile PASS.
+미설치·live4.2V 불변. 최종 observer active/Resultsuccess·auditlost0 확인.

@@ -177,3 +177,104 @@ notice preserved and version 2 elected. Builds/receipts/stock firmware are
 private and excluded from Git. Diagnostic installation must use the existing
 model/BOOT/backup guards and newly generated root-only package pins; this
 builder intentionally performs no installation or flashing.
+
+## Continuous diagnosis — 2026-11-23
+
+See [CAUSES.md](CAUSES.md) for evidence, candidates and how to distinguish them.
+The current live IC CNFG_01=0x91 does not match the native initializer's intended
+fast-timer/restart/prequalification fields0/3/0. That difference is observed;
+ignored initialization vs a later reset/write is not yet distinguished.
+Do not unlock and replay initialization blindly: that could disable hardware
+safety timers before equivalent upper software protection exists.
+
+The owner-authorized recorder is **installed, active and enabled on #48**:
+`g965n-charge-observer.service`. No new BOOT/charger driver was installed.
+It uses the qualified raw ADC modules and revised root-read-only live snapshot
+module. Each snapshot parameter now reads the owner's regmap, not an old
+module-load value. It exposes12 non-clearing status/config registers and
+never reads IRQ acknowledgement status. Reads are bracketed by monotonic time,
+not claimed to be an atomic hardware snapshot.
+
+Every15seconds it records:
+
+- Actual charge behaviour/status/health, battery voltage/current/average/SOC,
+  input/charge limits and available fuel-gauge temperature.
+- IC state and configuration, decoded fields and intended-init differences.
+- Five raw ADC rows and calibrated battery/USB/charger temperatures; failures
+  remain errors. `thermal-policy.py` adds stock normal hot/cold/USB hysteresis
+  and a distinct swelling-high-temperature flag **in shadow mode only**.
+  These are not complete swelling, cold-current, full/recharge or safety-time
+  policies, and no resulting recommendation controls the charger.
+- Filtered kernel messages from an independent nonblocking `/dev/kmsg` reader.
+  Bounded draining includes available boot messages; old overwritten messages
+  cannot be recovered. Private files are fsync'd per record and rotate4x4MiB.
+
+`audit-controls.py` installs only its own three write watches after the model/
+BOOT/backup guard and device discovery. It does not delete other audit rules,
+enable global audit or change immutable audit policy. Standard Ubuntu auditd
+and libauparse were installed from official ARM64 packages, verified against
+APT metadata SHA256, after an on-device network download timed out. Auditd
+installation enabled standard kernel auditing; its logging retention was set
+to4MiB/3files, and its previous config is privately backed up. `dpkg --audit`
+was clean. No package or private log is distributed by this repository.
+
+Actual watches cover charge_behaviour, constant_charge_current and
+input_current_limit. A safe **open-for-write with no bytes written** proved
+file/process syscall attribution while control readback stayed unchanged.
+A separate temporary regular-file probe was removed afterward. Default
+ausearch invocation initially returned no matches; explicit `-if` input
+successfully found the actual syscall/process/path records. Inspect with:
+
+```sh
+sudo systemctl status g965n-charge-observer.service
+sudo ausearch -if /var/log/audit/audit.log -k g965n_charge_control --raw
+# Raw samples/boot IDs/receipts are private; do not upload or commit them.
+sudo tail -n 1 /var/lib/g965n-charge-observer/samples.jsonl
+```
+
+Audit attributes userspace file access, not kernel-internal register writes,
+and does not record the complete text buffer accepted by every sysfs write.
+Fifteen-second register sampling cannot capture every transient. Current #48
+has no KPROBES/FTRACE. The candidate driver adds request/result/actual-bit and
+caller logs, devres-disable attribution and before/after/error init snapshots;
+these need a new qualified kernel trial. It also rejects silent CHG readback
+mismatch and propagates an ignored float-voltage setup error. ARM64 candidate
+object compilation and faultable C tests pass, but it is **not installed**.
+
+Actual recorder checks: one-shot start/sample/stop, module removal and control/
+clock/IRQ restoration passed; service stop/restart and fresh samples passed.
+At38records no temperature errors occurred; battery rose to15%, Charging/Good.
+Temperatures were about38.3/36.1/40.6C, without changing charger limits.
+Boot enablement is configured; actual next-reboot/suspend, long-duration fault
+capture, full/recharge and enforcement of Android-equivalent policy remain
+unverified/incomplete. Startup refuses unqualified BOOT/ABI, existing module
+owners, insufficient stable battery or changed script/module hashes.
+
+The root-only install directory additionally needs `charge-observer.py`,
+`temperature.py`, `thermal-policy.py`, `audit-controls.py`, `adc-trial.py`,
+three qualified modules and `observer-pins.json` containing their SHA256s,
+module export ABI and scripts. Preserve prior files/private receipts and run
+the existing exact-model/BOOT/protected-backup guard before installing.
+The service starts after auditd and re-establishes its owned watches after
+normal device discovery; it never adds broad syscall rules or `auditctl -D`.
+
+To stop only this experiment (the normal charger remains bound):
+
+```sh
+sudo systemctl disable --now g965n-charge-observer.service
+```
+
+Owned ADC/snapshot modules are removed and before/after state is recorded.
+The audit watches deliberately remain until explicitly removed using their
+exact paths/key; do not globally disable audit or erase unrelated rules.
+No reboot, firmware, current/CV change or unconditional charge-enable loop
+was used for this installation.
+
+Additional verified policy gap: all three owner rev26 original wired targets
+are4350mV, while native battery DT set constant-charge-voltage-max to4400mV
+and init used battery design voltage. The candidate keeps the descriptive
+4.4V design rating but changes the charge ceiling to4.35V, uses the charge
+ceiling bounded by design rating, preserves4.2V fallback when policy is absent,
+rejects unsupported targets and propagates programming errors. Faultable C
+tests and ARM64 object compilation pass. This source/DT change is not yet
+installed; live CV remains4.2V. No observed overvoltage incident is claimed.

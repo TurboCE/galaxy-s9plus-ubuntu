@@ -212,3 +212,26 @@ ADC v3 4채널 bounded trial 성공·모듈 제거/clock·controls·IRQ 원복 �
 
 재연결 후 추가4표본/30초에서 Charging/Good 유지, 마지막3.716V/평균+236mA.
 순간 부하 방전 표본은 있으므로 공급 상태와 net 평균을 함께 봅니다.
+
+
+## 2026-11-23 — 현재 충전 원인추적 상태
+
+충전15%/ChargingGood 유지. native 초기화 의도와 IC 실제 timer/restart/
+prequal 값 불일치를 확인했으나 초기 미반영인지 이후 변경인지는 미확정.
+CAUSES.md의 후보/판별 조건 참고. 강제 unlock/타이머 disable은 하지 않았음.
+
+charge-observer.service active+enabled: 15초 간격 실제 제어값/IC12regs/
+온도3종/kernel messages, root-only 제한된 순환 파일에 연속 기록. auditd와
+owned control3개 watch 추가; no-write open 시험에서 실제 process/path
+감사 이벤트 확인. 조회는 explicit audit.log input 사용. kernel내부 writer나
+모든 transient/accepted text를 완전히 기록하는 것은 아님.
+
+온도 hysteresis는 shadow 계산만 연결, actual protection/full/recharge/
+swelling/runtime safety 정책은 미완료. 후보 kernel에 readback·caller/
+init/cleanup 로그 및 float 설정 오류 전달을 추가했으나 미설치. host23tests/
+ARM64 object PASS와 실기 검증을 구분. enable의 actual reboot도 미검증.
+
+순정 wired float4.35V와 native charge ceiling4.4V/design-rating 사용 차이도
+발견. 후보 source/DT에서4.35V charge ceiling·보수적 fallback·범위 검증으로
+수정했으나 미설치. live4.2V 불변. 최종 observer active/Resultsuccess 및
+audit lost0 확인; 기기에서는 계속 기록됩니다.

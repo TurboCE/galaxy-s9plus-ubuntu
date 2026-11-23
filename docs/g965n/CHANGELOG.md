@@ -7924,3 +7924,55 @@ full/recharge/reconnect/boot qualification remain explicitly incomplete.
 추가 30초×4표본 확인: Charging/Good 유지, 약3.66→3.72V,
 마지막 평균+236mA. 순간 부하로 음전류 표본도 있어 상태명만으로 판단하지
 않았으며 평균 양전류를 확인했습니다. 장기/완충 qualification은 아닙니다.
+
+
+## 2026-11-23 — 충전 최초원인 추적·연속기록 활성화
+
+- 사용자 요청: Android/native 코드 비교, 충전 제어·IC·온도 연속 기록,
+  최초원인 조사 및 Android 충전 관리 후속. 기존 exact model/#48/BOOT/보호
+  백업 guard 후 작업. BOOT/충전 limits/firmware/RECOVERY 등은 변경하지 않음.
+- 원인 후보를 experiments/charging/CAUSES.md에 근거/판별 조건과 구분 기록.
+  실제 CNFG01=0x91에서 fasttimer1/restart1/prequalification1을 확인해 native
+  init 의도0/3/0과 불일치. 초기 write 미반영 vs 이후 reset/다른 writer 미구분.
+  lock0만으로 reset 판정하지 않고 타이머를 강제로 끄지 않음.
+- snapshot 모듈은 load-time 값 대신 매 읽기 live owner regmap을 사용하도록
+  수정. root-read-only12개 non-clearing registers; IRQ 상태/설정 쓰기 없음.
+  qualified ABI build/modpost/link 및 실기 반복 읽기 확인.
+- charge-observer.service 설치/enable. 15초마다 control readback·IC config/
+  state·ADC5회 trimmed 온도3종·available kernel messages 기록. root-only
+  fsync JSONL4×4MiB 순환. before/after clock/ADC/IRQ 및 owned module unload
+  확인. 기존 snapshot/스크립트/설정과 설치 receipt는 root private 보존.
+- 표준 auditd 설치는 기기 네트워크에서150초 timeout. dpkg 변경 전 실패로
+  확인한 뒤 Mac에서 공식 ARM64 auditd/libauparse2개를 APT metadata SHA256
+  검증 후 전송·설치. audit enabled1/daemon active, 로그4MiB·num_logs3로
+  제한하고 이전 auditd.conf 보관. dpkg --audit clean. 별도 daemon/전역
+  audit 정책을 helper가 임의 변경하지 않으며 owned3개 control watch만 추가.
+- 처음 기본 ausearch의 no matches로 attribution 검증 실패. regular-file
+  probe도 같은 현상; explicit -if /var/log/audit/audit.log로 실제 syscall/
+  process/path를 확인해 query 수정. 임시 regular watch는 제거. 실제 제어
+  파일은 open(O_WRONLY) 후 close만 했고 아무 값도 쓰지 않았으며 readback
+  불변 확인. 감사 이벤트는 open/write intent이지 accepted buffer 전체가 아님.
+- 서비스 반복 stop/start 및 원복 검증 과정에서 start-limit-hit 발생
+  (ExecMainStatus0, NRestarts0). exact guard 및 정상 stop receipt 확인 후
+  해당 unit의 실행 카운터만 reset-failed하고 재시작. 보호 검사는 유지.
+  enable은 설정 완료이나 actual reboot/suspend qualification은 아직 없음.
+- thermal-policy.py: pinned wired normal hot50/recover45·cold0/recover5·
+  USB80/recover75·swelling41/recover39 hysteresis를 shadow 계산으로 기록.
+  invalid sample로 latch 해제 안 함. 실제 enable/disable/한계값 변경 없음.
+  full/recharge/swelling/current/runtime safety-time 정책 완성은 미완료.
+- native 소스 후보: CHG write 뒤 actual readback·silent mismatch 오류 반환,
+  request/result/caller·cleanup disable·init 전후/error config 로깅 추가.
+  무시되던 float voltage 초기설정 오류 전달. readback 실패는 accepted intent
+  갱신 안 함. 이전 소스 exact SHA migration만 허용. 아직 기기 미설치.
+- native ARM64 candidate object PASS, live snapshot link PASS, 실제 C fault
+  injection 포함 충전 관련23tests PASS. 38개 observer 표본 온도 오류0,
+  배터리15%로 상승·Charging/Good, 약38.3/36.1/40.6C. 단기 관찰 결과이며
+  최초원인 확정/전체 Android parity/장기·완충·재충전 성공으로 표기 안 함.
+
+추가 소스/순정 비교: owner rev26 3종 wired float4350mV vs native DT charge
+ceiling4400mV·initializer design-voltage 사용. 미설치 후보에서 charge
+ceiling4350mV로 수정하고 design rating4.4V와 분리; fallback4.2V/상한
+design 제한/지원범위 검증 및 오류 전달. 실제 C 경계/누락/부적합 값 시험과
+ARM64 object compile PASS. live CV4.2V는 그대로; 과전압 최초원인 판정 아님.
+최종 observer active/Resultsuccess/NRestarts0·fresh 온도38.4/36.3/40.8C,
+오류없음·audit lost0·dpkg clean 재확인. actual reboot/후보 커널 적용은 안 함.

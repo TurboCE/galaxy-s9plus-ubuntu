@@ -39,6 +39,7 @@ static void mutex_unlock(struct mutex *m) { assert(m->held);m->held=false; }
 #define BIT(n) (1U << (n))
 #define clamp_t(t,v,lo,hi) ((t)(v) < (t)(lo) ? (t)(lo) : (t)(v) > (t)(hi) ? (t)(hi) : (t)(v))
 #define dev_dbg(...) ((void)0)
+#define dev_info(...) ((void)0)
 #define dev_err(...) ((void)0)
 #define msleep(...) ((void)0)
 #define IRQ_HANDLED 1
@@ -85,10 +86,10 @@ static const struct reg_field max77705_reg_field[] = {
  [MAX77705_CHG_CHGIN_LIM] = REG_FIELD(MAX77705_CHG_REG_CNFG_09,0,6),
  [MAX77705_CHG_CV_PRM] = REG_FIELD(MAX77705_CHG_REG_CNFG_04,0,5),
 };
-struct regmap { unsigned int regs[256]; int reads, writes, fail_read, fail_write; unsigned int last_written; bool aicl_after_write; };
+struct regmap { unsigned int regs[256]; int reads, writes, fail_read, fail_write; unsigned int last_written; bool aicl_after_write, ignore_write; };
 struct regmap_field { struct regmap *map; struct reg_field field; };
-struct battery_info { int voltage_max_design_uv; };
-struct max77705_charger_data { struct regmap *regmap; struct regmap_field *rfield[N_FIELDS]; void *dev; struct battery_info *bat_info; };
+struct power_supply_battery_info { int voltage_max_design_uv, constant_charge_voltage_max_uv; };
+struct max77705_charger_data { struct regmap *regmap; struct regmap_field *rfield[N_FIELDS]; void *dev; struct power_supply_battery_info *bat_info; };
 struct power_supply { struct max77705_charger_data *data; };
 union power_supply_propval { int intval; const char *strval; };
 enum power_supply_property { POWER_SUPPLY_PROP_ONLINE, POWER_SUPPLY_PROP_PRESENT, POWER_SUPPLY_PROP_STATUS, POWER_SUPPLY_PROP_CHARGE_TYPE, POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR, POWER_SUPPLY_PROP_HEALTH, POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT, POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT, POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE, POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN, POWER_SUPPLY_PROP_MODEL_NAME, POWER_SUPPLY_PROP_MANUFACTURER };
@@ -109,7 +110,7 @@ static int regmap_field_read(struct regmap_field *f,unsigned int *v) {
 static int regmap_field_write(struct regmap_field *f,unsigned int v) {
  struct regmap *m=f->map; if(m->fail_write)return -EIO;
  unsigned int mask=((1U<<(f->field.msb-f->field.lsb+1))-1)<<f->field.lsb;
- m->last_written=v;m->writes++;m->regs[f->field.reg]=(m->regs[f->field.reg]&~mask)|((v<<f->field.lsb)&mask);return 0;
+ m->last_written=v;m->writes++;if(m->ignore_write)return 0;m->regs[f->field.reg]=(m->regs[f->field.reg]&~mask)|((v<<f->field.lsb)&mask);return 0;
 }
 '''
 
@@ -119,7 +120,7 @@ static struct max77705_charge_policy policy;
 #define chg policy.hw
 static struct regmap_field fields[N_FIELDS];
 static struct power_supply psy;
-static struct battery_info bat={4400000};
+static struct power_supply_battery_info bat={4400000,4350000};
 static void setup(void) {
  memset(&m,0,sizeof m);memset(&policy,0,sizeof policy);policy.requested=true;policy.ready=true;chg.regmap=&m;chg.bat_info=&bat;psy.data=&chg;
  for(int i=0;i<N_FIELDS;i++){fields[i]=(struct regmap_field){&m,max77705_charger_reg_field(i)};chg.rfield[i]=&fields[i];}
@@ -190,6 +191,15 @@ static void mapping(void) {
  f=max77705_charger_reg_field(MAX77705_CHG_CC_LIM);assert(f.reg==0xb9&&f.lsb==0&&f.msb==5);
 }
 static void intent(void) {
+ struct power_supply_battery_info info={4400000,4350000};
+ assert(max77705_initial_float_voltage(&info)==4350000);
+ info.constant_charge_voltage_max_uv=-EINVAL;assert(max77705_initial_float_voltage(&info)==4200000);
+ info.voltage_max_design_uv=4100000;assert(max77705_initial_float_voltage(&info)==4100000);
+ info.constant_charge_voltage_max_uv=4350000;assert(max77705_initial_float_voltage(&info)==4100000);
+ info.voltage_max_design_uv=3900000;assert(max77705_initial_float_voltage(&info)==-EINVAL);
+ info.voltage_max_design_uv=-EINVAL;info.constant_charge_voltage_max_uv=4500001;assert(max77705_initial_float_voltage(&info)==-EINVAL);
+ setup();m.ignore_write=true;assert(max77705_set_charge_request(&chg,false)==-EIO);assert(policy.requested);assert(!policy.lock.held);
+ setup();m.fail_read=1;assert(max77705_set_charge_request(&chg,false)==-EIO);assert(policy.requested);assert(!(m.regs[MAX77705_CHG_REG_CNFG_00]&1));
  setup();policy.ready=false;assert(max77705_set_charge_request(&chg,false)==-EAGAIN);assert(m.writes==0);assert(policy.requested);assert(!policy.lock.held);
  setup();unsigned int before=m.regs[MAX77705_CHG_REG_CNFG_00];
  assert(max77705_set_charge_request(&chg,false)==0);assert(!policy.requested);
@@ -214,7 +224,7 @@ class ChargerPropertiesTests(unittest.TestCase):
         cls.temporary = tempfile.TemporaryDirectory()
         directory = Path(cls.temporary.name)
         source = (ROOT / 'src/soc/max77705_charger.c').read_text()
-        names = ['charge_policy', 'max77705_set_charge_request',
+        names = ['max77705_initial_float_voltage', 'charge_policy', 'max77705_set_charge_request',
                  'max77705_aicl_irq', 'max77705_charger_enable', 'max77705_get_online',
                  'max77705_charger_reg_field', 'max77705_set_integer', 'max77705_check_battery',
                  'max77705_get_charge_type', 'max77705_get_status', 'max77705_get_vbus_state',

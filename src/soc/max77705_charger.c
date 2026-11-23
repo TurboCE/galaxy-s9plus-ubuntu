@@ -26,6 +26,7 @@
 #include <linux/power_supply.h>
 #include <linux/regmap.h>
 #include <linux/sysfs.h>
+#include <linux/sched.h>
 
 /* Policy intent is distinct from CHG readback, as in Samsung is_charging.
  * This records accepted requests only; it does not automatically override
@@ -46,13 +47,24 @@ static struct max77705_charge_policy *charge_policy(struct max77705_charger_data
 static int max77705_set_charge_request(struct max77705_charger_data *chg, bool enable)
 {
 	struct max77705_charge_policy *policy = charge_policy(chg);
+	unsigned int actual = 0;
+	bool observed = false;
 	int ret;
 
 	mutex_lock(&policy->lock);
 	ret = policy->ready ?
 		regmap_field_write(chg->rfield[MAX77705_CHG_EN], enable) : -EAGAIN;
+	if (!ret) {
+		ret = regmap_field_read(chg->rfield[MAX77705_CHG_EN], &actual);
+		observed = !ret;
+		if (!ret && actual != enable)
+			ret = -EIO; /* A protected/ignored write is not accepted intent. */
+	}
 	if (!ret)
 		policy->requested = enable;
+	dev_info(chg->dev, "charge-request enable=%u actual=%d accepted=%u ret=%d pid=%d comm=%s\n",
+		 enable, observed ? (int)actual : -1, policy->requested, ret,
+		 task_pid_nr(current), current->comm);
 	mutex_unlock(&policy->lock);
 	return ret;
 }
@@ -193,6 +205,8 @@ static void max77705_charger_disable(void *data)
 	struct max77705_charger_data *chg = data;
 	int rv;
 
+	dev_warn(chg->dev, "charge-cleanup disable pid=%d comm=%s\n",
+		 task_pid_nr(current), current->comm);
 	rv = regmap_field_write(chg->rfield[MAX77705_CHG_EN], MAX77705_CHG_DISABLE);
 	if (rv)
 		dev_err(chg->dev, "unable to disable the charger: %d\n", rv);
@@ -598,6 +612,11 @@ static int max77705_set_property(struct power_supply *psy,
 		err = -EINVAL;
 	}
 
+	if (psp == POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT ||
+	    psp == POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT ||
+	    psp == POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR)
+		dev_info(chg->dev, "charge-control property=%u value=%d ret=%d pid=%d comm=%s\n",
+			 psp, val->intval, err, task_pid_nr(current), current->comm);
 	return err;
 };
 
@@ -634,6 +653,40 @@ static void max77705_chgin_isr_work(struct work_struct *work)
 	power_supply_changed(chg->psy_chg);
 }
 
+/* Charging target comes from the charge ceiling, not battery design rating. */
+static int max77705_initial_float_voltage(const struct power_supply_battery_info *info)
+{
+	int target = info->constant_charge_voltage_max_uv;
+
+	if (target <= 0)
+		target = 4200000; /* Preserve the conservative missing-policy fallback. */
+	if (info->voltage_max_design_uv > 0 && target > info->voltage_max_design_uv)
+		target = info->voltage_max_design_uv;
+	if (target < 4000000 || target > 4500000)
+		return -EINVAL;
+	return target;
+}
+
+/* Record non-clearing configuration around probe; never acknowledge IRQ status. */
+static void max77705_log_configuration(struct max77705_charger_data *chg, const char *phase)
+{
+	const unsigned int regs[] = { MAX77705_CHG_REG_CNFG_00,
+		MAX77705_CHG_REG_CNFG_01, MAX77705_CHG_REG_CNFG_04,
+		MAX77705_CHG_REG_CNFG_06, MAX77705_CHG_REG_CNFG_09 };
+	unsigned int value;
+	int i, ret;
+
+	for (i = 0; i < ARRAY_SIZE(regs); i++) {
+		ret = regmap_read(chg->regmap, regs[i], &value);
+		if (ret)
+			dev_warn(chg->dev, "charge-config phase=%s reg=%x read-error=%d\n",
+				 phase, regs[i], ret);
+		else
+			dev_info(chg->dev, "charge-config phase=%s reg=%x value=%02x\n",
+				 phase, regs[i], value);
+	}
+}
+
 static int max77705_charger_initialize(struct max77705_charger_data *chg)
 {
 	struct power_supply_battery_info *info;
@@ -645,6 +698,7 @@ static int max77705_charger_initialize(struct max77705_charger_data *chg)
 		return dev_err_probe(chg->dev, err, "error on getting battery info");
 
 	chg->bat_info = info;
+	max77705_log_configuration(chg, "before-init");
 
 	/* unlock charger setting protect */
 	/* slowest LX slope */
@@ -701,14 +755,13 @@ static int max77705_charger_initialize(struct max77705_charger_data *chg)
 	if (err)
 		goto err;
 
-	/* cv voltage 4.2V or 4.35V */
-	/* MINVSYS 3.6V(default) */
-	if (info->voltage_max_design_uv < 0) {
-		dev_warn(chg->dev, "missing battery:voltage-max-design-microvolt\n");
-		max77705_set_float_voltage(chg, 4200000);
-	} else {
-		max77705_set_float_voltage(chg, info->voltage_max_design_uv);
-	}
+	/* Separate configured charge ceiling from maximum battery design rating. */
+	err = max77705_initial_float_voltage(info);
+	if (err < 0)
+		goto err;
+	err = max77705_set_float_voltage(chg, err);
+	if (err)
+		goto err;
 
 	err = regmap_field_write(chg->rfield[MAX77705_VCHGIN], MAX77705_VCHGIN_4_5);
 	if (err)
@@ -744,9 +797,11 @@ static int max77705_charger_initialize(struct max77705_charger_data *chg)
 	if (err)
 		goto err;
 
+	max77705_log_configuration(chg, "after-init");
 	return 0;
 
 err:
+	max77705_log_configuration(chg, "init-error");
 	return dev_err_probe(chg->dev, err, "error while configuring");
 
 }
