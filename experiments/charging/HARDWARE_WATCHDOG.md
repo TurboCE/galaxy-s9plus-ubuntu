@@ -60,9 +60,10 @@ normal #50 supervision still works, but its original native watchdog state and
 ## Actual evidence
 
 - Intentional loss of kicks produced charger fault11 at about80s. The CHGEN
-  request bit remained1: internal fault is the shutdown evidence, not a claim
-  that hardware cleared that request bit. The first gauge current at expiry
-  was still positive and is not an instantaneous current-cutoff measurement.
+  request bit remained1: this proves autonomous internal fault reporting, not
+  an independently measured current cutoff or a cleared request bit. The first
+  gauge current at expiry was still positive. Subsequent software inhibit before
+  disarm means this trial cannot isolate hardware-only residual current/timing.
 - A previous disarm with CHGEN1 cleared the fault and charging resumed. That
   unsafe cleanup path was rejected and replaced by inhibit-before-disarm.
 - Corrected trial: expiry79.933s; disarm while CHGEN1 and ordinary module removal
