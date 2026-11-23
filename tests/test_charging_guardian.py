@@ -50,6 +50,16 @@ class GuardianTests(unittest.TestCase):
         state={};m.update_latches(state,row,blocked,'1',{'requested':1,'blocked':1,'actual':0})
         self.assertFalse(state.get('hardware_fault',False))
 
+    def test_input_lease_does_not_override_battery_charge_temperature_gate(self):
+        row=copy.deepcopy(self.row)
+        row['power_supply']['max77705-charger']['input_current_limit']='1200000'
+        row['input_source_policy']={'source':{'sampled_ms':49900,'queried_ms':49000,'contract_valid':1,'source_uv':5000000,'source_ua':3000000},
+            'control':{'owned':1,'requested':1200000,'applied':1200000,'deadline_ms':64000}}
+        row['shadow_thermal_policy']['swelling_high_temperature_policy_required']=True
+        blocked=self.evaluate(row)
+        self.assertIn('swelling_temperature_stop',blocked)
+        self.assertNotIn('unqualified_charge_limits',blocked)
+
     def test_stock_time_and_full_boundary(self):
         self.assertEqual(self.evaluate(wall=35999,equivalent=10799),[])
         self.assertIn('safety_time_expired',self.evaluate(wall=36000))
@@ -112,5 +122,46 @@ class SleepLeaseTests(unittest.TestCase):
         from unittest.mock import patch
         with patch.object(m.subprocess,'Popen',side_effect=OSError('missing')):
             self.assertFalse(m.SleepLease().update(True))
+
+
+class HardwareWatchdogTests(unittest.TestCase):
+    def run_case(self, before, after=None, blocked=(), fresh=True):
+        import tempfile
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as directory:
+            h=m.HardwareWatchdog.__new__(m.HardwareWatchdog);h.params=Path(directory)
+            feed=h.params/'feed';feed.write_text('untouched')
+            h.status=Mock(side_effect=[before, after or before])
+            row={'end_monotonic_ns':10_000_000_000 if fresh else 0,
+                 'shadow_thermal_policy':{'valid':True}}
+            value=h.update(row,45_000_000_000 if not fresh else 11_000_000_000,list(blocked),'1')
+            return value,feed.read_text()
+
+    def test_arm_requires_actual_charge_inhibit_and_checks_enabled_readback(self):
+        before={'owned':0,'wdt_enabled':0,'charge_enabled':1,'owned_expiry_seen':0,'details1':49}
+        reasons,text=self.run_case(before)
+        self.assertIn('hardware_watchdog_waiting_inhibit',reasons);self.assertEqual(text,'untouched')
+        before.update(charge_enabled=0,details1=56)
+        after=dict(before,owned=1,wdt_enabled=1)
+        self.assertEqual(self.run_case(before,after),([], '1\n'))
+        with self.assertRaises(RuntimeError):self.run_case(before)
+
+    def test_expiry_or_lost_ownership_never_feeds(self):
+        before={'owned':1,'wdt_enabled':1,'charge_enabled':0,'owned_expiry_seen':1,'details1':56}
+        reasons,text=self.run_case(before)
+        self.assertIn('hardware_watchdog_expired',reasons);self.assertEqual(text,'untouched')
+        before.update(owned_expiry_seen=0,wdt_enabled=0)
+        reasons,text=self.run_case(before)
+        self.assertIn('hardware_watchdog_ownership_lost',reasons);self.assertEqual(text,'untouched')
+
+    def test_stale_or_fault_data_does_not_extend_hardware_timeout(self):
+        before={'owned':1,'wdt_enabled':1,'charge_enabled':0,'owned_expiry_seen':0,'details1':56}
+        self.assertEqual(self.run_case(before,fresh=False),([], 'untouched'))
+        for reason in ('hardware_fault','charger_configuration_drift','invalid_temperature'):
+            self.assertEqual(self.run_case(before,blocked=[reason]),([], 'untouched'))
+        self.assertEqual(self.run_case(before,blocked=['swelling_temperature_stop']),([], '1\n'))
+        before['charge_enabled']=1
+        reasons,text=self.run_case(before,blocked=['swelling_temperature_stop'])
+        self.assertIn('hardware_watchdog_waiting_inhibit',reasons);self.assertEqual(text,'untouched')
 
 if __name__=='__main__':unittest.main()

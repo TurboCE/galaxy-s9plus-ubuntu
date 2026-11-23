@@ -1,0 +1,13 @@
+{
+  "source": "Qualified Linux source tree required by this port",
+  "source_commit": "8cd9520d35a6c38db6567e97dd93b1f11f185dc6",
+  "license": "GPL-2.0-or-later; original Linux source notices are retained without alteration",
+  "attribution": "Linux uinput by Aristeu Sergio Rozanski Filho, based on evdev by Vojtech Pavlik; original revision/contributor notices remain in the source",
+  "inputs": {
+    "drivers/input/misc/uinput.c": "b256f2504c308d4944af6e7c562682a8ddbba82bebd6155827a41a0d96830368",
+    "drivers/input/input-compat.h": "3eb602f1c1f7db35d50af553041efa623c225f4439443e932db76e3872729dbc",
+    "include/uapi/linux/uinput.h": "9123b078f13047c34797332c4f835e5f1e418387e9a950024920faa5a1186974"
+  },
+  "mode": "Build-only unmodified Linux module; binaries and device receipts stay private",
+  "repository": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git"
+}

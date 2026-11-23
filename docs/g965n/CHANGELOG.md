@@ -1,5 +1,46 @@
 # G965N experiments and fixes
 
+## 2026-11-23 — #50 입력 전력·충전 IC watchdog·전원 키 후속
+
+- 실제 모델/BOOT/보호 백업·이전 파일/module hash/ABI 검증 후 Wi-Fi runtime
+  시험. BOOT/firmware/보호 파티션·bootloader·재부팅 변경 없음. 공개 자료 핀과
+  기존 GPL 공지 유지; 개인 앱 구성·계정·바이너리·원본 로그는 공개하지 않음.
+- 단일 MUIC 소유자 명령 mutex/CURRENT_SRCCAP parser/표준 source power_supply,
+  900/1200mA 제한 입력 lease 추가. 실제 선택5V/3A source PDO 확인; 독립RDO
+  decode는 미완료. 15초 갱신 중단 시500mA·이전 generation 거부 확인.
+  외부 감류는 소유권 철회하나 다른 charger writer와의 원자성/실시간 보장 미검증.
+- 실제 음성에서 입력과 CHG hold를 묶은 이전 정책이500mA에 머물러 약−562mA,
+  36초3.544V, 이후43.5°C까지 악화. 관측기 종료가 앱 종료는 아니었음.
+  앱을 안전히 닫고 냉각했고 입력 source 공급과 CHG hold를 분리함.
+  실제40.4°C/CHG0/input900mA 확인. CHG450mA/CV4.35V/41→39°C 보호는 불변.
+- 입력 controller 이전 generation 무효/종료 transient restart 실패는 새 현재
+  상태를 확인한 bounded unit 생성으로 처리. 재시작 guardian의500mA 초기화가
+  기존 source lease를 철회한 것도 실제 확인; 오래된 요청을 자동 재탈취하지 않음.
+- 냉각38→36°C와 systemd20s watchdog/ExecStopPost fail-closed cap 적용.
+  SIGSTOP 후 watchdog recovery와 caps 실제 확인. 최초 시험기의 transitional
+  is-active exit3 중단은 별도 journal/readback으로 구분해 검증함.
+- 고부하2worker/1worker 시험은40°C로 중단, 지속 부하 PASS 아님. 앱 닫힘 및
+  native blank 후 냉각/순충전은 확인. 선택 workload의42°C·저전압/데이터 소실
+  보호 추가; 낮춘35°C 실제 정지 검증. 새1200mA 음성은 사용자 시험 불가.
+- 전원 키 직접DPMS/초기 상태 후보 실제 실패 기록 유지. 단순 ON/OFF 짧은
+  사용자 성공 뒤 긴 대기 on/off/on 재발. modifier-only uinput과 native wake만
+  쓰도록 강제 ON 제거. 자동90초 OFF×2 뒤5초 유지 통과, 최신 물리 재확인 대기.
+- MAX77705 WDT 초기 후보의 absolute regmap 주소는 read 실패/활성화 없음.
+  native logical header index로 수정해 실제~80초 미갱신 fault11 확인.
+  v2 해제 시 CHG 요청이 남아 자동 충전 복귀하는 문제 발견; v3는 CHG0을 먼저
+  요구하고 armed self-ref로 normal unload 차단, 소유 expiry 이후 feed 거부.
+  v3 실제79.933초 fault·세 거부 동작·CHG0 disarm 후3초 유지 확인.
+- guardian 선택 hardware-watchdog 경로는 먼저 CAS inhibit, current-boot receipt,
+  실제 state/readback, fresh ADC/fault 판단 후5초 feed. 불명/만료 fault 자동 reset
+  없음. /run 서비스 trial만 적용, 새 reboot/boot-time watchdog 설치는 미완료.
+- 통합 guardian 실제95초/48회 feed 중 expiry0 확인. 앱-open 새3시간 관측을
+  시작하고 선택 앱 최대 수명·monitor 종료 정리를 제한. monitor SIGTERM 시
+  소유 fixture 실제 종료 확인. 첫 프로세스 검사기는 executable 대소문자로0을
+  보고해 cgroup/정확한 실행파일 검사로 정정; 실제 자식/스레드 배치를 검증함.
+- 공개 build-only MUIC/uinput/WDT 절차, 핀/attribution과 관련 host51 tests 통과.
+  최신 canonical MUIC/WDT executable .text는 실기 module과 일치. 빌더 flash 없음.
+  원래 spontaneous fault6와 최초 CHG0/config 변경 원인은 계속 미확정.
+
 ## 2026-11-23 — 열린 앱 음성·전력 비교, USB-C 읽기 전용 진단
 
 - #50에서 사용자가 실제 음성 인식과 답변 재생을 정상 확인했다. 짧은 오디오 스트림 관찰에서 오류 카운터 0이었으며 장시간 음질 합격은 아니다.

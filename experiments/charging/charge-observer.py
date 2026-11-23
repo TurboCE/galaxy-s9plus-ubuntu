@@ -115,6 +115,12 @@ def sample(adc, temperature):
     controls=Path('/sys/class/power_supply/max77705-charger/device')
     result['charge_intent']={name:read(controls/name) for name in
         ('charge_requested','charge_enabled','charge_control_state') if (controls/name).exists()}
+    # Optional diagnostics from the single owning MUIC driver, not an MCU sender.
+    # Source/lease reads are sequential and remain private with the other records.
+    source_device=Path('/sys/bus/i2c/devices/3-0025')
+    if (source_device/'source_status').exists():
+        result['input_source']={key:read(source_device/key) for key in
+            ('source_status','input_policy_state')}
     # Status and config reads are serialized but not a hardware-atomic snapshot.
     if all(isinstance(registers[k], str) for k in ('details0','details1','cnfg0')):
         d0,d1,c0 = (int(registers[k]) for k in ('details0','details1','cnfg0'))

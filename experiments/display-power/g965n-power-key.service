@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-only
+[Unit]
+Description=SM-G965N power key panel-only toggle
+After=display-manager.service
+StartLimitIntervalSec=120
+StartLimitBurst=5
+[Service]
+Type=notify
+NotifyAccess=main
+WatchdogSec=30
+WatchdogSignal=SIGKILL
+LimitCORE=0
+UMask=0077
+ExecStart=/usr/bin/python3 /usr/local/lib/g965n-display-power/power-key.py --confirm-sm-g965n-backed-up-power-key
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=30
+[Install]
+WantedBy=graphical.target

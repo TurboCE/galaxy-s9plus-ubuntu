@@ -29,4 +29,12 @@ class SoakTests(unittest.TestCase):
         self.assertIn('latched_hardware_fault',m.classify(self.row,self.now,{'hardware_fault':True})[0])
         self.assertIn('latched_configuration_drift',m.classify(self.row,self.now,{'configuration_fault':True})[0])
 
+    def test_managed_input_requires_qualified_live_lease_without_weakening_legacy(self):
+        row=copy.deepcopy(self.row)
+        row['power_supply']['max77705-charger']['input_current_limit']='900000'
+        self.assertIn('baseline_limits_changed',m.classify(row,self.now)[1])
+        self.assertEqual(m.classify(row,self.now,source_policy={'ceiling':900000}),([],[]))
+        self.assertIn('input_lease_not_active',m.classify(row,self.now,source_policy={'ceiling':500000})[1])
+        self.assertIn('baseline_limits_changed',m.classify(self.row,self.now,source_policy={'ceiling':900000})[1])
+
 if __name__=='__main__':unittest.main()

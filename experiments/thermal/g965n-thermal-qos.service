@@ -6,11 +6,17 @@ After=g965n-charge-observer.service
 StartLimitIntervalSec=600
 StartLimitBurst=3
 [Service]
-Type=simple
+Type=notify
+NotifyAccess=main
+WatchdogSec=20
+WatchdogSignal=SIGKILL
+LimitCORE=0
 UMask=0077
 ExecStart=/usr/bin/python3 /usr/local/lib/g965n-thermal-qos/thermal-control.py --confirm-sm-g965n-backed-up-cooling
+ExecStopPost=/usr/bin/python3 /usr/local/lib/g965n-thermal-qos/thermal-control.py --confirm-sm-g965n-backed-up-cooling --fail-closed
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=10
+TimeoutStartSec=30
 [Install]
 WantedBy=multi-user.target

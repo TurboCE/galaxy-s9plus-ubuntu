@@ -7,6 +7,7 @@ This remains a conservative wired subset, not full sec-battery parity.
 """
 import argparse
 import errno
+import hashlib
 import importlib.util
 import json
 import math
@@ -22,6 +23,60 @@ ROOT=Path('/var/lib/g965n-charge-guardian')
 CHARGER=Path('/sys/class/power_supply/max77705-charger')
 STOP=False
 
+
+class HardwareWatchdog:
+    """Optional current-boot trial; loading/ownership authorization is separate.
+
+    A module-owned expiry is sticky. Never clear it or automatically disarm on
+    missing measurements, service failure, SIGKILL or I2C failure.
+    """
+    def __init__(self):
+        self.params=Path('/sys/module/g965n_charge_wdt/parameters')
+        receipt=Path('/var/lib/g965n-charge-guardian/wdt-trial.json')
+        if receipt.is_symlink() or receipt.stat().st_uid!=0 or receipt.stat().st_mode&0o077:
+            raise RuntimeError('Private watchdog ownership receipt required')
+        pins=json.loads(receipt.read_text())
+        module=Path('/usr/local/lib/g965n-adc-trial/g965n-charge-wdt.ko')
+        if (pins['boot']!=Path('/proc/sys/kernel/random/boot_id').read_text().strip() or
+            hashlib.sha256(module.read_bytes()).hexdigest()!=pins['module_sha256'] or
+            subprocess.check_output(['modinfo','-F','vermagic',str(module)],text=True).strip()!=
+                os.uname().release+' SMP preempt mod_unload aarch64'):
+            raise RuntimeError('Watchdog module/boot ownership changed')
+        self.status()  # Module must already have passed separate guarded setup.
+
+    def status(self):
+        state=json.loads((self.params/'status').read_text())
+        for key in ('owned','wdt_enabled','charge_enabled','owned_expiry_seen'):
+            if type(state.get(key)) is not int or state[key] not in (0,1):
+                raise RuntimeError('Invalid watchdog status')
+        if type(state.get('details1')) is not int or not 0<=state['details1']<=255:
+            raise RuntimeError('Invalid watchdog chip status')
+        return state
+
+    def update(self, row, now, blocked, online):
+        state=self.status()
+        if state['owned_expiry_seen'] or state['details1']&15==11:
+            return ['hardware_watchdog_expired']
+        if bool(state['owned'])!=bool(state['wdt_enabled']):
+            return ['hardware_watchdog_ownership_lost']
+        # These holds may feed only with actual CHG off; all require fresh ADC
+        # and configuration. Faults, malformed data and stale records never feed.
+        benign={'temperature_limit','swelling_temperature_stop','swelling_cold_stop',
+                'full_stop','full_hold','safety_time_expired','external_power_absent'}
+        if (not 0<=now-row.get('end_monotonic_ns',-100_000_000_000)<35_000_000_000 or
+                row.get('shadow_thermal_policy',{}).get('valid') is not True or
+                set(blocked)-benign):
+            return []  # Caller inhibits; IC is allowed to expire autonomously.
+        if blocked and state['charge_enabled']:
+            return ['hardware_watchdog_waiting_inhibit']
+        if online!='1':return []
+        if not state['owned'] and state['charge_enabled']:
+            return ['hardware_watchdog_waiting_inhibit']
+        (self.params/'feed').write_text('1\n')
+        after=self.status()
+        if not after['owned'] or not after['wdt_enabled'] or after['owned_expiry_seen']:
+            raise RuntimeError('Watchdog arm/feed readback failed')
+        return []
 
 
 CLOCK=getattr(time,'CLOCK_BOOTTIME',time.CLOCK_MONOTONIC)
@@ -53,6 +108,35 @@ class SleepLease:
         return self.process.poll() is None
 
 
+def input_ceiling(row, now):
+    """Higher input is allowed only under the live kernel's bounded 5V PD lease."""
+    try:
+        p = row['input_source_policy'];s = p['source'];c = p['control']
+        ms = now // 1_000_000
+        target=c['requested']
+        if (c['owned'] == 1 and target in (900000,1200000) and c['applied'] == target and
+            0 < c['deadline_ms'] - ms <= 15000 and
+            s['contract_valid'] == 1 and s['source_uv'] == 5000000 and s['source_ua'] >= target and
+            0 <= ms - s['sampled_ms'] <= 1500 and 0 <= ms - s['queried_ms'] <= 3000):
+            return target
+    except (KeyError, TypeError, ValueError):
+        pass
+    return 500000
+
+
+def input_source_policy():
+    dev = Path('/sys/bus/i2c/devices/3-0025')
+    try:
+        if (dev/'driver').resolve().name not in ('s9p-max77705-muic', 's9p-max77705-muic-source'):
+            return {}
+        source = json.loads((dev/'source_status').read_text())
+        c = [int(v) for v in (dev/'input_policy_state').read_text().split()]
+        if len(c) != 5:return {}
+        return {'source':source,'control':dict(zip(('generation','owned','requested','applied','deadline_ms'),c))}
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
 def reasons(row,now,wall,equivalent,recharging=False):
     result=[]
     age=now-row.get('end_monotonic_ns',-100_000_000_000)
@@ -77,7 +161,7 @@ def reasons(row,now,wall,equivalent,recharging=False):
         voltage=int(battery['voltage_now']);soc=int(battery['capacity'])
         cc=int(supply['constant_charge_current']);ilimit=int(supply['input_current_limit']);cv=int(supply['constant_charge_voltage'])
         if voltage>4400000:result.append('battery_overvoltage')
-        if not 0<cc<=450000 or not 0<ilimit<=500000 or not 4000000<=cv<=4350000:result.append('unqualified_charge_limits')
+        if not 0<cc<=450000 or not 0<ilimit<=input_ceiling(row,now) or not 4000000<=cv<=4350000:result.append('unqualified_charge_limits')
         if d.get('charge')==4 and soc>=93 and voltage>=4250000:result.append('full_stop')
     except (ValueError,KeyError,TypeError):result.append('invalid_supply_readback')
     # Pinned wired stock USB total10h and 3h equivalent at2500mA. Count all
@@ -175,6 +259,7 @@ def sample():
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--confirm-sm-g965n-charge-policy',action='store_true',required=True)
+    p.add_argument('--hardware-watchdog',action='store_true',help='Guarded current-boot owned-module trial only')
     modes=p.add_mutually_exclusive_group();modes.add_argument('--fail-closed',action='store_true');modes.add_argument('--test-inhibit',action='store_true')
     a=p.parse_args();os.umask(0o077);preflight()
     if a.fail_closed or a.test_inhibit:
@@ -208,7 +293,12 @@ def main():
     ready=False
     previous=None
     sleep_lease=SleepLease()
+    hardware=None
     try:
+        if a.hardware_watchdog:
+            # Never permit charging during setup or partial watchdog activation.
+            policy_allow(False,'hardware-watchdog-setup')
+            hardware=HardwareWatchdog()
         while not STOP:
             tick=now_seconds();row=sample();elapsed=max(0,tick-state['last'])
             # Unknown gaps or a restarted process do not reset the protection budget.
@@ -222,6 +312,7 @@ def main():
             state['last']=tick
             fresh=0<=now_ns()-row.get('end_monotonic_ns',-100_000_000_000)<35_000_000_000
             row['shadow_thermal_policy']=thermal.evaluate(row.get('temperature') if fresh else None)
+            row['input_source_policy']=input_source_policy()
             state['thermal']=vars(thermal).copy()
             control=control_state()
             if control:state['user_requested']=bool(control['requested'])
@@ -232,6 +323,16 @@ def main():
             new_boot=False
             if online=='0' and 'external_power_absent' not in blocked:blocked.append('external_power_absent')
             if not sleep_lease.update(online=='1'):blocked.append('sleep_inhibitor_unavailable')
+            if hardware:
+                # Inhibit BEFORE a blocked-state kick or any new arm. Manual
+                # requests still go through the existing generation-checked CAS.
+                if blocked:policy_allow(False,blocked,control)
+                extra=hardware.update(row,now_ns(),blocked,online)
+                state['hardware_watchdog']=hardware.status()
+                if extra:
+                    blocked.extend(extra)
+                    if any(x in extra for x in ('hardware_watchdog_expired','hardware_watchdog_ownership_lost')):
+                        state['hardware_fault']=True
             # Do not turn an unplugged cable into a persistent manual inhibit.
             # With no external input, hardware cannot charge. Preserve CHG intent
             # so input reattachment remains usable under this live supervisor.
@@ -245,6 +346,7 @@ def main():
                 if STOP:break
                 time.sleep(.2)
     finally:
+        if hardware:policy_allow(False,'hardware-watchdog-supervisor-stopped')
         sleep_lease.close()
 
 

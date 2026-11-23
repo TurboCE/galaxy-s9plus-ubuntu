@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-only
 """Guarded calibrated-battery cooling overlay. Never changes voltage/charger policy."""
-import argparse,hashlib,importlib.util,json,os,signal,stat,subprocess,time
+import argparse,hashlib,importlib.util,json,os,signal,socket,stat,subprocess,time
 from datetime import datetime,timezone
 from pathlib import Path
 ROOT=Path('/usr/local/lib/g965n-thermal-qos')
@@ -18,7 +18,8 @@ def decision(row,now,was_hot):
         values=[row['temperature'][n]['temperature_deci_c'] for n in ('battery','usb','charger')]
         if row.get('temperature_error') or any(type(v) is not int or not -200<=v<=900 for v in values):raise ValueError()
     except (KeyError,ValueError,TypeError):return True,'invalid_temperature'
-    hot=values[0]>390 if was_hot else values[0]>=410
+    # Reduce load before the independent 41C charging stop.
+    hot=values[0]>360 if was_hot else values[0]>=380
     # A USB/charger hot spot is also a reason to retain the cooling overlay.
     if values[1]>=500 or values[2]>=600:hot=True
     return hot,'thermal_cooling' if hot else 'normal'
@@ -67,9 +68,17 @@ def restored_hot(state,boot):
         return state['thermal_hot']
     return True
 
+def notify(message):
+    address=os.environ.get('NOTIFY_SOCKET')
+    if not address:return
+    if address.startswith('@'):address='\0'+address[1:]
+    with socket.socket(socket.AF_UNIX,socket.SOCK_DGRAM) as sock:
+        sock.sendto(message.encode(),address)
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--confirm-sm-g965n-backed-up-cooling',action='store_true',required=True)
+    p.add_argument('--fail-closed',action='store_true')
     a=p.parse_args()
     if os.geteuid()!=0:raise RuntimeError('Root required')
     spec=importlib.util.spec_from_file_location('g','/usr/local/lib/g965n-led-trial/led-control.py')
@@ -93,6 +102,11 @@ def main():
         try:receipt.write_text(json.dumps(expected))
         except Exception:
             subprocess.run(['rmmod','g965n_thermal_qos'],check=True);raise
+    if a.fail_closed:
+        LEVEL.write_text('1\n')
+        if LEVEL.read_text().strip()!='1':raise RuntimeError('Cooling fallback readback failed')
+        print('Owned conservative CPU/GPU caps retained',flush=True)
+        return
     def stop(*_):
         global STOP
         STOP=True
@@ -106,7 +120,7 @@ def main():
     else:rate={'boot':boot,'original':int(RATE.read_text()),'last':None}
     try:hot=restored_hot(json.loads((STATE/'state.json').read_text()),boot)
     except (OSError,ValueError,TypeError,AttributeError):hot=True
-    previous=None
+    previous=None;ready=False
     try:
         while not STOP:
             try:
@@ -127,6 +141,9 @@ def main():
             if changed!=previous:
                 print(json.dumps({k:v for k,v in state.items() if k!='boot'}),flush=True)
                 previous=changed
+            if not ready:
+                notify('READY=1');ready=True
+            notify('WATCHDOG=1')
             for _ in range(25):
                 if STOP:break
                 time.sleep(.2)

@@ -17,8 +17,8 @@ Do not guess a new PLL bit or enable historically unstable idle undervolting.
 
 The previous calibrated charging guardian could stop battery charging but did
 not request CPU/GPU cooling. This independent overlay adds standard CPU MAX
-frequency QoS and GPU device MAX frequency QoS requests. While battery>=41C
-(or until<=39C after a hot reading), caps are A55<=650MHz/M3<=1066MHz/GPU<=260MHz.
+frequency QoS and GPU device MAX frequency QoS requests. While battery>=38C
+(or until<=36C after a hot reading), caps are A55<=650MHz/M3<=1066MHz/GPU<=260MHz.
 Missing/stale/invalid temperature retains cooling. Additional USB>=50C or
 charger>=60C retains cooling. It never changes voltage, existing user frequency
 requests, charge permission, negotiated current, bootloader or partitions.
@@ -154,3 +154,38 @@ ChatGPT remains closed after the earlier thermal incident; its offscreen
 rendering and sustained build/voice workload heat are not fixed/qualified by
 this result. Known unsafe idle voltage modes, deep-idle states and Wi-Fi
 power-save changes were not enabled. No kernel, BOOT or package upgrade.
+
+## Proactive cooling and service watchdog — 2026-11-23
+
+The cooling-only trigger was tightened to38C/recover36C, ahead of the unchanged
+charge guardian's41C/recover39C gate. Actual CPU/GPU caps remain650/1066/260MHz;
+the unsafe400MHz/700mV idle step is not enabled. This change does not relax any
+charging temperature threshold.
+
+The service now uses Type=notify and a20s watchdog. Only successful control
+iterations acknowledge it. ExecStopPost revalidates model/BOOT/module ownership
+and retains conservative caps, including after a SIGKILL where Python finally
+cannot run. On the handset, intentional SIGSTOP triggered one watchdog timeout,
+ExecStopPost ran, a new process became active, and effective caps read back
+650/1066/260MHz. The first observation harness exited on the transitional
+systemctl status; independent journal/state/readback confirmed the recovery.
+This is service-failure coverage, not a hardware guarantee during a whole-kernel
+or PID1 failure. Actual reboot regression remains pending.
+
+## Bounded workload protection
+
+`workload-guard.py` monitors one explicitly selected experimental service
+invocation (PID/start time/InvocationID), calibrated battery temperature, fresh
+measurements and live voltage. Default stops are42C or voltage below3.55V;
+lost readings also stop only the owned invocation. It changes no clocks, charge
+permission, profiles or accounts. A lower35C threshold actually stopped a trial
+workload without intentionally heating the device. A second real sleep fixture
+confirmed stopping the monitor cleans up only its owned workload. Normal bounded
+completion, interruption and Python exceptions also run this cleanup; new
+invocations/name reuse are preserved. SIGKILL/whole-kernel failure cannot execute
+Python cleanup and are not covered by this monitor alone.
+
+The latest application-open three-hour observation is bounded and has separate
+app runtime expiry, normal42C monitor, calibrated charging guardian, hardware
+watchdog and CPU/GPU cooling. Pending observation is not sustained voice success.
+Private workload launch/account configuration is excluded from the repository.

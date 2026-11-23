@@ -1,5 +1,21 @@
 # SM-G965N hardware validation
 
+## 최신 #50 전원·발열 후보 검증 — 2026-11-23
+
+새 앱-open 3시간 관측은 진행 중이며 PASS가 아닙니다. source lease/정상42°C
+보호 monitor/IC WDT/기존 충전 보호를 함께 유지하고 앱 수명도 제한했습니다.
+
+| 항목 | 실제 확인 | 제한/남은 검증 |
+|---|---|---|
+| MUIC source 및 입력 lease | 선택 고정 PDO5V/3A·표준 power_supply,900/1200mA 실제 적용. controller SIGSTOP 뒤500mA 복귀·만료 generation 거부. 외부 감류의 순차 시험에서 이전 요청이 덮지 않음 | RDO 동작 전류 독립 decode·동시 writer 원자성·I2C 오류/실제 전원 전환·reboot 미검증 |
+| 입력/CHG 분리 | 배터리40.4°C에서 CHG0을 유지하며 input900mA 적용 | CHG41/39°C 보호 불변; 온도/소스/고장 조건 유지 |
+| 유휴/음성 전력 | 화면OFF 앱 유지 약+420..460mA, 화면ON 유휴1분 약+380..450mA. 이전 coupled500mA 실제 음성은 약−562mA·36초3.544V로 실패, 이후43.5°C에서 앱 종료/냉각 | 회복·앱 닫힘은 음성 PASS 아님. 새1200mA 실제 음성 사용자 시험 불가, 지속 부하 미검증 |
+| 냉각 서비스 장애 |38/36°C 선제 냉각,20s watchdog SIGSTOP 후 timeout1·새 프로세스·650/1066/260MHz cap 확인 | 첫 관측기는 transition exit3으로 중단했으며 별도 readback 검증. reboot/whole-kernel 정지 미검증 |
+| 충전 IC watchdog | 무갱신 약80초 fault11; v3 expiry79.933s. CHG1 disarm·armed unload·fault 후 feed 거부. 실제CHG0 뒤 disarm 후3초 WDT0/CHG0 유지. guardian 연결 후95초/48회 feed·expiry0 확인 | CHGEN 요청 비트는 expiry 때1로 남음; 최초 전류 값은 지연돼 실제 즉시 전류 차단 측정 아님. 전체 kernel freeze·reboot 미검증; 원래 fault6 원인과 구분 |
+| 부하 보호 | 선택한 동일 service invocation,35°C로 낮춘 시험에서 실제 앱 종료. monitor 중단 시 소유 fixture 종료 확인 | 정상 임계42°C·저전압/장기 모든 장애는 미검증 |
+| 전원 버튼/대기 | 짧은 물리 OFF/ON 성공 뒤 긴 대기 깜빡임 사용자 보고. 새 native-only 후보90초 OFF×2, 첫 점등64/45ms 뒤5초 mode/backlight drop0 | 최신 물리 긴 대기·잠금/reboot 미검증, 사용자 현재 시험 불가 |
+| 재현 빌드 | uinput·MUIC·WDT 증분 빌드 -Werror, 최종MUIC/WDT canonical builder .text와 실기 모듈 일치. 관련 host51 tests PASS | fresh 전체 이미지 설치·실제 reboot의 증거 아님 |
+
 ## 2026-11-23 — 열린 앱 실제 부하
 
 | 항목 | 실기기 결과 | 판정/제한 |

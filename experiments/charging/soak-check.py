@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import subprocess
 import tempfile
 import time
 
@@ -26,7 +27,7 @@ def latest():
     raise RuntimeError('No completed sample')
 
 
-def classify(row,now,guardian=None):
+def classify(row,now,guardian=None,source_policy=None):
     faults=[];conditions=[]
     if guardian and guardian.get('hardware_fault'):faults.append('latched_hardware_fault')
     if guardian and guardian.get('configuration_fault'):faults.append('latched_configuration_drift')
@@ -41,7 +42,13 @@ def classify(row,now,guardian=None):
     if d.get('input')!=3:conditions.append('input_changed')
     if d.get('charge_enabled')!=1 or d.get('charge') not in (0,1,2,3):conditions.append('charging_interrupted_or_completed')
     supply=row.get('power_supply',{}).get('max77705-charger',{})
-    if supply.get('input_current_limit')!='500000' or supply.get('constant_charge_current')!='450000' or supply.get('constant_charge_voltage')!='4350000':conditions.append('baseline_limits_changed')
+    expected_input = '500000'
+    if source_policy is not None:
+        target=source_policy.get('expected',900000)
+        if target not in (900000,1200000) or source_policy.get('ceiling') != target:
+            conditions.append('input_lease_not_active')
+        expected_input = str(target)
+    if supply.get('input_current_limit')!=expected_input or supply.get('constant_charge_current')!='450000' or supply.get('constant_charge_voltage')!='4350000':conditions.append('baseline_limits_changed')
     return faults,conditions
 
 
@@ -49,11 +56,19 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--confirm-sm-g965n-read-only-soak',action='store_true',required=True)
     p.add_argument('--seconds',type=int,default=10800);p.add_argument('--interval',type=int,default=15)
+    p.add_argument('--with-input-source-lease',action='store_true')
+    p.add_argument('--input-limit-ua',type=int,choices=(900000,1200000),default=900000,
+                   help='Expected limit only when --with-input-source-lease is used')
+    p.add_argument('--require-active-unit',help='Observe a workload service without starting/stopping it')
     a=p.parse_args()
     if not 30<=a.seconds<=12600 or not 1<=a.interval<=60:raise RuntimeError('Unbounded duration/interval refused')
     if os.geteuid()!=0:raise RuntimeError('Root required')
     spec=importlib.util.spec_from_file_location('guard','/usr/local/lib/g965n-led-trial/led-control.py')
     g=importlib.util.module_from_spec(spec);spec.loader.exec_module(g);g.preflight()
+    policy = None
+    if a.with_input_source_lease:
+        spec=importlib.util.spec_from_file_location('guardian',Path(__file__).with_name('charge-guardian.py'))
+        policy=importlib.util.module_from_spec(spec);spec.loader.exec_module(policy)
     os.umask(0o077);report=Path(tempfile.mkdtemp(prefix='soak-',dir=ROOT));boot=Path('/proc/sys/kernel/random/boot_id').read_text().strip()
     def stop(*_):
         global STOP
@@ -66,7 +81,16 @@ def main():
         if Path('/proc/sys/kernel/random/boot_id').read_text().strip()!=boot:
             conditions.add('boot_changed');break
         try:
-            row=latest();guardian=json.loads(Path('/var/lib/g965n-charge-guardian/state.json').read_text());bad,changed=classify(row,now_ns(),guardian);faults.update(bad);conditions.update(changed)
+            row=latest();guardian=json.loads(Path('/var/lib/g965n-charge-guardian/state.json').read_text())
+            source_policy=None
+            if policy:
+                row['input_source_policy']=policy.input_source_policy()
+                source_policy={'ceiling':policy.input_ceiling(row,now_ns()),'expected':a.input_limit_ua}
+                if guardian.get('boot')!=boot or not 0<=now_seconds()-guardian.get('last',-100)<=15:
+                    conditions.add('guardian_not_fresh')
+            bad,changed=classify(row,now_ns(),guardian,source_policy);faults.update(bad);conditions.update(changed)
+            if a.require_active_unit and subprocess.run(['systemctl','is-active','--quiet','--',a.require_active_unit],check=False).returncode:
+                conditions.add('required_workload_not_active')
             if row.get('end_monotonic_ns')!=seen:
                 count+=1;seen=row.get('end_monotonic_ns')
                 value=row['power_supply']['max170xx_battery']['current_avg'];currents.append(int(value))

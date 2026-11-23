@@ -15,6 +15,7 @@ sed -i 's/\r$//' "$SRC/drivers/ufs/host/ufs-exynos9810.c" \
 echo "--- clock gates opened by hand, G3D power domain, MAX77705 USB switch ---"
 install -m644 "$PROJ/src/soc/s9p-clkgate.c" "$PROJ/src/soc/s9p-g3d-pd.c" \
 	"$PROJ/src/soc/s9p-max77705-muic.c" \
+	"$PROJ/src/soc/s9p-max77705-source.h" \
 	"$SRC/drivers/soc/samsung/" || exit 1
 sed -i 's/\r$//' "$SRC/drivers/soc/samsung/s9p-clkgate.c" \
 	"$SRC/drivers/soc/samsung/s9p-g3d-pd.c" \

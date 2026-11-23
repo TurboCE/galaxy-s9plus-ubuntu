@@ -1,5 +1,43 @@
 # SM-G965N 작업 재개
 
+## 최신 재개점 — 2026-11-23 #50 충전·화면 보호 후속
+
+이 절을 아래 이전 열린 앱 시험보다 우선합니다. 모델/현재 BOOT/보호 백업을
+재검증했고 이번 변경은 Wi-Fi를 통한 runtime 모듈/서비스 시험입니다.
+BOOT/펌웨어/보호 파티션 변경·재부팅은 없었습니다. 카메라·지문/GPS 보류 유지.
+
+- 단일 소유 MUIC source query/900·1200mA lease는 실제 hot-bind·만료·stale
+  generation 거절 확인. 원래 driver 재bind 복구 가능. 입력 정책은 CHG 온도
+  hold와 분리했지만 fault/stale/고온 보호는 유지. 원본 소유권 변화는 재탈취하지 않음.
+- guardian 재시작의 보수적500mA 설정은 기존 입력 lease를 무효화합니다.
+  종료한 transient unit은 GC될 수 있으므로 restart 실패를 재시도하지 말고,
+  실제 상태/새 generation을 검증해 새 bounded trial unit을 생성하세요.
+- 하드웨어 WDT trial은 g965n_charge_wdt와 guardian의 선택 인자 사용.
+  /run override는 reboot 시 사라지며 자동 모듈 부팅 설치는 하지 않았습니다.
+  실제 약80초 fault11, CHG0 확인 후 disarm과 유지 검증. fault11 feed 거부.
+  armed rmmod/CHG1 disarm 금지. 정리 시 먼저 guardian stop의 CAS inhibit와
+  actual CHG0 확인, 이후 feed0. 알 수 없는 fault는 해제하지 마세요.
+- 통합 WDT 정상 feed95초/48회 오류0 확인. 앱을 연 새3시간 관측을 시작했고
+  앱은 최대11400초, 입력 lease는 bounded11520초, 보호 monitor는11520초입니다.
+  monitor 중단 시 소유한 시험 부하 정리는 실제 별도 fixture로 확인했습니다.
+  현재 관측 진행 중이며 실제1200mA 음성 시험은 아직 하지 않았습니다.
+- root-private 관측 위치: /var/lib/g965n-charge-observer/latest-soak-path,
+  /var/lib/g965n-thermal-qos/latest-wdt-qualification 및 wdt-feed-observe-result.json,
+  /var/lib/g965n-display-power/latest-cycle, latest-workload-guard 포인터.
+  결과 pending/interrupted/보호 정지는 장시간 PASS가 아닙니다.
+- 앱 단위 보호는 선택한 동일 PID/start/invocation만42°C·3.55V/측정 소실 시
+  종료합니다. 낮춘35°C 시험에서 실제 정지 확인; 실제42°C 강제 가열은 하지 않음.
+  개인 앱 실행/계정/CPU 배치 변경은 비공개이며 공용 이미지에 복제하지 않음.
+- 전원 키 최신 코드: modifier-only uinput native wake, 강제 DPMS ON 없음.
+  자동90초 OFF×2 안정 확인. 이전 짧은 물리 성공 뒤 긴 대기 실패가 있었으므로
+  사용자 최신 물리 재확인이 필요합니다. 현재 사용 어려움 응답; 반복 요청하지 마세요.
+
+실제1200mA 음성/장기 충전·완충/재충전·전원 분리/재연결·실제 reboot는
+미완료입니다. 원래 fault6 또는 과거 설정 변경 최초 원인은 아직 확정하지 못했습니다.
+private 재개 기록은 .local/context/thermal50/ 아래, 공용 설계/빌드는
+experiments/charging/{INPUT_SOURCE_POLICY,HARDWARE_WATCHDOG}.md 및
+experiments/display-power/README.md를 보세요. 개인 문서48줄은 별도 보존하세요.
+
 ## 최신 재개점 — 2026-11-23 열린 앱 전력 시험
 
 현재 #50에서 실제 음성 인식·재생은 통과했지만, 화면 ON 음성 부하는 약−650mA·42.7°C로 지속 안정성 미달이다. 마지막2%·42.8°C에서는 앱을 종료하지 않고 화면만 OFF했다. Wi-Fi 원격은 USB와 별도로 확인했다. 사용자 충전기 사용 가능 응답은 받았으나 케이블 교체 완료는 아직 확인되지 않았다. 먼저 배터리/온도/전원 종류를 다시 읽고 저전압에서 부하·재부팅 시험을 피한다.
