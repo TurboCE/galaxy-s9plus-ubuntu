@@ -235,3 +235,48 @@ ARM64 object PASS와 실기 검증을 구분. enable의 actual reboot도 미검�
 발견. 후보 source/DT에서4.35V charge ceiling·보수적 fallback·범위 검증으로
 수정했으나 미설치. live4.2V 불변. 최종 observer active/Resultsuccess 및
 audit lost0 확인; 기기에서는 계속 기록됩니다.
+
+
+## 2026-11-23 — #49 실기 적용, #50 보호 복구 후속 준비
+
+#49 BOOT만 새9-partition backup·모델/전원/보호검증 후 적용, 실제부팅과
+별도 warm reboot 확인. CV4.35V·timer0/restart3/prequal0 실제 적용.
+센서/오디오/BT/cover/LED/haptic/boost 서비스 복귀. 공개 builder 재현 Image
+바이트 일치. input/CC는500/450mA 이하로만 낮추어 bootloader900mA 상속 방지.
+
+#49 기록기·inhibit-only 보호 서비스 active. 실제 기록 중단 시 차단 확인.
+warm boot 순간 전압강하로 기록기가 늦게 시작되면 차단 뒤 자동 재개되지
+않는 한계 확인; 현재는 explicit operator restore로 ChargingGood 복구.
+#50에서 사용자 의도·보호 차단을 분리하는 CAS kernel/자동복구 코드를 준비,
+빌드 통과했지만 이 시점 #50 실기는 pending. 전압 guard는 유지·bounded
+안정값 재시도를 추가. 2h59m 후 fault6 재현 근거로 타이머 경로가 강해졌지만
+최초 CHG0 및 기존 설정이 달랐던 이유는 아직 미확정.
+
+
+## 2026-11-23 — latest: #50 installed, charging protection active
+
+This supersedes #49/pending#50 above. Real #50 BOOT/readback and warm boots
+passed. Observer/guardian enabled and active, actual CAS manual-intent protection
+and real stale-data stop/automatic recovery verified. CV4.35V, input<=500mA and
+CC<=450mA. Final warm boot entered calibrated high-temperature protection pause;
+this is not continuous charging qualification. Recorder and bounded three-hour
+soak continue privately on device; inspect result status, not process exit alone.
+49 targeted tests passed. Physical full/recharge, low-SOC boot, suspend and
+long-duration net charging remain unqualified; adaptive stock swelling CV/current
+and negotiated fast charge remain incomplete. Timer hypothesis strengthened,
+original depletion cause unresolved. See experiments/charging/MANAGEMENT.md.
+
+Final observation detail: calibrated battery42.6C/USB37.4C/charger47.6C
+triggered conservative swelling stop41C (recover39C). Sixty-second smoke was
+INCONCLUSIVE, faults=[]; reported mean current approximately-834mA during
+thermal pause. Short-check sample counting was corrected to the recorder's
+15-second cadence (not its faster polling interval). Deployed corrected
+read-only checker and restarted bounded observation as
+g965n-charging-soak-final.service. Positive long-duration charging is pending.
+
+Follow-up calibrated44.5/39.0/50.5C still correctly held CHG off, faults
+false. Three-hour final soak and both charging services were active. Current
+boot's targeted BUG/Oops/panic/charge-failed search returned no entries
+(journalctl exit1 means no match here). Foreground ChatGPT/desktop CPU load
+was substantial; requested ordinary GNOME screen blanking to reduce display
+load without terminating user apps. Full thermal/load qualification remains open.

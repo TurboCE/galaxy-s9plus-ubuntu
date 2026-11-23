@@ -52,7 +52,7 @@ def preflight():
     receipt = guard.trusted_json(Path(p['kernel_receipt']['path']), p['kernel_receipt']['sha256'])
     backup = guard.trusted_json(Path(p['backup_manifest']['path']), p['backup_manifest']['sha256'])
     guard.validate(receipt, backup, require_off=False)
-    require(receipt['kernel_version'].startswith('#48 '), 'Unqualified running kernel')
+    require(receipt['kernel_version'].startswith(('#48 ', '#49 ', '#50 ')), 'Unqualified running kernel')
     entries = {e['name']: e for e in backup['partitions']}
     for name, node in {'RECOVERY':'sda11', 'EFS':'sda3', 'CPEFS':'sdd1', 'RADIO':'sda12'}.items():
         value = subprocess.check_output(['sha256sum', '/dev/' + node], text=True).split()[0]

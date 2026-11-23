@@ -1,0 +1,24 @@
+[Unit]
+Description=Guarded G965N charging protection with preserved user intent
+Wants=g965n-charge-observer.service
+After=g965n-charge-observer.service
+StartLimitIntervalSec=600
+StartLimitBurst=3
+
+[Service]
+Type=notify
+NotifyAccess=main
+WatchdogSec=45
+UMask=0077
+ExecStartPre=/usr/bin/python3 /usr/local/lib/g965n-adc-trial/set-conservative-limits.py --confirm-sm-g965n-current-reduction
+ExecStart=/usr/bin/python3 /usr/local/lib/g965n-adc-trial/charge-guardian.py --confirm-sm-g965n-charge-policy
+ExecStopPost=/usr/bin/python3 /usr/local/lib/g965n-adc-trial/charge-guardian.py --confirm-sm-g965n-charge-policy --fail-closed
+Restart=on-failure
+RestartSec=3
+TimeoutStartSec=30
+TimeoutStopSec=20
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -35,8 +35,10 @@
 struct max77705_charge_policy {
 	struct max77705_charger_data hw;
 	struct mutex lock;
-	bool requested;
+	bool requested; /* User intent: policy writes never overwrite it. */
 	bool ready;
+	bool policy_blocked;
+	unsigned long long request_generation;
 };
 
 static struct max77705_charge_policy *charge_policy(struct max77705_charger_data *chg)
@@ -49,25 +51,103 @@ static int max77705_set_charge_request(struct max77705_charger_data *chg, bool e
 	struct max77705_charge_policy *policy = charge_policy(chg);
 	unsigned int actual = 0;
 	bool observed = false;
+	bool effective;
 	int ret;
 
 	mutex_lock(&policy->lock);
+	effective = enable && !policy->policy_blocked;
 	ret = policy->ready ?
-		regmap_field_write(chg->rfield[MAX77705_CHG_EN], enable) : -EAGAIN;
+		regmap_field_write(chg->rfield[MAX77705_CHG_EN], effective) : -EAGAIN;
 	if (!ret) {
 		ret = regmap_field_read(chg->rfield[MAX77705_CHG_EN], &actual);
 		observed = !ret;
-		if (!ret && actual != enable)
+		if (!ret && actual != effective)
 			ret = -EIO; /* A protected/ignored write is not accepted intent. */
 	}
-	if (!ret)
+	if (!ret) {
 		policy->requested = enable;
+		policy->request_generation++;
+	}
 	dev_info(chg->dev, "charge-request enable=%u actual=%d accepted=%u ret=%d pid=%d comm=%s\n",
 		 enable, observed ? (int)actual : -1, policy->requested, ret,
 		 task_pid_nr(current), current->comm);
 	mutex_unlock(&policy->lock);
 	return ret;
 }
+
+/* Compare-and-set against manual requests under the same lock. A concurrent
+ * manual inhibit cannot be overwritten by a policy recovery. This path changes
+ * only CHG, never user intent, current/CV limits or protection configuration.
+ */
+static int max77705_set_policy_allow(struct max77705_charger_data *chg,
+		unsigned long long generation, bool allow)
+{
+	struct max77705_charge_policy *policy = charge_policy(chg);
+	unsigned int actual;
+	bool effective;
+	int ret;
+
+	mutex_lock(&policy->lock);
+	if (!policy->ready || policy->request_generation != generation) {
+		ret = -EAGAIN;
+		goto out;
+	}
+	effective = allow && policy->requested;
+	ret = regmap_field_write(chg->rfield[MAX77705_CHG_EN], effective);
+	if (!ret) {
+		ret = regmap_field_read(chg->rfield[MAX77705_CHG_EN], &actual);
+		if (!ret && actual != effective)
+			ret = -EIO;
+	}
+	if (ret) {
+		policy->policy_blocked = true;
+		/* Fail closed after a partial/unknown write. Never retry enabling. */
+		regmap_field_write(chg->rfield[MAX77705_CHG_EN], 0);
+	} else {
+		policy->policy_blocked = !allow;
+	}
+	dev_info(chg->dev, "charge-policy allow=%u requested=%u ret=%d pid=%d comm=%s\n",
+		 allow, policy->requested, ret, task_pid_nr(current), current->comm);
+out:
+	mutex_unlock(&policy->lock);
+	return ret;
+}
+
+static ssize_t charge_control_state_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct max77705_charger_data *chg = dev_get_drvdata(dev);
+	struct max77705_charge_policy *policy = charge_policy(chg);
+	unsigned int actual;
+	ssize_t ret;
+
+	mutex_lock(&policy->lock);
+	ret = policy->ready ? regmap_field_read(chg->rfield[MAX77705_CHG_EN], &actual) : -EAGAIN;
+	if (!ret)
+		ret = sysfs_emit(buf, "%llu %u %u %u\n", policy->request_generation,
+			policy->requested, policy->policy_blocked, actual);
+	mutex_unlock(&policy->lock);
+	return ret;
+}
+static DEVICE_ATTR_RO(charge_control_state);
+
+static ssize_t charge_policy_request_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct max77705_charger_data *chg = dev_get_drvdata(dev);
+	unsigned long long generation;
+	unsigned int allow;
+	char trailing;
+	int ret;
+
+	if (sscanf(buf, "%llu %u %c", &generation, &allow, &trailing) != 2 || allow > 1)
+		return -EINVAL;
+	ret = max77705_set_policy_allow(chg, generation, allow);
+	if (!ret)
+		power_supply_changed(chg->psy_chg);
+	return ret ? ret : count;
+}
+static DEVICE_ATTR_WO(charge_policy_request);
 
 static ssize_t charge_requested_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -96,6 +176,8 @@ static DEVICE_ATTR_RO(charge_enabled);
 static struct attribute *max77705_charge_policy_attrs[] = {
 	&dev_attr_charge_requested.attr,
 	&dev_attr_charge_enabled.attr,
+	&dev_attr_charge_control_state.attr,
+	&dev_attr_charge_policy_request.attr,
 	NULL,
 };
 static const struct attribute_group max77705_charge_policy_group = {

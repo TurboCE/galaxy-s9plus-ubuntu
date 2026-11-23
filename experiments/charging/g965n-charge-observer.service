@@ -6,8 +6,11 @@ StartLimitIntervalSec=600
 StartLimitBurst=3
 
 [Service]
-Type=simple
+Type=notify
+NotifyAccess=main
+TimeoutStartSec=60
 UMask=0077
+ExecStartPre=/usr/bin/python3 /usr/local/lib/g965n-adc-trial/set-conservative-limits.py --confirm-sm-g965n-current-reduction
 ExecStart=/usr/bin/python3 /usr/local/lib/g965n-adc-trial/charge-observer.py --confirm-sm-g965n-backed-up-observation
 Restart=on-failure
 RestartSec=60

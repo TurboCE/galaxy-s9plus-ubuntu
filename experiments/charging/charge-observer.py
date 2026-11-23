@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import socket
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -19,6 +20,9 @@ REGISTERS = ('int_ok', 'details0', 'details1', 'details2', 'cnfg0', 'cnfg1',
              'cnfg2', 'cnfg3', 'cnfg4', 'cnfg6', 'cnfg9', 'cnfg12')
 STOP = False
 
+
+CLOCK=getattr(time,'CLOCK_BOOTTIME',time.CLOCK_MONOTONIC)
+def now_ns():return time.clock_gettime_ns(CLOCK)
 
 def load(name, path):
     spec = importlib.util.spec_from_file_location(name, path)
@@ -64,6 +68,15 @@ def read(path):
 
 
 
+
+def notify_ready():
+    address=os.environ.get('NOTIFY_SOCKET')
+    if not address:return
+    if address.startswith('@'):address='\0'+address[1:]
+    with socket.socket(socket.AF_UNIX,socket.SOCK_DGRAM) as sock:
+        sock.sendto(b'READY=1',address)
+
+
 def kernel_events(fd):
     """Drain this recorder's independent nonblocking kmsg reader, bounded.
 
@@ -87,8 +100,8 @@ def kernel_events(fd):
 
 
 def sample(adc, temperature):
-    result = {'utc': datetime.now(timezone.utc).isoformat(),
-              'begin_monotonic_ns': time.monotonic_ns()}
+    result = {'utc': datetime.now(timezone.utc).isoformat(), 'time_basis':'CLOCK_BOOTTIME',
+              'begin_monotonic_ns': now_ns()}
     result['power_supply'] = {}
     for name in ('max170xx_battery', 'max77705-charger'):
         node = Path('/sys/class/power_supply')/name
@@ -99,6 +112,9 @@ def sample(adc, temperature):
     params = Path('/sys/module/g965n_charge_snapshot/parameters')
     registers = {key:read(params/key) for key in REGISTERS}
     result['registers'] = registers
+    controls=Path('/sys/class/power_supply/max77705-charger/device')
+    result['charge_intent']={name:read(controls/name) for name in
+        ('charge_requested','charge_enabled','charge_control_state') if (controls/name).exists()}
     # Status and config reads are serialized but not a hardware-atomic snapshot.
     if all(isinstance(registers[k], str) for k in ('details0','details1','cnfg0')):
         d0,d1,c0 = (int(registers[k]) for k in ('details0','details1','cnfg0'))
@@ -121,7 +137,7 @@ def sample(adc, temperature):
         if len(providers)!=1: raise RuntimeError('ADC provider unavailable')
         rows=[]
         for i in range(5):
-            row={'monotonic_ns':time.monotonic_ns()}
+            row={'monotonic_ns':now_ns()}
             for channel in (4,1,3,11):
                 row[str(channel)]=int((providers[0]/f'in_voltage{channel}_raw').read_text())
             rows.append(row)
@@ -130,8 +146,22 @@ def sample(adc, temperature):
         result['temperature']=temperature.summarize(rows)
     except (OSError,ValueError,RuntimeError) as error:
         result['temperature_error']=str(error)
-    result['end_monotonic_ns']=time.monotonic_ns()
+    result['end_monotonic_ns']=now_ns()
     return result
+
+
+
+def wait_stable_battery(battery, clock=time.monotonic, sleep=time.sleep):
+    deadline=clock()+30
+    consecutive=0
+    while clock()<deadline:
+        if STOP:raise RuntimeError('Stop requested before module load')
+        sufficient=(int((battery/'capacity').read_text())>=5 and
+                    int((battery/'voltage_now').read_text())>=3500000)
+        consecutive=consecutive+1 if sufficient else 0
+        if consecutive>=2:return
+        sleep(2)
+    raise RuntimeError('Insufficient stable battery for initial module load')
 
 
 def main():
@@ -161,8 +191,7 @@ def main():
         if hashlib.sha256(adc.trusted(ROOT/name)).hexdigest()!=pins['scripts'][name]:
             raise RuntimeError('Observation script changed')
     battery=Path('/sys/class/power_supply/max170xx_battery')
-    if int((battery/'capacity').read_text())<5 or int((battery/'voltage_now').read_text())<3500000:
-        raise RuntimeError('Insufficient stable battery for initial module load')
+    wait_stable_battery(battery)
     before={'clocks':adc.clocks(),'controls':adc.registers(0x14230000,(0,4,0x10)),
             'irq':(adc.registers(0x10101000,(0xc08,))[0]>>16)&3}
     if not all(v&(1<<21) for v in before['clocks'][:2]) or before['irq']&2:
@@ -187,12 +216,15 @@ def main():
         for name in MODULES:
             attempted.append(name)
             subprocess.run(['insmod',str(ROOT/(name+'.ko')),'enable_g965n=1'],check=True,timeout=10)
+        ready=False
         while not STOP:
             started=time.monotonic()
             record=sample(adc,temperature)
             record['kernel_events']=kernel_events(kernel_fd)
             record['shadow_thermal_policy']=thermal.evaluate(record.get('temperature'))
             journal.append(record)
+            if not ready:
+                notify_ready();ready=True
             if args.once: break
             while not STOP and time.monotonic()-started<15: time.sleep(.2)
     finally:

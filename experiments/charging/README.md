@@ -1,5 +1,14 @@
 # Samsung charging policy parity — incomplete
 
+Current as of 2026-11-23: **#50 is installed and warm-boot verified on SM-G965N**.
+See [MANAGEMENT.md](MANAGEMENT.md) for the current implementation, evidence,
+reproduction entry points and remaining qualification. The sections below
+retain the earlier #48 investigation chronology; their "not installed" and
+"missing" statements describe that earlier phase and are superseded by the
+current summary and `docs/g965n/{STATUS,HANDOFF,VALIDATION,CHANGELOG}.md`.
+
+## Historical #48 candidate and gap analysis
+
 This is a source candidate and gap analysis, **not Android-equivalent charging
 on the handset**. Bounded ADC diagnostics and a read-only charger snapshot
 were loaded and removed on native #48; no replacement charger driver or

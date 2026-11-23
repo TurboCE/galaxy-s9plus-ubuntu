@@ -675,3 +675,56 @@ and bounded test. GPS remains deferred; camera/fingerprint excluded.
 추가 CV 후보: owner wired4.35V vs native ceiling4.4V 차이 확인,
 source/DT수정과 실제 C 경계/누락/부적합 입력 및 ARM64 compile PASS.
 미설치·live4.2V 불변. 최종 observer active/Resultsuccess·auditlost0 확인.
+
+
+## 2026-11-23 — #49 hardware qualification / #50 candidate
+
+| 항목 | 실제 검증 | 한계 |
+|---|---|---|
+| Fault capture | 재연결후10753초, CHG6/BAT2·CHG1/input3·온도38.7C | exact code 및 최초CHG0/root config 변경 원인 미확정 |
+| One-shot recovery | CHG edge300ms 한번 후 ChargingGood/net+6–130mA | 반복자동reset 아님; limits 불변 |
+| #49 BOOT | fresh9backup·BOOT readback·실제boot+warm boot | USERDATA/보호partitions 보존; cold boot 별개 |
+| CV/config | 실제4.35V·FCHG0/RSTRT3/PQ0 | 장기 config drift 재발감시 필요 |
+| Bounds | inherited CC900→450, input<=500mA 감소만 | USB negotiated fast-charge 아직 미지원 |
+| Protection | actual CHGoff/restore, observer stop42s→stale차단 | #49자동resume없어manualrestore; #50후보로 개선중 |
+| Warm services | sensors/audio/BT/cover/LED/haptic/boost/obs/guardian active | 실기 mic/BT태그 등 재물리시험 아님 |
+| Reproduction | 공개 builder와 설치#49 Image 바이트/hash 일치 | owner firmware/images는 private, CI publishing 없음 |
+| #50 CAS | 실제 C fault/stale-generation/manual intent tests·ARM64build | 이 시점50device 아직 pending |
+
+Warm boot observer 초기 전압<3.5V 거부/재시도와 guardian의보호차단은
+로그 확인. 문턱 완화 없이 bounded 안정측정 대기 추가. SOC 재부팅 재추정은
+전하 증가 증거로 표시하지 않음. full cycle/recharge/장기 및 Android parity 미완료.
+
+
+## 2026-11-23 — #50 charging evidence (supersedes pending above)
+
+| Check | Evidence / result |
+|---|---|
+| BOOT deployment | Fresh9-partition backup; model verified, BOOT-only hash readback and actual#50 boot PASS |
+| Warm startup | Actual warm boots; observer/guardian enabled+active PASS |
+| Atomic manual/policy intent | Hardware stale-generation EAGAIN, manual off preserved and blocked manual auto PASS |
+| Data failure/recovery | Real recorder stopped42s, CHGoff then automatic on with unchanged manual generation PASS |
+| Manual inhibit/restart | Remained off across guardian restart PASS |
+| External-power supervision | Owned sleep inhibitor observed; BOOTTIME code active; physical suspend UNQUALIFIED |
+| Final warm boot | Both services active; high-temperature protection pause observed; net charging NOT established during pause |
+| Host regression | Charging34 + charger8 + upload7 =49 PASS |
+| Three-hour soak | Bounded read-only observation; result pending, no long-duration PASS claimed |
+| Full/recharge/extreme temperature/low-SOC | Host logic only, complete physical qualification PENDING |
+| Android parity | Adaptive CV/current, cable negotiation and timing extensions INCOMPLETE |
+
+No raw logs, identifiers, credentials, extracted firmware or backup images added.
+
+Final observation detail: calibrated battery42.6C/USB37.4C/charger47.6C
+triggered conservative swelling stop41C (recover39C). Sixty-second smoke was
+INCONCLUSIVE, faults=[]; reported mean current approximately-834mA during
+thermal pause. Short-check sample counting was corrected to the recorder's
+15-second cadence (not its faster polling interval). Deployed corrected
+read-only checker and restarted bounded observation as
+g965n-charging-soak-final.service. Positive long-duration charging is pending.
+
+Follow-up calibrated44.5/39.0/50.5C still correctly held CHG off, faults
+false. Three-hour final soak and both charging services were active. Current
+boot's targeted BUG/Oops/panic/charge-failed search returned no entries
+(journalctl exit1 means no match here). Foreground ChatGPT/desktop CPU load
+was substantial; requested ordinary GNOME screen blanking to reduce display
+load without terminating user apps. Full thermal/load qualification remains open.

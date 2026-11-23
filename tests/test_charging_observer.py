@@ -36,4 +36,23 @@ class ObserverTests(unittest.TestCase):
             with self.assertRaises(OSError):j.append({'data':1})
             self.assertEqual(target.read_text(),'untouched')
 
+
+class StartupPowerTests(unittest.TestCase):
+    def test_transient_voltage_dip_waits_for_two_consecutive_good_samples(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'capacity').write_text('20');(root/'voltage_now').write_text('3400000')
+            values=iter(('3600000','3400000','3600000','3600000'));tick=[0]
+            def sleep(seconds):
+                tick[0]+=seconds;(root/'voltage_now').write_text(next(values))
+            m.wait_stable_battery(root,clock=lambda:tick[0],sleep=sleep)
+            self.assertEqual(tick[0],8)
+
+    def test_persistent_low_voltage_never_proceeds(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'capacity').write_text('20');(root/'voltage_now').write_text('3400000');tick=[0]
+            def sleep(seconds):tick[0]+=seconds
+            with self.assertRaises(RuntimeError):m.wait_stable_battery(root,clock=lambda:tick[0],sleep=sleep)
+            self.assertEqual(tick[0],30)
+
 if __name__=='__main__':unittest.main()

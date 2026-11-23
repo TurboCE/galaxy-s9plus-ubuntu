@@ -40,7 +40,9 @@ if ! cmp -s "$ref" "$SRC/drivers/power/supply/max77705_charger.c"; then
 	       "$(sha256sum "$SRC/drivers/power/supply/max77705_charger.c" | cut -d ' ' -f1)" = \
 	       "6df1e5a1100c8835def682db3d3ef87159158f06a91d6885798b8a235f05811a" || \
 	       "$(sha256sum "$SRC/drivers/power/supply/max77705_charger.c" | cut -d ' ' -f1)" = \
-	       "b833ae731368c7954349a43640b3d70be468b814422441a20cc95347752541a9" ]]; then
+	       "b833ae731368c7954349a43640b3d70be468b814422441a20cc95347752541a9" || \
+	       "$(sha256sum "$SRC/drivers/power/supply/max77705_charger.c" | cut -d ' ' -f1)" = \
+	       "2ae8ec1b122e88bf5c51f71ffb1fc82dfcf26586b182c3d1f2ea2f68ea232287" ]]; then
 		: # exact prior charge_behaviour port revision; safe one-time migration
 	else
 		echo "MAX77705 upstream driver drifted from the pinned reference —"

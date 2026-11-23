@@ -190,7 +190,24 @@ static void mapping(void) {
  f=max77705_charger_reg_field(MAX77705_CHG_CHGIN_LIM);assert(f.reg==0xc0&&f.lsb==0&&f.msb==6);
  f=max77705_charger_reg_field(MAX77705_CHG_CC_LIM);assert(f.reg==0xb9&&f.lsb==0&&f.msb==5);
 }
+static void policy_cas(void) {
+ setup();assert(max77705_set_policy_allow(&chg,0,false)==0);
+ assert(policy.requested && policy.policy_blocked && policy.request_generation==0);
+ assert(!(m.regs[MAX77705_CHG_REG_CNFG_00]&1));
+ assert(max77705_set_charge_request(&chg,true)==0); /* User auto cannot bypass policy. */
+ assert(policy.requested && policy.request_generation==1 && !(m.regs[MAX77705_CHG_REG_CNFG_00]&1));
+ int writes=m.writes;assert(max77705_set_policy_allow(&chg,0,true)==-EAGAIN);assert(m.writes==writes);
+ assert(max77705_set_policy_allow(&chg,1,true)==0);assert(m.regs[MAX77705_CHG_REG_CNFG_00]&1);
+ assert(max77705_set_charge_request(&chg,false)==0);assert(!policy.requested);
+ writes=m.writes;assert(max77705_set_policy_allow(&chg,1,true)==-EAGAIN);assert(m.writes==writes);
+ assert(max77705_set_policy_allow(&chg,2,true)==0);assert(!(m.regs[MAX77705_CHG_REG_CNFG_00]&1));
+ setup();m.ignore_write=true;assert(max77705_set_policy_allow(&chg,0,false)==-EIO);assert(policy.policy_blocked);
+ setup();m.fail_read=1;assert(max77705_set_policy_allow(&chg,0,true)==-EIO);assert(policy.policy_blocked);assert(!(m.regs[MAX77705_CHG_REG_CNFG_00]&1));
+ setup();policy.ready=false;assert(max77705_set_policy_allow(&chg,0,true)==-EAGAIN);assert(!m.writes);
+}
+
 static void intent(void) {
+ policy_cas();
  struct power_supply_battery_info info={4400000,4350000};
  assert(max77705_initial_float_voltage(&info)==4350000);
  info.constant_charge_voltage_max_uv=-EINVAL;assert(max77705_initial_float_voltage(&info)==4200000);
@@ -224,7 +241,7 @@ class ChargerPropertiesTests(unittest.TestCase):
         cls.temporary = tempfile.TemporaryDirectory()
         directory = Path(cls.temporary.name)
         source = (ROOT / 'src/soc/max77705_charger.c').read_text()
-        names = ['max77705_initial_float_voltage', 'charge_policy', 'max77705_set_charge_request',
+        names = ['charge_policy', 'max77705_set_policy_allow', 'max77705_initial_float_voltage', 'max77705_set_charge_request',
                  'max77705_aicl_irq', 'max77705_charger_enable', 'max77705_get_online',
                  'max77705_charger_reg_field', 'max77705_set_integer', 'max77705_check_battery',
                  'max77705_get_charge_type', 'max77705_get_status', 'max77705_get_vbus_state',

@@ -10,6 +10,7 @@ be turned into a guessed auto-enable or unconditional charge-stop policy.
 class ThermalPolicy:
     def __init__(self):
         self.hot = self.cold = self.usb_hot = self.swelling_hot = False
+        self.low_first = self.low_second = False
 
     def evaluate(self, temperatures):
         try:
@@ -26,7 +27,11 @@ class ThermalPolicy:
         self.cold = battery < 50 if self.cold else battery <= 0
         self.usb_hot = usb > 750 if self.usb_hot else usb >= 800
         self.swelling_hot = battery > 390 if self.swelling_hot else battery >= 410
+        self.low_first = battery < 200 if self.low_first else battery <= 150
+        self.low_second = battery < 100 if self.low_second else battery <= 50
         return {'valid':True,'thermal_charge_permission':not (self.hot or self.cold or self.usb_hot),
                 'battery_hot':self.hot,'battery_cold':self.cold,'usb_hot':self.usb_hot,
                 'swelling_high_temperature_policy_required':self.swelling_hot,
+                'low_temperature_reduced_current_required':self.low_first,
+                'swelling_low_temperature_policy_required':self.low_second,
                 'mode':'shadow-only; full/recharge/swelling/current/time policy incomplete'}

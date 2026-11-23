@@ -19,7 +19,10 @@ def configure():
     rules=subprocess.run([tool,'-l'],capture_output=True,text=True,timeout=5)
     if rules.returncode: return {'available':False,'reason':'audit rule enumeration failed'}
     result={}
-    for name in CONTROLS:
+    controls=list(CONTROLS)
+    if (Path('/sys/class/power_supply/max77705-charger')/'device/charge_policy_request').exists():
+        controls.append('device/charge_policy_request')
+    for name in controls:
         node=Path('/sys/class/power_supply/max77705-charger')/name
         if not node.exists():
             result[name]={'error':'control missing'};continue

@@ -7976,3 +7976,99 @@ design 제한/지원범위 검증 및 오류 전달. 실제 C 경계/누락/부�
 ARM64 object compile PASS. live CV4.2V는 그대로; 과전압 최초원인 판정 아님.
 최종 observer active/Resultsuccess/NRestarts0·fresh 온도38.4/36.3/40.8C,
 오류없음·audit lost0·dpkg clean 재확인. actual reboot/후보 커널 적용은 안 함.
+
+
+## 2026-11-23 — #49 실기 적용·보호 경로 및 #50 후속 준비
+
+연속 기록836표본에서 charge1→6/BAT2 전환을 포착. 마지막 USB 재연결
+receipt에서10753초(약2h59m), 기록 시작 후3926초. CHG1/input3 유지,
+배터리38.7C, config0x91 유지, 감사 기록에 control write64 없음(기존
+no-write open56 및 auditctl206만). 타이머 경로의 강한 근거지만 MAX77705
+정확한 code6 의미/왜 init 의도와 config가 달랐는지는 미확정. 최초CHG0
+발생과 구분. 원본 로그는 root private archive로 보존.
+
+처음 전압 guard가 거부해 재부팅/BOOT write는 없었고 recovery 대기는
+timeout. fresh ADC/전원/기존 auto·정확 fault tuple·고정500/450/4.2V 확인
+후 한 번만 CHG off→on300ms 시험. once-per-boot marker로 반복 금지.
+실제 ChargingGood·순충전+6~130mA·평균+54mA 복구, limits 불변.
+restart-once.py로 실제 사용 경로를 공개; 자동 fault reset 루프는 아님.
+
+qualified #48 private output을 복사해 driver/timestamp만 재컴파일 및
+정상 kallsyms 검증 relink. 첫 AS -EL GCC 오류는 -mlittle-endian으로 수정;
+기록된 command의 trailing true 오류 은폐를 제거하고 Image version 확인.
+초기 DT root-key 탐색 오류는 정확 inner DTB 확인·strict compatible/tree
+비교로 교정. 실패 후보는 flash 안 함. 공개 builder로 설치 #49와 같은
+timestamp 재현 Image SHA256 일치(d0de141e…63858bf5). build는 flash 안 함.
+
+SM-G965N/#48/BOOT/보호 백업·fresh thermal·전원 guard 후 TWRP 재부팅,
+새9개 파티션 backup byte/hash 검증. BOOT만 #49로 write/readback; 모든
+보호/USERDATA 보존. 실제 Ubuntu#49 부팅. 새BOOT/model/backup/ABI 검증
+서비스 receipt를 새root로 복사 이관하고 이전설정 보관; exact BOOT 검사
+유지한 LED/haptic guard에49 허용. audio/BT/cover/sensors/observer active.
+
+실제 before-init CNFG0=15/CNFG1=b8/CV=13/protection0c/input23, after-init
+05/38/13/6c/a3. live CV4350mV·timer0/restart3/prequal0 적용 확인.
+원인 후보의 init 미반영 vs 이후 변경은 이전#48 초기 로그가 없어 미구분.
+bootloader가 CC900mA를 남기는 것도 확인; 첫 guardian 설치가 가정450과
+달라 거부. 현재 input500/CC450 이하로만 낮추는 helper·startup 연결 후
+실기 readback 확인(한도 증가 없음). SOC는 재부팅 시13→26 재추정했으므로
+실제 저장 전하 증가로 해석하지 않고 전압/평균 전류를 함께 기록.
+
+#49 inhibit-only guardian: fresh 온도/설정 drift/안전시간/완충 조건 차단,
+실제 CHG0/explicit restore1 확인. observer 실제 stop42초로 stale 측정
+차단(CHG0) 검증; recording 재시작 후 operator restore로 충전 복구.
+Type=notify 첫 표본·guardian 첫결정 이후 READY, guardian Wants observer로
+기록기 실패 때도 차단 수행. 일반 warm boot에서 순간3.5V 미만으로 observer
+1차 시작 거부·60초 뒤복구, guardian stale 차단 후 수동복구 필요함을 포착.
+전압 기준은 낮추지 않고2회 연속 안정값을 최대30초 기다리는 코드 추가.
+
+#49 warm boot 후9개 관련서비스 active·심각 kernel 패턴0. 후기 ADC 약
+40.4/36.4/43.5C. startup stale가 해소되어도 inhibit-only가 자동 재개하지
+않는 한계를 고치려고 #50 user intent/policy block 분리·generation CAS
+후보 추가. 실제 C read/write fault·stale generation·manual inhibit 보존
+테스트 통과, ARM64#50 build/BOOT package 완료; 아직 이 시점 실기 미적용.
+#50 후속은 다음 기록에서 실제 적용 여부를 구분합니다.
+
+
+## 2026-11-23 — #50 charging policy installed and warm-boot verified
+
+- #50 initial raw ADB staging stalled before any BOOT write. Bounded selected
+  reconnect and host server restart did not recover; user USB reattachment did.
+  Rechecked G965N/old#49 BOOT unchanged; uncompressed sync upload/hash succeeded.
+  Production uploader now prefers sync, revalidates recovery/model on reconnect,
+  never writes an incomplete stage. Fresh9-partition backup, BOOT-only write
+  and readback completed; protected partitions/data preserved.
+- Actual kernel#50 (2026-11-23 06:23:32 UTC) and guarded profile migration passed.
+  Existing sensors/audio/BT/cover/LED/haptic/boost services returned. CV4350mV,
+  input<=500mA/CC<=450mA; no unqualified negotiated-current increase.
+- Hardware CAS checks passed: policy stop, manual inhibit, stale generation
+  EAGAIN/no write, policy recovery preserving manual off, and manual auto unable
+  to bypass an active protection block. Actual recorder loss42s stopped CHG;
+  fresh data recovered with unchanged manual generation. Manual off remained
+  through guardian restart. Warm boots restored enabled observer/guardian.
+- CLOCK_BOOTTIME now includes suspended time in measurement age/safety counters.
+  Owned external-power sleep inhibitor observed live. Final warm boot again
+  restored both services; actual high-temperature swelling protection paused
+  charging. Thermal pause is not a continuous-net-charging pass.
+- Conservative hot/cold swelling stops and runtime/full/recharge logic added;
+  adaptive stock CV/current policy and complete physical cycles remain pending.
+  49 relevant host tests passed. Root-only bounded soak result distinguishes
+  failed/inconclusive/passed; three-hour observation is not yet a completed pass.
+- First original fault10753s after attach/config0x91/no watched write strengthens
+  timer hypothesis; exact chip fault cause/old config origin/initial CHG0 remain
+  unresolved. No automatic repeated fault resets. See charging/MANAGEMENT.md.
+
+Final observation detail: calibrated battery42.6C/USB37.4C/charger47.6C
+triggered conservative swelling stop41C (recover39C). Sixty-second smoke was
+INCONCLUSIVE, faults=[]; reported mean current approximately-834mA during
+thermal pause. Short-check sample counting was corrected to the recorder's
+15-second cadence (not its faster polling interval). Deployed corrected
+read-only checker and restarted bounded observation as
+g965n-charging-soak-final.service. Positive long-duration charging is pending.
+
+Follow-up calibrated44.5/39.0/50.5C still correctly held CHG off, faults
+false. Three-hour final soak and both charging services were active. Current
+boot's targeted BUG/Oops/panic/charge-failed search returned no entries
+(journalctl exit1 means no match here). Foreground ChatGPT/desktop CPU load
+was substantial; requested ordinary GNOME screen blanking to reduce display
+load without terminating user apps. Full thermal/load qualification remains open.

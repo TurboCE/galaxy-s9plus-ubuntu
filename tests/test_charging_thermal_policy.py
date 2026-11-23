@@ -28,6 +28,11 @@ class ThermalTests(unittest.TestCase):
             self.assertEqual(result['swelling_high_temperature_policy_required'],swelling)
             self.assertTrue(result['thermal_charge_permission'])
 
+    def test_second_cold_level_requires_ten_degrees_to_recover(self):
+        policy=m.ThermalPolicy()
+        for value,blocked in ((51,False),(50,True),(99,True),(100,False)):
+            self.assertEqual(policy.evaluate(self.temperatures(value))['swelling_low_temperature_policy_required'],blocked)
+
     def test_missing_input_cannot_clear_protection(self):
         policy=m.ThermalPolicy();policy.evaluate(self.temperatures(500))
         result=policy.evaluate({})

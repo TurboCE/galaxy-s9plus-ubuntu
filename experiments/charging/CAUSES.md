@@ -22,7 +22,22 @@ and thermal policy. Fixing unlock could make previously ignored initialization
 writes take effect. Review the whole resulting protection policy before a
 production BOOT trial. No such change is being forced on the live IC.
 
-## Implemented investigation improvements
+## 2026-11-23 follow-up evidence
+
+The next original fault appeared 10,753 seconds after input reattachment,
+with CNFG_01 still 0x91, CHG enabled and valid input. Temperatures were about
+38.7/36.4/40.8 C, and audit showed no watched control write. A single bounded
+CHG off/on edge restored real charging without changing limits. This increases
+timer-path suspicion; exact fault semantics, the first depletion's CHG=0 and
+why the old configuration differed remain unresolved.
+
+#49 then #50 were installed with fresh backups and real boot/readback checks.
+Initialization now actually reads back timer0/restart3/prequal0 and CV4.35V;
+upper conservative thermal/runtime protection is active. This does not prove
+the old configuration was wrong specifically at probe. No periodic fault-reset
+loop is used. See [MANAGEMENT.md](MANAGEMENT.md) for qualified behavior and gaps.
+
+## Historical investigation improvements
 
 - Live diagnostic register parameters now read through the bound owner's
   regmap on every read, rather than repeating module-load snapshots. Only
