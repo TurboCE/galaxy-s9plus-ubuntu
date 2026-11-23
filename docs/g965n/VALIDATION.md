@@ -868,3 +868,11 @@ qualified uninterrupted charging. New three-hour result is PENDING; inspect
 the result.json inside the directory named by
 /var/lib/g965n-charge-observer/latest-soak-path (a private pointer file). This does not reset
 guardian safety budgets, change charging controls or auto-restart ChatGPT.
+
+### 2026-11-23 충전기 교체
+
+| 항목 | 관찰 | 판정 |
+|---|---|---|
+| 물리 전원 교체 | 사용자 완료, Wi-Fi로 BC SDP→DCP | 전원 종류 변화 확인; 계약 전류 미검증 |
+| 저잔량·냉각 | 2%,화면 OFF 후39.2°C,순전류 약−1~−6mA 구간 | 부하 감소 확인; 충전 재개 미확인 |
+| 보호 | 온도 latch 유지,고장/설정 latch false,입력500mA/충전450mA | 보호 우회 없음; 장시간 화면 ON 안정성 미완료 |

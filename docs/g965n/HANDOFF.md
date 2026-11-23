@@ -715,3 +715,7 @@ qualified uninterrupted charging. New three-hour result is PENDING; inspect
 the result.json inside the directory named by
 /var/lib/g965n-charge-observer/latest-soak-path (a private pointer file). This does not reset
 guardian safety budgets, change charging controls or auto-restart ChatGPT.
+
+### 충전기 비교 재개점 갱신
+
+사용자가 충전기 교체 완료, Wi-Fi로 SDP→DCP 인식을 확인했다. 앱은 유지하고 DPMS OFF readback, 배터리2%·약39.2°C, 순전류 약−1~−6mA 구간이다. 여전히 swelling_temperature_stop 사유로 CHG OFF이며 39°C 이하 회복을 기다린다. 입력500mA/충전450mA는 변경하지 않았다. 다음에는 fresh ADC·실제 CHG·순전류로 자동 회복을 먼저 확인한다. 고부하 재시험 전 배터리 여유를 확보하고, 전원 전환 시 감류·계약 검증을 포함하는 소스별 제어와 열/서비스 장애 시험을 준비한다. 장시간 안전성은 미완료다.

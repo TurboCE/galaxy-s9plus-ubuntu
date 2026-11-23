@@ -410,3 +410,7 @@ qualified uninterrupted charging. New three-hour result is PENDING; inspect
 the result.json inside the directory named by
 /var/lib/g965n-charge-observer/latest-soak-path (a private pointer file). This does not reset
 guardian safety budgets, change charging controls or auto-restart ChatGPT.
+
+### 충전기 교체 후속
+
+2026-11-23: 사용자 교체 후 DCP 전원 인식을 확인했다. 입력 한도500mA는 그대로이며, 배터리2%·약39.2°C에서 온도 보호 해제를 기다린다. 앱 유지/화면 OFF 후 순방전은 약1~6mA 구간으로 줄었지만 충전 재개·지속 부하 안정성은 아직 미검증이다.

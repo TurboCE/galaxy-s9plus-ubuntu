@@ -8242,3 +8242,7 @@ qualified uninterrupted charging. New three-hour result is PENDING; inspect
 the result.json inside the directory named by
 /var/lib/g965n-charge-observer/latest-soak-path (a private pointer file). This does not reset
 guardian safety budgets, change charging controls or auto-restart ChatGPT.
+
+## 2026-11-23 — 충전기 교체 후 비교
+
+사용자가 충전기 교체를 완료했다. Wi-Fi로 BC type1(SDP)→3(DCP), sink/VBUS를 읽어 전원 종류 변화를 확인했다. 실제 계약 전류나 고속 충전 전압을 확정한 것은 아니다. 배터리2%·3.44V·39.1°C, 화면 ON에서 순방전 약273mA였다. 앱을 유지하고 표준 DPMS OFF를 적용해 readback했고,45초 관찰 후39.2°C·순전류 약−1~−6mA 구간을 확인했다. 입력500mA/충전450mA와 기존 온도 보호는 유지했다. guardian 사유는 swelling_temperature_stop이며 하드웨어/설정 고장 latch는 false였다. 39°C 이하 냉각 후 자동 충전 재개와 장시간 화면 ON 부하는 아직 확인되지 않았다.
