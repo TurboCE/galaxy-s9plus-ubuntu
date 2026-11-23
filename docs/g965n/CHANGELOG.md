@@ -1,5 +1,14 @@
 # G965N experiments and fixes
 
+## 2026-11-23 — 열린 앱 음성·전력 비교, USB-C 읽기 전용 진단
+
+- #50에서 사용자가 실제 음성 인식과 답변 재생을 정상 확인했다. 짧은 오디오 스트림 관찰에서 오류 카운터 0이었으며 장시간 음질 합격은 아니다.
+- 앱을 열어 둔 화면 OFF에서는 GPU suspend와 양의 배터리 전류 약147mA를 관찰했다. 화면 ON 고밝기에서는 방전·발열이 재현됐다. 기본 밝기98→30 비교로 방전이 줄었지만 에너지 균형은 회복하지 못했다. 자동 밝기는 유지했다.
+- 실제 음성 부하 약115초에서 평균 약−650mA, 배터리42.7°C·3.45V·6%를 관찰했다. 관찰기가 종료된 것은 앱 종료나 하드웨어 보호 동작을 뜻하지 않는다. 이후2%·42.8°C를 확인해 앱은 유지하고 표준 DisplayConfig로 화면만 OFF했다. 지속 음성/화면 ON 안정성은 실패/미완료다.
+- 기존 온도 보호에 따라 충전이 차단됐다. 입력500mA/충전450mA/CV4.35V는 유지했고 보호 우회·전류 상향·BOOT 교체는 하지 않았다. 충전기 비교는 물리 교체 확인 대기다.
+- GPL 공개 레지스터 자료를 핀한 read-only USB-C 모듈을 기존 I²C 클라이언트에 연결했다. BC SDP, sink, CCI3 및 PD ready를 반복 관찰했다. CCI 광고만으로 실제 PD 계약 전류나 Mac의 공급 한도를 확정할 수 없다. IRQ-clear·명령·리셋·IC 쓰기는 하지 않는다.
+- 임시 어두운 테마 실행 인자는 화면 변화가 없어 원래 개인 실행 래퍼를 바이트 단위로 복구했다. 개인 프로필/설치/실행 설정·스크린샷·원본 로그는 Git에 포함하지 않는다. Wi-Fi SSH/root 연결은 USB와 별도로 확인했다.
+
 Record symptom, evidence, action, verification and remaining limits for every change.
 Do not include identifiers, raw private logs, backups, extracted firmware or passwords.
 

@@ -1,5 +1,16 @@
 # SM-G965N hardware validation
 
+## 2026-11-23 — 열린 앱 실제 부하
+
+| 항목 | 실기기 결과 | 판정/제한 |
+|---|---|---|
+| 음성 인식·답변 재생 | 사용자가 모두 정상 확인, 짧은 스트림 ERR0 | 기능 확인; 장시간 안정성 별도 |
+| 앱 유지·화면 OFF | GPU suspend, 배터리 약+147mA | 해당 짧은 구간만 확인 |
+| 화면 ON·실제 음성 | 약115초 평균−650mA,42.7°C,3.45V,6% | 지속 전력/열 안정성 미달 |
+| 저잔량 완화 | 이후2%·42.8°C에서 표준 DPMS OFF readback, 앱 서비스 active | 방전 위험 완화; 냉각/충전 회복 미확인 |
+| 입력 전원 진단 | read-only BC/CC/PD 상태 반복 읽기 성공 | SDP/sink/CCI3/PD-ready; 실제 PD 계약 전류 미확인 |
+| 충전 정책 | 500mA/450mA/CV4.35V 및 온도 차단 유지 | 고속 충전·충전기 비교 미완료 |
+
 Evidence updated: 2026-11-21. One Korean SM-G965N rev26 / 256GB,
 original firmware G965NKSU5FVA2. Target is parity with the hardware features
 supported by the reference LineageOS build, not just desktop startup.

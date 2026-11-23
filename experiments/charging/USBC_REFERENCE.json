@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/LineageOS/android_kernel_samsung_exynos9810",
+  "commit": "6a9461f9460ca51d1217e5069a5d5556fcc79e63",
+  "inputs": {
+    "include/linux/ccic/max77705.h": "dd37a57d35e1bda4f204e4ea5c8916c6d3aafa835fa6a3f9249358f731b5f405",
+    "drivers/ccic/max77705_cc.c": "57af72e727a7db975ffe1cf1d7b9347e2ba4c89b8f7cf82946269e6a7eedd452",
+    "drivers/ccic/max77705_pd.c": "8b9fae08f3dfb93945b67ad7f16f248795f51f2db711e9b8d0aebd5369d0c470"
+  },
+  "purpose": "Read-only BC/CC/PD-ready register facts; advertisement is not a verified PD current contract.",
+  "attribution": "Samsung Electronics and Maxim Integrated Products, 2017; source GPL-2.0-or-later notices retained upstream."
+}
