@@ -372,3 +372,27 @@ Latest recovery sample: calibrated battery45.5C (from48.6C), charger47.3C;
 GPU suspended, mean battery current+625uA (approximately neutral), SOC6%.
 Observer/guardian/cooling all active. Charge remains thermally inhibited; this
 is cooling improvement, not resumed or long-duration charging qualification.
+
+
+## 2026-11-23 — latest thermal stabilization (qualification in progress)
+
+GPU suspended, battery cooling43.4→41.7C, SOC6%, mean battery current near0.
+No further app changes. Screen-off conservative QoS now persists independently
+of thermal latch; normal-temperature screen-on releases this overlay. Actual
+hot/off application and restart verified; six host tests passed. Module unchanged.
+Bounded read-only g965n-thermal-recovery50 is checking automatic charging recovery
+and120s screen-off net charging. Pending; charging still blocked above39C.
+No reboot or full endurance qualification. Earlier CPU PLL/idle/rendering gaps remain.
+
+
+## 2026-11-23 — latest: automatic charge recovery and screen-off idle PASS
+
+Natural39.0C triggered automatic charging; reasons cleared, mean current149→
+171mA positive. Recovery checker passed122s sampled screen-off window at38.9C,
+SOC6%. Screen-off retains650/1066/260MHz/200ms after thermal latch clears.
+Actual screenon released to1499.333/2327/572MHz/20ms, off restored limits.
+Cold service restart retained the cleared latch. Eleven tests PASS. Partial
+record/stale-gap safeguards added. No new module/kernel/voltage/current changes.
+Short idle recovery is qualified; reboot/full-cycle/sustained app/build/voice
+thermal endurance is not. ChatGPT is still closed. Existing PLL/deep-idle and
+offscreen rendering gaps remain; private continuous recording stays active.

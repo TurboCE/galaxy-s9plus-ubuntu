@@ -820,3 +820,30 @@ Latest recovery sample: calibrated battery45.5C (from48.6C), charger47.3C;
 GPU suspended, mean battery current+625uA (approximately neutral), SOC6%.
 Observer/guardian/cooling all active. Charge remains thermally inhibited; this
 is cooling improvement, not resumed or long-duration charging qualification.
+
+
+## 2026-11-23 — thermal continuation matrix
+
+| Check | Current evidence |
+|---|---|
+| Cooldown after app exit | Battery43.4→41.7C, GPU suspended, mean current approximately neutral |
+| Display-aware controller | Exact-model/BOOT/backup/source-hash checked; restart and hot/off state PASS |
+| Decision regressions | Six tests PASS: thermal hysteresis, bad data, cadence ownership, display ambiguity and independent panel/thermal state |
+| Cold screen-on/off behavior | Host behavior PASS; cold hardware transition PENDING |
+| Automatic charge recovery | Bounded read-only recovery50 running; PENDING |
+| Reboot/endurance | Not attempted; remain UNQUALIFIED |
+
+
+## 2026-11-23 — latest thermal matrix supersedes pending above
+
+| Check | Evidence |
+|---|---|
+| Natural charging recovery |39.0C, CHGon, guardian reasons[]; PASS |
+| Short screen-off recovery |122s sampled positive mean,38.9C/+171mA; PASS, not endurance |
+| Actual displayon | level0;1499.333/2327/572MHz maxima,20ms; PASS |
+| Actual displayoff | level1;650/1066/260MHz maxima,200ms; PASS |
+| Cold controller restart | Thermal latch remains cleared; screen_off_idle; PASS |
+| Relevant regressions |11 tests PASS, including partial JSONL, sample gaps and latch restoration |
+| Reboot/full-cycle/active app/build/voice thermal endurance | UNQUALIFIED; ChatGPT remains closed |
+
+No voltage/current/temperature-threshold or package/kernel changes in this phase.

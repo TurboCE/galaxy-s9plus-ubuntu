@@ -26,6 +26,14 @@ The validated original lowest big-cluster voltage and GPU step-voltage modes
 remain disabled. CPU schedutil rate cadence is lengthened while cooling;
 restore ownership respects later external cadence changes.
 
+Screen-off idle mode uses the same conservative ceilings even after temperature
+recovers. The unique internal DSI connector must report both disabled and DPMS
+Off; unknown/ambiguous state conservatively retains ceilings. On screen-on,
+normal-temperature operation releases only this overlay's requests and restores
+its owned governor cadence. The thermal hysteresis state is separate from panel
+state, so screen-off does not falsely latch a thermal episode. No process is
+paused, killed or quota-limited by this controller. Transitions are journaled.
+
 The root-private controller verifies actual model/current BOOT/protected
 backups, module hash and exact export ABI before loading. A current-boot module
 ownership receipt prevents claiming an unrelated loaded module. Stop/failure
@@ -101,3 +109,48 @@ mean battery current approached-3mA and calibrated battery48.6→47.3C. Reopenin
 can reproduce the workload. This is a temporary recovery action, not a permanent
 offscreen rendering fix. Native cpuidle has no registered driver/states; WFI
 fallback may still occur. No speculative idle/PSCI changes were attempted.
+
+## Read-only hot-stop/recovery qualification
+
+`recovery-check.py --confirm-sm-g965n-read-only-recovery --seconds 1200`
+performs the existing model/BOOT/backup guard and records root-only results
+under `/var/lib/g965n-thermal-qos/recovery-*`. `latest-recovery-path` points to
+result.json. It must actually observe hot-stop, cool<=39C and automatic CHG
+recovery, then at least120s of fresh positive reported battery current with
+battery<41C, no guardian fault/reason and actual screen-off conservative CPU/GPU
+ceilings. Pending/interrupted is not passed. This is a short recovery window,
+not full-cycle or vehicle endurance qualification. No hardware settings change.
+
+The display-idle/recovery additions passed eleven host tests and was installed after exact
+old/new controller hash and current model/BOOT/protected-backup checks, with
+the previous source retained privately. Actual hot/off state and service restart
+were verified; cold release and complete recovery evidence are recorded in the
+G965N validation matrix when available. No kernel, module or app update here.
+
+### 2026-11-23 hardware recovery result
+
+Natural cooldown reached39.0C, guardian reasons cleared and CHG automatically
+returned on, with positive reported battery current149→171mA. Screen-off QoS
+remained650/1066/260MHz and200ms cadence. The bounded recovery check observed
+hot-stop/cold/charge recovery and122s positive screen-off charging, battery38.9C.
+This is a short idle recovery qualification, not sustained app/load parity.
+
+`panel-cycle-check.py --confirm-sm-g965n-backed-up-panel-test` is a separate
+explicit guarded UI/device check, never called by a builder. It requires an
+originally off, naturally cooled panel and arms an independent30s off-restore
+timer. Actual on: overlay level0,1499.333/2327/572MHz maxima,20ms cadence; off:
+level1,650/1066/260MHz,200ms. The timer was canceled after verified restoration.
+A cold controller restart retained the cleared thermal latch and screen-off
+mode. Same-boot latch persistence does not reuse a previous boot's state.
+
+Completed-sample reading now tolerates a concurrent partial final JSONL record
+without treating it as a fresh invalid sample; the last full sample still must
+meet the35s freshness bound. Recovery validation separates observed cold from
+the later CHG transition and rejects sampling gaps/clock regressions. The first
+read-only checker was interrupted only to install this stricter checker; its
+private result remains interrupted. Final checker is recovery50-final.
+
+ChatGPT remains closed after the earlier thermal incident; its offscreen
+rendering and sustained build/voice workload heat are not fixed/qualified by
+this result. Known unsafe idle voltage modes, deep-idle states and Wi-Fi
+power-save changes were not enabled. No kernel, BOOT or package upgrade.

@@ -666,3 +666,36 @@ Latest recovery sample: calibrated battery45.5C (from48.6C), charger47.3C;
 GPU suspended, mean battery current+625uA (approximately neutral), SOC6%.
 Observer/guardian/cooling all active. Charge remains thermally inhibited; this
 is cooling improvement, not resumed or long-duration charging qualification.
+
+
+## 2026-11-23 — continue thermal recovery with screen-off QoS
+
+Latest controller source experiments/thermal/thermal-control.py deployed after
+old/new hash/model/BOOT/protected-backup guard, original saved in root-private
+before-display-idle-* directory. Module/pins unchanged. Hot/off state, restart
+and transition journal verified. Separate panel/thermal state prevents releasing
+clock caps merely because the hot latch clears while display remains off.
+
+Inspect /var/lib/g965n-thermal-qos/latest-recovery-path -> result.json and
+g965n-thermal-recovery50.service. It is read-only, bounded1200s; requires actual
+hot-stop/cold recovery and120s positive reported net charging under screen-off
+ceilings/no faults. Pending is not pass. At last sample41.7C, SOC6%, near0mA.
+Keep existing voltage/temperature/backup guards; no hot/depleted reboot.
+
+
+## 2026-11-23 — thermal recovery PASS, latest code and evidence
+
+Controller now has display-aware QoS, complete-record reader and protected
+same-boot thermal latch persistence. Source deployed after actual model/BOOT/
+protected-backup and predecessor hash checks; private predecessor backups kept.
+Module/pins unchanged. Cold displayon/off and controller restart verified.
+On1499.333/2327/572MHz+20ms; off650/1066/260MHz+200ms. Restore timer canceled.
+
+Final g965n-thermal-recovery50-final passed122s sampled positive screen-off
+charging following observed hot-stop/natural cold39.0C/automatic CHG recovery.
+Private result pointer /var/lib/g965n-thermal-qos/latest-recovery-path. Initial
+checker was intentionally interrupted for async-phase/gap fixes, not a device
+fault. At qualification38.9C/current+171mA/SOC6%. No reboot or forced enable.
+Eleven host tests pass. Sustained workloads/full-cycle/voice and reboot remain
+unqualified. ChatGPT remains closed; do not claim its rendering problem fixed.
+Do not enable historically failed idle voltage/PSCI or Wi-Fi power-save paths.

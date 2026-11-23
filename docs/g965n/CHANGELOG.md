@@ -8179,3 +8179,47 @@ Latest recovery sample: calibrated battery45.5C (from48.6C), charger47.3C;
 GPU suspended, mean battery current+625uA (approximately neutral), SOC6%.
 Observer/guardian/cooling all active. Charge remains thermally inhibited; this
 is cooling improvement, not resumed or long-duration charging qualification.
+
+
+## 2026-11-23 — screen-off cooling retention and recovery qualification
+
+- Continued thermal recovery: calibrated battery43.4→42.6→41.7C, mean battery
+  current near0, GPU runtime suspended, SOC6%. Prior active-app log peak49.4C
+  distinguishes the earlier rendering/failed-budget period from current cooling.
+- Extended the existing QoS controller to retain conservative650/1066/260MHz
+  ceilings and owned200ms governor cadence while the unique DSI panel reports
+  disabled+DPMSoff, even after thermal hysteresis clears. Unknown/ambiguous
+  panel state retains cooling; screen-on only releases if thermal state permits.
+  Thermal latch is independent of display state. No app/process/voltage changes.
+- Six host tests passed, including display ambiguity and screen-on restoration
+  decisions. Actual#50/model/protected backups and old/new source hashes verified;
+  previous root-private controller backed up, source replaced and service restart
+  verified. Existing module binary/pins remain unchanged. Actual hot/off state
+  and transition journal present; cold recovery is not yet claimed.
+- Installed guarded read-only recovery-check.py and started bounded1200s
+  g965n-thermal-recovery50.service. It must observe hot-stop→<=39C/CHGon→120s
+  positive average current with safe temperature, panel-off limits and no faults.
+  Private result pending; neither startup nor test exit0 means qualification.
+
+
+### Thermal stabilization — real cold recovery and panel-cycle PASS
+
+Completed-sample tail reading now tolerates concurrent partial records while
+enforcing35s freshness. Same-boot thermal latch survives controller restart;
+unknown/new boot remains conservative. Guarded source backup/hash deployment
+and actual restart verified; existing module/pins unchanged. Eleven tests PASS.
+
+First read-only recovery unit was interrupted to correct asynchronous cold→CHG
+phase timing and stale-gap validation. Final recovery50-final observed hot-stop,
+natural39.0C, automatic CHGon/reasons[], then122s sampled positive screen-off
+charging at38.9C/current+171mA/SOC6%. No forced charge or changed limits.
+
+Guarded panel-cycle-check verified actual displayon: level0, CPU1499.333/2327
+and GPU572MHz maxima,20ms cadence. Displayoff: level1,650/1066/260MHz,200ms.
+Independent30s original-off restore timer canceled after success. Subsequent
+cold service restart retained thermal_hot=false and screen_off_idle. No apps
+launched/paused, kernel flash, reboot, voltage/current/threshold or APT changes.
+Sensors/audio/BT and charging/cooling services remained active; targeted new
+BUG/Oops/panic/G3D timeout search empty. Service state is not full hardware QA.
+ChatGPT remains closed; offscreen rendering, PLL/deep-idle and sustained load
+thermal/energy behavior remain unresolved. This is short idle qualification.

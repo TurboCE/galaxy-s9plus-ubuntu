@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """Guarded calibrated-battery cooling overlay. Never changes voltage/charger policy."""
 import argparse,hashlib,importlib.util,json,os,signal,stat,subprocess,time
+from datetime import datetime,timezone
 from pathlib import Path
 ROOT=Path('/usr/local/lib/g965n-thermal-qos')
 STATE=Path('/var/lib/g965n-thermal-qos')
@@ -11,7 +12,8 @@ RATE=Path('/sys/devices/system/cpu/cpufreq/schedutil/rate_limit_us')
 CLOCK=getattr(time,'CLOCK_BOOTTIME',time.CLOCK_MONOTONIC)
 
 def decision(row,now,was_hot):
-    if not 0<=now-row.get('end_monotonic_ns',-100_000_000_000)<35_000_000_000:return True,'stale_measurement'
+    stamp=row.get('end_monotonic_ns')
+    if type(stamp) is not int or not 0<=now-stamp<35_000_000_000:return True,'stale_measurement'
     try:
         values=[row['temperature'][n]['temperature_deci_c'] for n in ('battery','usb','charger')]
         if row.get('temperature_error') or any(type(v) is not int or not -200<=v<=900 for v in values):raise ValueError()
@@ -28,6 +30,42 @@ def cadence_request(rate,current,hot):
     cadence=max(200000,rate['original']) if hot else rate['original']
     rate['last']=cadence
     return rate,cadence
+
+def panel_is_off(drm=Path('/sys/class/drm')):
+    """Only the unique internal DSI connector; missing/ambiguous is unknown."""
+    panels=list(drm.glob('card*-DSI-*'))
+    if len(panels)!=1:return None
+    try:
+        enabled=(panels[0]/'enabled').read_text().strip()
+        dpms=(panels[0]/'dpms').read_text().strip()
+    except OSError:return None
+    if enabled=='disabled' and dpms=='Off':return True
+    if enabled=='enabled' and dpms=='On':return False
+    return None
+
+def cooling_request(thermal_hot,thermal_reason,panel_off):
+    if thermal_hot:return True,thermal_reason
+    if panel_off is True:return True,'screen_off_idle'
+    if panel_off is None:return True,'unknown_display_state'
+    return False,'normal'
+
+def latest_completed_sample(path=Path('/var/lib/g965n-charge-observer/samples.jsonl')):
+    # A concurrent writer may have appended only part of the newest record.
+    # The previous complete record must still satisfy decision()'s age limit.
+    with path.open('rb') as f:
+        f.seek(0,2);f.seek(max(0,f.tell()-131072));lines=f.read().splitlines()
+    for line in reversed(lines):
+        try:row=json.loads(line)
+        except ValueError:continue
+        if isinstance(row,dict) and 'end_monotonic_ns' in row:return row
+    raise ValueError('No completed sample')
+
+def restored_hot(state,boot):
+    # Keep a cleared hysteresis latch across same-boot service restarts.
+    # New/unknown boot or invalid state starts conservatively.
+    if state.get('boot')==boot and type(state.get('thermal_hot')) is bool:
+        return state['thermal_hot']
+    return True
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
@@ -66,22 +104,29 @@ def main():
         rate=json.loads(rate_state.read_text())
         if rate.get('boot')!=boot:rate={'boot':boot,'original':int(RATE.read_text()),'last':None}
     else:rate={'boot':boot,'original':int(RATE.read_text()),'last':None}
-    hot=True
+    try:hot=restored_hot(json.loads((STATE/'state.json').read_text()),boot)
+    except (OSError,ValueError,TypeError,AttributeError):hot=True
+    previous=None
     try:
         while not STOP:
             try:
-                # Avoid whole-file reads as the rotated recorder grows.
-                with open('/var/lib/g965n-charge-observer/samples.jsonl','rb') as f:
-                    f.seek(0,2);f.seek(max(0,f.tell()-131072));lines=f.read().splitlines()
-                row=json.loads(lines[-1]);hot,reason=decision(row,time.clock_gettime_ns(CLOCK),hot)
+                row=latest_completed_sample();hot,reason=decision(row,time.clock_gettime_ns(CLOCK),hot)
             except (OSError,ValueError,IndexError):hot=True;reason='missing_measurement'
+            panel_off=panel_is_off()
+            cooling,reason=cooling_request(hot,reason,panel_off)
             current=int(RATE.read_text())
-            rate,cadence=cadence_request(rate,current,hot)
+            rate,cadence=cadence_request(rate,current,cooling)
             if current!=cadence:RATE.write_text(str(cadence)+'\n')
             rate_state.write_text(json.dumps(rate))
-            value='1' if hot else '0'
+            value='1' if cooling else '0'
             if LEVEL.read_text().strip()!=value:LEVEL.write_text(value+'\n')
-            tmp=STATE/'state.tmp';tmp.write_text(json.dumps({'cooling':hot,'reason':reason}));tmp.replace(STATE/'state.json')
+            state={'boot':boot,'cooling':cooling,'thermal_hot':hot,'panel_off':panel_off,'reason':reason,
+                   'utc':datetime.now(timezone.utc).isoformat()}
+            tmp=STATE/'state.tmp';tmp.write_text(json.dumps(state));tmp.replace(STATE/'state.json')
+            changed=(cooling,hot,panel_off,reason)
+            if changed!=previous:
+                print(json.dumps({k:v for k,v in state.items() if k!='boot'}),flush=True)
+                previous=changed
             for _ in range(25):
                 if STOP:break
                 time.sleep(.2)
