@@ -8174,3 +8174,8 @@ and full cold-to-hot-to-recovery cycle for the new service remain pending.
 Final QoS release verification waited0.5s for asynchronous CPU policy work:
 released bounds1499.333/2327MHz, reapplied650/1066MHz, controller restarted.
 This confirms the overlay removes only its own CPU requests. No reboot used.
+
+Latest recovery sample: calibrated battery45.5C (from48.6C), charger47.3C;
+GPU suspended, mean battery current+625uA (approximately neutral), SOC6%.
+Observer/guardian/cooling all active. Charge remains thermally inhibited; this
+is cooling improvement, not resumed or long-duration charging qualification.
