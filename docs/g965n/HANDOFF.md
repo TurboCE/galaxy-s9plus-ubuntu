@@ -1,5 +1,21 @@
 # SM-G965N 작업 재개
 
+## 최신 재개점 — 2026-11-24 장기 관측 결과
+
+앱-open soak 완료 PASS:10801.7초/714표본/평균+444.3mA/faults[]/conditions[].
+시작21:22 KST(11/23), 종료00:22 KST(11/24). 현재도 같은 boot입니다.
+화면 OFF·유휴 앱 시험이며 실제 음성1200mA/화면ON 장기 시험은 아직 미검증.
+앱은11400초 RuntimeMaxSec로 정상적인 예정 종료(SIGTERM, systemd Result=timeout).
+monitor는11400.2초에 workload_changed_or_exited, reason=null로 기록했습니다.
+source/soak/monitor transient unit inactive는 예정 종료; 오래된 pending보다 이 결과 우선.
+
+현재 guardian/observer/냉각/power-key active. 배터리90%,35.7°C, CHG0/input500mA.
+누적 wall36010.6초가10h 한도를 넘어 safety_time_expired hold 중입니다.
+hardware/configuration fault=false, WDT owned1/enabled1/expiry0. 보호를 임의로
+초기화하거나 CHG를 강제하지 않았습니다. 상시 차량 전원에서 한도 후 유지/재충전은
+Android 동등하게 검증되지 않았으며 다음 설계·검증 과제입니다. 사용자 데이터 보존.
+실제 음성/물리 버튼 최신 확인과 reboot는 별도 진행할 것. 이전 개인 문서48줄 유지.
+
 ## 최신 재개점 — 2026-11-23 #50 충전·화면 보호 후속
 
 이 절을 아래 이전 열린 앱 시험보다 우선합니다. 모델/현재 BOOT/보호 백업을

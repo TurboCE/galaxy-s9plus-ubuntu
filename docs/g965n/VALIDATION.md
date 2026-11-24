@@ -1,5 +1,13 @@
 # SM-G965N hardware validation
 
+## 2026-11-24 — 3시간 앱-open 관측 완료
+
+| 항목 | 실기 결과 | 범위/미완료 |
+|---|---|---|
+| #50/source1200mA 앱-open soak | PASS,10801.7초·714표본, 평균 보고 순전류+444.3mA, faults[]/conditions[], 같은 boot와 요구 workload active | 화면 OFF·유휴 앱; 실제 음성/화면ON 연속 부하·재부팅·전원 전환 미검증 |
+| 시험 앱 수명/보호 monitor |11400초 RuntimeMaxSec로 SIGTERM 종료(Result=timeout). monitor11400.2초 workload_changed_or_exited, reason=null | 의도된 수명 종료이며 실제 과열/저전압 보호 trip으로 기록하지 않음 |
+| 후속 충전 상태 |90%·35.7°C, CHG0/input500mA, wall36010.6초로 safety_time_expired 적용. hardware/configuration fault=false, WDT expiry0 |10h 누적 안전 한도 이후 상시 전원 유지·재충전 정책 미완료. 타이머 강제 초기화/충전 강제 없음 |
+
 ## 최신 #50 전원·발열 후보 검증 — 2026-11-23
 
 새 앱-open 3시간 관측은 진행 중이며 PASS가 아닙니다. source lease/정상42°C

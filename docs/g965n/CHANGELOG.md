@@ -1,5 +1,20 @@
 # G965N experiments and fixes
 
+## 2026-11-24 — 3시간 시험 결과 수집 (설정/기기 쓰기 없음)
+
+- Wi-Fi 읽기로 최신 private result/guardian/ADC/IC 상태 수집. 새 runtime 설정,
+  충전 강제, 보호 예산 초기화, BOOT/펌웨어/파티션·재부팅 변경 없음.
+- 11/23 21:22 KST 시작한 앱-open 관측이10801.7초/714표본 PASS,
+  평균 보고 순전류+444.3mA·faults[]/conditions[] 확인. 같은 boot 유지.
+  화면 OFF 유휴 앱 증거이며 실제 음성/화면ON 지속 사용을 성공으로 확대하지 않음.
+- 시험 앱은11400초 RuntimeMaxSec의 예정 SIGTERM으로 종료. systemd timeout
+  실패 표시를 앱 crash로 오인하지 않음. monitor11400.2초 workload exit 확인,
+  위험 reason=null. 입력 lease/관측/monitor의 bounded 종료도 확인.
+- 후속 배터리90%·35.7°C, CHG0/input500mA. guardian wall36010.6초로10h
+  safety_time_expired 보호 유지, hardware/configuration fault=false/WDT expiry0.
+  보호 한도 이후 상시 전원 유지·재충전은 미완료. 타이머 초기화로 우회하지 않음.
+- 공용4문서에 집계 결과만 반영. 원본 로그/boot ID/개인 앱 설정·기존 개인48줄 제외.
+
 ## 2026-11-23 — #50 입력 전력·충전 IC watchdog·전원 키 후속
 
 - 실제 모델/BOOT/보호 백업·이전 파일/module hash/ABI 검증 후 Wi-Fi runtime
