@@ -1,5 +1,15 @@
 # SM-G965N hardware validation
 
+## 2026-11-24 — support 1.0.0, 실제 APT upgrade와 재부팅
+
+| 항목 | 실기 증거 | 범위 |
+|---|---|---|
+| 설치 및 재부팅 | support 1.0.0, 20개 업그레이드, 새 boot ID와 동일 #50 BOOT/보호 백업 확인. dpkg audit/패키지 파일 검증 정상. 남은 갱신0 | 기존 설치를 이관했으며 새 이미지 설치/다운그레이드는 별도 |
+| 화면·네트워크 | Wi-Fi SSH 실접속, display manager와 GNOME Shell DRM 렌더 FD, Wayland EGL Mali-G72 Panfrost 확인 | 화면 육안/터치 및 프레임 성능 별도 |
+| 오디오 | UCM HiFi·기기 스피커/마이크 경로, PipeWire 700Hz 재생 성공 및 마이크 표본에서 시험음 검출 | 실제 음성 대화 미검증 |
+| 전원·기타 | observer/guardian/냉각/전원 키/진동/LED/입력 QoS active. ADC 실측41.8°C 및 보호 CHG0. NFC/BT 컨트롤러와 덮개 서비스 확인 | 실제 자동 밝기/가속도, 태그 전송, 프로파일 연결, 긴 충전 미검증 |
+| 기존 실패 | 센서 허브 ROM 동기화 timeout 및 LTE 백업 출처 검증 실패가 갱신 전후 모두 재현 | IIO ADC만 확인, 동작 센서와 셀룰러 데이터 미확인 |
+
 ## 2026-11-24 — APT 모의 실행
 
 apt-get -s upgrade:20 upgrade/0 new/0 remove. 커널 이미지 교체 항목 없음,
