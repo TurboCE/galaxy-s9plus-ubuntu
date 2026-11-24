@@ -1,5 +1,12 @@
 # G965N experiments and fixes
 
+## 2026-11-24 — 야간 재부팅 여부 읽기 검증
+
+14:07 KST Wi-Fi 확인: 현재 uptime 약22.05시간, 시작11/23 16:04 KST.
+부팅 journal 최신 세션도 해당 시각부터 이어지고21:22 시작한3시간 시험의
+boot와 현재 boot가 일치합니다. 지난밤 연결 이후 새 재부팅 증거 없음.
+설정/기기 쓰기·보호 초기화 없음. 원본 journal/boot 식별자는 공개하지 않음.
+
 ## 2026-11-24 — 3시간 시험 결과 수집 (설정/기기 쓰기 없음)
 
 - Wi-Fi 읽기로 최신 private result/guardian/ADC/IC 상태 수집. 새 runtime 설정,
