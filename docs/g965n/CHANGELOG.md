@@ -1,5 +1,14 @@
 # G965N experiments and fixes
 
+## 2026-11-24 — Ubuntu 기본 Wi-Fi 핫스팟
+
+SM-G965N에서 표준 NetworkManager AP 프로필을 2.4 GHz, WPA2/CCMP,
+IPv4 shared, 자동 시작 해제로 생성했습니다. USB 관리 연결에서 시험했고
+Mac의 독립 Wi-Fi 스캔에서 SSID 한 개, S9+에서 AP 활성·채널 11·DHCP/DNS
+대기를 확인했습니다. 실제 클라이언트 연결과 LTE 경유 인터넷은 미시험입니다.
+이전 Wi-Fi 및 SSH 복귀를 확인하고 GNOME 설정에서 재사용할 프로필을
+보존했습니다. 기기 비밀번호와 개인 네트워크 정보는 저장소에서 제외합니다.
+
 ## 2026-11-24 — 허브 전원 차단을 유지한 Ubuntu 재부팅 시험
 
 - SM-G965N, BOOT 및 보호 백업을 확인했습니다. 시험 모듈은 첫 GPIO 설정,
