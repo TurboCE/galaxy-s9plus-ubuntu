@@ -1,5 +1,14 @@
 # G965N experiments and fixes
 
+## 2026-11-24 — APT 업그레이드 읽기 검토
+
+현재24.04 LTS 패키지 목록으로 apt-get -s upgrade만 수행:20개 upgrade,
+신규/제거0. 실행 커널/BOOT 이미지 교체 항목 없음; linux-libc-dev는 사용자
+개발용 헤더입니다. systemd/udev/GStreamer 등 서비스 기반 변경은 포함되므로
+실제 설치 후 회귀 검증은 별도 필요. apt hold 없음. 선택한 시스템 패키지의
+현재 dpkg 파일 검증에 mismatch 없음; 이는 포팅 overlay의 미래 호환성 보장 아님.
+apt update/upgrade 설치·hold/pin/코드·설정 변경 없음. 개인 앱 목록/버전은 제외.
+
 ## 2026-11-24 — 전원 재연결 자동 부팅 실제 확인
 
 외부 전원 online0·배터리89%·모델/현재 BOOT/보호 백업 검증 후 정상 종료.

@@ -1,5 +1,11 @@
 # SM-G965N hardware validation
 
+## 2026-11-24 — APT 모의 실행
+
+apt-get -s upgrade:20 upgrade/0 new/0 remove. 커널 이미지 교체 항목 없음,
+linux-libc-dev는 개발 헤더. systemd/udev/GStreamer 갱신 포함, hold 없음.
+실제 설치/재부팅·GPU/음성/센서 회귀는 미검증; 시뮬레이션 성공은 설치 검증 아님.
+
 ## 2026-11-24 — 전원 재연결 자동 부팅 실제 확인
 
 외부 전원 online0·배터리89%·모델/현재 BOOT/보호 백업 검증 후 정상 종료.
