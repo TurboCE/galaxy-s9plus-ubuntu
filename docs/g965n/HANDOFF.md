@@ -1,5 +1,26 @@
 # SM-G965N 작업 재개
 
+## 2026-11-24 — 센서 복구 후 지원 패키지 검증
+
+이전 ACK0 진단 뒤 TWRP → System에서 첫 복구. 포트/시간/전원 수정 없이
+IIO7 등록. TWRP 이후 EFS 회복용 root-only nine-partition snapshot과
+기존 승인 필드 proof는 /var/backups/g965n-twrp-return.*에 있습니다.
+boot guard·센서 profile pin은 갱신됐고 원본 파티션은 쓰지 않았습니다.
+LTE의 더 오래된 receipt가 허용 시간 범위를 벗어나 별도로 유지 중입니다.
+첫 일반 재부팅 성공 뒤 support 1.1.0 설치. 두 번째 일반 재부팅에서
+packaged sensor_runtime.py 실제 실행 및 조도/가속도 등 값 확인.
+활성 서비스의 단 한 센서 owner와 원본 private profile/펌웨어를 유지하세요.
+TWRP-경유 복구가 우연이 아닌지는 관찰했지만 전기적 원인/자동 복구는 미확정.
+
+## 2026-11-24 — 센서 전송 진단 (수정 미검증)
+
+정상 shutdown + 전원 재연결 뒤에도 ROM 첫16바이트 ACK0. 정상 controller와
+GPIO SPI 진단 모두 MCU_RESP1/HOST_REQ0, all-zero SPI 수신. 소프트 standby
+연장과 LDO37 차단 시험도 실패. 임시 파일/override는 활성 경로에서 제거했고
+기존 프로필/모듈/strict ACK로 복귀. 배터리 ADC와 허브 IIO를 구분하세요.
+후속은 known-good 환경 또는 실제 CS/SCK/MISO 및 rail 계측으로 분리 검증.
+검증 실패로 support package/Git 원격 갱신 없음.
+
 ## SM-G965N 지원 패키지 재개점 — 2026-11-24
 
 기기 `g965n-support` 1.0.0 설치, APT 20개 실제 갱신 및 새 #50 부팅.

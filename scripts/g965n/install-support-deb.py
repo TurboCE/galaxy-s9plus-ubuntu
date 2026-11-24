@@ -3,12 +3,19 @@
 """Adopt the reviewed runtime settings on an existing backed-up G965N."""
 import argparse
 import importlib.util
+import hashlib
+import json
 from pathlib import Path
 import subprocess
 import tempfile
 
 PACKAGE = "g965n-support"
 LIB = "/usr/lib/g965n-support/"
+SENSOR_PATHS = {
+    LIB + "sensors/sensor_runtime.py",
+    LIB + "sensors/start-packaged-sensors.py",
+    "/etc/systemd/system/g965n-sensors.service.d/50-g965n-support.conf",
+}
 GUARD = "/usr/local/lib/g965n-led-trial/led-control.py"
 LEGACY = {
     "charge-guardian": "g965n-adc-trial", "charge-observer": "g965n-adc-trial",
@@ -38,12 +45,26 @@ def main():
     if name != PACKAGE:
         raise ValueError(f"Expected {PACKAGE}")
 
-    with tempfile.TemporaryDirectory(prefix=PACKAGE + "-inspect-") as tmp:
+    with tempfile.TemporaryDirectory(prefix=PACKAGE + "-inspect-", dir="/var/backups") as tmp:
         root = Path(tmp)
         run("dpkg-deb", "-x", str(deb), tmp)
         commands = {}
         existing = []
+        sensor = root / (LIB.lstrip("/") + "sensors/sensor_runtime.py")
+        if sensor.is_file():
+            profile = Path("/var/lib/g965n-sensors/profile.json")
+            pin = profile.with_suffix(".sha256").read_text().strip()
+            raw = profile.read_bytes()
+            if hashlib.sha256(raw).hexdigest() != pin:
+                raise RuntimeError("Sensor profile has changed")
+            expected = json.loads(raw)["programs"]["supervisor"]["sha256"]
+            if hashlib.sha256(sensor.read_bytes()).hexdigest() != expected:
+                raise RuntimeError("Packaged supervisor differs from the approved sensor profile")
+            run("/usr/bin/python3", str(sensor), "check", "--profile", str(profile),
+                "--profile-sha256", pin, "--model", "SM-G965N")
         for script in root.glob(LIB.lstrip("/") + "*/*.py"):
+            if "/" + str(script.relative_to(root)) in SENSOR_PATHS:
+                continue
             old = Path("/usr/local/lib") / LEGACY[script.stem] / script.name
             if script.read_bytes() != old.read_bytes():
                 raise RuntimeError(f"Installed helper differs from reviewed source: {old}")
@@ -56,7 +77,7 @@ def main():
             if owner.returncode == 0 and not owner.stdout.startswith(PACKAGE + ": "):
                 raise RuntimeError(f"Path owned by a different package: {path}")
             if not path.exists():
-                if not str(path).startswith(LIB):
+                if not str(path).startswith(LIB) and str(path) not in SENSOR_PATHS:
                     raise RuntimeError(f"Missing existing device configuration: {path}")
                 continue
             expected = file.read_bytes()

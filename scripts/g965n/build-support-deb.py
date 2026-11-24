@@ -59,6 +59,11 @@ def stage(root):
             for old, new in commands.items():
                 data = data.replace(old, new)
             dest.write_text(data)
+    copy("scripts/g965n/sensor-runtime.py", f"{LIB}/sensors/sensor_runtime.py", 0o600)
+    copy("scripts/g965n/start-packaged-sensors.py", f"{LIB}/sensors/start-packaged-sensors.py", 0o600)
+    copy("scripts/g965n/units/50-g965n-support.conf",
+         "/etc/systemd/system/g965n-sensors.service.d/50-g965n-support.conf")
+
     for rule in RULES:
         copy(f"experiments/{rule}", f"/etc/udev/rules.d/{Path(rule).name}")
 
@@ -77,7 +82,7 @@ def stage(root):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path, help="New .deb path")
-    parser.add_argument("--version", default="1.0.0")
+    parser.add_argument("--version", default="1.1.0")
     args = parser.parse_args()
     output = args.output.resolve()
     if output.exists() or output.suffix != ".deb":
