@@ -26,9 +26,11 @@ def maintain(runtime, args):
             raise RuntimeError('Existing modem runtime preserved; maintenance refused')
         try:
             runtime.prepare(create_devices=False)
+            checkpoint = getattr(args, 'confirm_recovery_clock_checkpoint', None)
+            options = {'recovery_clock_checkpoint': tuple(map(Path, checkpoint))} if checkpoint else {}
             runtime.revalidate_efs_superblock(
                 args.old_efs_backup, args.efs_backup, args.cpefs_backup,
-                args.backup_manifest, confirm=True)
+                args.backup_manifest, confirm=True, **options)
         finally:
             runtime.teardown()
 
@@ -41,6 +43,8 @@ def main():
     p.add_argument('--efs-backup', type=Path, required=True)
     p.add_argument('--cpefs-backup', type=Path, required=True)
     p.add_argument('--backup-manifest', type=Path, required=True)
+    p.add_argument('--confirm-recovery-clock-checkpoint', nargs=2, metavar=('EFS_IMAGE', 'MANIFEST'),
+                   help='Explicitly verify a known intermediate snapshot after a recovery clock rollback')
     p.add_argument('--confirm-sm-g965n-efs-metadata-only', action='store_true', required=True)
     args = p.parse_args()
     if os.geteuid() != 0:

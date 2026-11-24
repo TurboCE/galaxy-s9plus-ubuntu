@@ -1,5 +1,29 @@
 # SM-G965N 작업 재개
 
+## 2026-11-24 — 검증 기록 갱신 및 센서 재시작
+
+이전 LTE 출처 실패는 정상 기기에서 관측한 EFS 두 timestamp의 공통 역방향
+이동. root-private 이전/중간/현재 snapshot을 사용해 나머지 byte 동일,
+카운터·CPEFS·RADIO 보존, 중간→현재는 기존 증명으로 확인했습니다.
+제공되는 오프라인 유지보수 명령만 사용. 실제 runtime source와 자동 startup
+검증 조건은 동일. 재부팅으로 정상 once-per-boot 시도 경로를 사용했습니다.
+support1.2.0 센서 broker SIGTERM 주입 후26초에 자동 복구, 재시작1회와 IIO7개.
+실제 ACK0 ROM 고착 회복과 구분. 해당 장애를 핑계로 계속 reset하지 마세요.
+
+새 데이터 SIM(KT)은 LTE home 등록·packet attached·IPv4를 얻었습니다.
+첫 cold boot 데이터 세션은 약30초 뒤 no-carrier, IPv4 HTTPS도 timeout.
+일반 재부팅 후 rmnet0에 강제 바인드한 인증서 검증 HTTPS204와 실제
+RX25→34/TX25→39 확인. 일반 경로 Wi-Fi는 유지. 모뎀 DNS 재검증 및
+장기 안정성은 미확인입니다. 이와 별개로 실제 SSI ROM ACK0는 cold boot에서
+재현됐고 제한된 서비스 재시작으로 해결되지 않았습니다.
+
+마지막 TWRP→Ubuntu 전환 중 사용자가 한 차례 실패 및 재부팅을 관찰했습니다.
+이후 실제 Ubuntu 진입에서 hub ready를 확인했습니다. EFS는 승인 필드6 bytes
+변경만 확인해 새 읽기 전용 백업으로 외부 파티션·LTE 출처 검증을 복구했습니다.
+후속 일반 재부팅에서 센서·LTE·충전 서비스 동시 active, 실제 조도106 lux,
+rmnet0 강제 바인드 HTTPS204와 RX +7 패킷까지 확인했습니다.
+
+
 ## 2026-11-24 — 센서 복구 후 지원 패키지 검증
 
 이전 ACK0 진단 뒤 TWRP → System에서 첫 복구. 포트/시간/전원 수정 없이

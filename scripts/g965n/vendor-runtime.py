@@ -796,7 +796,7 @@ EFS_SUPERBLOCK_FIELDS = {
 }
 
 
-def efs_superblock_proof(old, new):
+def efs_superblock_proof(old, new, *, recovery_clock_rollback=False):
     if len(old) != len(new) or len(old) < 0x580:
         raise RuntimeError('Unexpected EFS snapshot size')
     if old[0x438:0x43a] != b'\x53\xef' or new[0x438:0x43a] != b'\x53\xef':
@@ -808,17 +808,24 @@ def efs_superblock_proof(old, new):
         before = struct.unpack_from(fmt, old, offset)[0]
         after = struct.unpack_from(fmt, new, offset)[0]
         delta = after - before
-        if not 0 <= delta <= bound:
+        clock_field = name in ('mount_time', 'write_time')
+        if not (recovery_clock_rollback and clock_field) and not 0 <= delta <= bound:
             raise RuntimeError('EFS superblock counter/time exceeds maintenance bounds')
         fields[name] = {'old': before, 'new': after, 'delta': delta}
         changed += [offset+i for i in range(size) if old[offset+i] != new[offset+i]]
         masked_old[offset:offset+size] = bytes(size)
         masked_new[offset:offset+size] = bytes(size)
+    if recovery_clock_rollback:
+        mount, write = fields['mount_time'], fields['write_time']
+        if (mount['delta'] >= 0 or mount['delta'] != write['delta'] or
+                mount['new'] == 0 or write['new'] == 0 or fields['mount_count']['delta'] == 0):
+            raise RuntimeError('Expected a common backward EFS clock step with a new mount')
     if masked_old != masked_new:
         raise RuntimeError('EFS bytes changed outside the four approved superblock fields')
     if not changed:
         raise RuntimeError('No EFS superblock change; use ordinary provenance verification')
-    return {'schema': 1, 'policy': 'primary-ext4-four-fields-only-v1',
+    return {'schema': 1, 'policy': ('primary-ext4-four-fields-clock-rollback-v1' if recovery_clock_rollback
+                       else 'primary-ext4-four-fields-only-v1'),
             'changed_byte_offsets': changed, 'fields': fields,
             'all_other_bytes_sha256': hashlib.sha256(masked_old).hexdigest()}
 
@@ -875,7 +882,39 @@ def efs_checkpoint_chain(before, after, manifests, old_receipt, current):
     return {'schema': 1, 'policy': 'primary-ext4-four-fields-checkpoint-chain-v1', 'steps': proofs}
 
 
-def revalidate_efs_superblock(old_efs, new_efs, cpefs, manifest, confirm=False, intermediate_manifests=None):
+def efs_recovery_clock_proof(before, after, checkpoint_image, checkpoint_manifest, old_receipt, current):
+    """Require a pinned intermediate snapshot and a subsequent ordinary forward step."""
+    raw = read_regular(checkpoint_manifest, 1024 * 1024)
+    data = json.loads(raw)
+    model_fields(data)
+    rows = data.get('partitions', [])
+    if (data.get('complete') is not True or data['bootloader'] != old_receipt['bootloader']
+            or not isinstance(rows, list) or len(rows) != len(BACKUP_PARTITIONS)
+            or not all(isinstance(row, dict) and isinstance(row.get('name'), str) for row in rows)):
+        raise RuntimeError('Invalid recovery-clock checkpoint manifest')
+    entries = {row['name']: row for row in rows}
+    if set(entries) != BACKUP_PARTITIONS or not all(
+            type(row.get('bytes')) is int and row['bytes'] > 0
+            and isinstance(row.get('sha256'), str)
+            and re.fullmatch(r'[0-9a-f]{64}', row['sha256']) for row in entries.values()):
+        raise RuntimeError('Incomplete recovery-clock checkpoint manifest')
+    for name in ('CPEFS', 'RADIO'):
+        if any(entries[name][field] != current['source'][name][field] for field in ('bytes', 'sha256')):
+            raise RuntimeError('Recovery-clock checkpoint changed protected modem data')
+    with verified_backup_snapshot(checkpoint_image, entries['EFS']) as snapshot:
+        middle = read_regular(snapshot, entries['EFS']['bytes'])
+    rollback = efs_superblock_proof(before, middle, recovery_clock_rollback=True)
+    forward = efs_superblock_proof(middle, after)
+    for name in ('mount_count', 'lifetime_write_kib'):
+        total = rollback['fields'][name]['delta'] + forward['fields'][name]['delta']
+        if total > EFS_SUPERBLOCK_FIELDS[name][2]:
+            raise RuntimeError('Cumulative recovery-clock EFS bounds exceeded')
+    return {'schema': 1, 'policy': 'primary-ext4-recovery-clock-checkpoint-v1',
+            'checkpoint_manifest_sha256': hashlib.sha256(raw).hexdigest(),
+            'steps': [rollback, forward]}
+
+
+def revalidate_efs_superblock(old_efs, new_efs, cpefs, manifest, confirm=False, intermediate_manifests=None, *, recovery_clock_checkpoint=None):
     """Explicit provenance maintenance; never modify originals or working NV.
 
     Caller must hold the exclusive runtime lease. The old trusted image plus
@@ -883,6 +922,8 @@ def revalidate_efs_superblock(old_efs, new_efs, cpefs, manifest, confirm=False, 
     """
     if not confirm:
         raise RuntimeError('Explicit EFS superblock revalidation consent is required')
+    if intermediate_manifests and recovery_clock_checkpoint:
+        raise RuntimeError('Select one EFS checkpoint policy')
     assert_board(); assert_modem_stopped(); modem_bindings_absent(); private_state()
     receipt_path = STATE / RECEIPT_NAME
     old_bytes = launch_receipt_bytes()
@@ -909,8 +950,12 @@ def revalidate_efs_superblock(old_efs, new_efs, cpefs, manifest, confirm=False, 
     with verified_backup_snapshot(old_efs, old['source']['EFS']) as before, verified_backup_snapshot(new_efs, current['source']['EFS']) as after:
         before_bytes = read_regular(before, old['source']['EFS']['bytes'])
         after_bytes = read_regular(after, current['source']['EFS']['bytes'])
-        proof = (efs_checkpoint_chain(before_bytes, after_bytes, intermediate_manifests, old, current)
-                 if intermediate_manifests else efs_superblock_proof(before_bytes, after_bytes))
+        if recovery_clock_checkpoint:
+            proof = efs_recovery_clock_proof(before_bytes, after_bytes, *recovery_clock_checkpoint, old, current)
+        elif intermediate_manifests:
+            proof = efs_checkpoint_chain(before_bytes, after_bytes, intermediate_manifests, old, current)
+        else:
+            proof = efs_superblock_proof(before_bytes, after_bytes)
     working = validate_modem_state(old)
     radio_before = file_inventory(STATE / 'RADIO')
     preserved = preservation_inventory()

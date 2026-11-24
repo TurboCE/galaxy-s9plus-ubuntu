@@ -69,6 +69,14 @@ def main():
             if script.read_bytes() != old.read_bytes():
                 raise RuntimeError(f"Installed helper differs from reviewed source: {old}")
             commands["/" + str(script.relative_to(root))] = str(old)
+        registered = subprocess.run(
+            ["dpkg-query", "-W", "-f=${Conffiles}", PACKAGE], capture_output=True, text=True)
+        conffiles = {}
+        if registered.returncode == 0:
+            for line in registered.stdout.splitlines():
+                fields = line.split()
+                if len(fields) == 2:
+                    conffiles[fields[0]] = fields[1]
         for file in sorted(root.rglob("*")):
             if not file.is_file():
                 continue
@@ -88,7 +96,12 @@ def main():
                 if path.read_bytes() == text.encode():
                     existing.append(str(path.relative_to("/")))
                     continue
-            if expected != path.read_bytes():
+            original = path.read_bytes()
+            pristine = (
+                owner.returncode == 0
+                and hashlib.md5(original, usedforsecurity=False).hexdigest() == conffiles.get(str(path))
+            )
+            if expected != original and not pristine:
                 raise RuntimeError(f"Preserve local modification at {path}")
             existing.append(str(path.relative_to("/")))
         backup = Path(tempfile.mkdtemp(prefix=PACKAGE + "-", dir="/var/backups"))

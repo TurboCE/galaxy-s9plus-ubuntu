@@ -82,7 +82,7 @@ def stage(root):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path, help="New .deb path")
-    parser.add_argument("--version", default="1.1.0")
+    parser.add_argument("--version", default="1.2.0")
     args = parser.parse_args()
     output = args.output.resolve()
     if output.exists() or output.suffix != ".deb":

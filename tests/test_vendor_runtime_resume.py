@@ -512,6 +512,45 @@ class PrivateRuntimeTests(unittest.TestCase):
             bad=bytearray(new);bad[offset]^=1
             with self.assertRaisesRegex(RuntimeError,'outside'):vr.efs_superblock_proof(old,bad)
 
+    def test_recovery_clock_checkpoint_requires_matching_step_and_preserves_nv(self):
+        older, newer = self.prepare_superblock_change(counters={
+            'mount_time': 1010, 'write_time': 1010, 'mount_count': 6, 'lifetime_write_kib': 1002})
+        checkpoint = bytearray(older)
+        for name, value in {'mount_time': 1000, 'write_time': 1000,
+                            'mount_count': 5, 'lifetime_write_kib': 1001}.items():
+            offset, fmt, _ = vr.EFS_SUPERBLOCK_FIELDS[name]
+            struct.pack_into(fmt, checkpoint, offset, value)
+        with self.assertRaisesRegex(RuntimeError, 'bounds'):
+            vr.efs_superblock_proof(older, checkpoint)
+        bad = bytearray(checkpoint)
+        struct.pack_into('<I', bad, 0x430, 1001)
+        with self.assertRaisesRegex(RuntimeError, 'common backward'):
+            vr.efs_superblock_proof(older, bad, recovery_clock_rollback=True)
+        bad = bytearray(checkpoint)
+        bad[0x600] ^= 1
+        with self.assertRaisesRegex(RuntimeError, 'outside the four'):
+            vr.efs_superblock_proof(older, bad, recovery_clock_rollback=True)
+
+        image = self.original/'recovery-checkpoint-EFS.img'
+        manifest = self.original/'recovery-checkpoint.json'
+        image.write_bytes(checkpoint)
+        data = json.loads(self.manifest.read_text())
+        for row in data['partitions']:
+            if row['name'] == 'EFS':
+                row['sha256'] = hashlib.sha256(checkpoint).hexdigest()
+        manifest.write_text(json.dumps(data))
+        old_receipt = (self.state/vr.RECEIPT_NAME).read_bytes()
+        working = {name: vr.tree_inventory(self.state/name) for name in ('efs', 'cpefs')}
+        vr.revalidate_efs_superblock(
+            self.old_efs, self.specs['EFS'][0], self.specs['CPEFS'][0],
+            self.manifest, confirm=True, recovery_clock_checkpoint=(image, manifest))
+        receipt = vr.read_provenance()
+        history = receipt['efs_superblock_revalidations'][-1]
+        self.assertEqual(history['proof']['policy'], 'primary-ext4-recovery-clock-checkpoint-v1')
+        self.assertEqual(Path(history['old_receipt_copy']).read_bytes(), old_receipt)
+        self.assertEqual(self.specs['EFS'][0].read_bytes(), newer)
+        self.assertEqual({name: vr.tree_inventory(self.state/name) for name in ('efs','cpefs')}, working)
+
     def checkpoint_fixture(self, old, count=8, mutate=None):
         data=bytearray(old);struct.pack_into('<H',data,0x434,count)
         if mutate:mutate(data)

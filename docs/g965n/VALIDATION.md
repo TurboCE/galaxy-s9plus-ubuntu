@@ -1,5 +1,26 @@
 # SM-G965N hardware validation
 
+## 2026-11-24 — LTE 검증 기록 재검증 및 센서 복구 시험
+
+| 항목 | 실기 결과 | 범위 |
+|---|---|---|
+| LTE 출처 | 중간 백업을 통한 timestamp 역방향 이동의 명시적 오프라인 검증, 원본/working NV 보존. 기존 실행 런타임이 정확 일치 검증 통과, 재부팅 후 modem/SIM/rmnet0 생성 | 망 등록 및 실제 데이터는 별도 실측 |
+| 센서 서비스 자동 복구 | support1.2.0 부팅 후 센서 broker만 SIGTERM, 재시작1회, 약26초에 새 호출·실제 IIO7. 조도49–50 lux와 가속도 표본 확인 | 사용자 공간 실패 검증. ROM ACK0 상태에서 자동 전기적 복구는 미검증 |
+
+새 데이터 SIM(KT)은 LTE home 등록·packet attached·IPv4를 얻었습니다.
+첫 cold boot 데이터 세션은 약30초 뒤 no-carrier, IPv4 HTTPS도 timeout.
+일반 재부팅 후 rmnet0에 강제 바인드한 인증서 검증 HTTPS204와 실제
+RX25→34/TX25→39 확인. 일반 경로 Wi-Fi는 유지. 모뎀 DNS 재검증 및
+장기 안정성은 미확인입니다. 이와 별개로 실제 SSI ROM ACK0는 cold boot에서
+재현됐고 제한된 서비스 재시작으로 해결되지 않았습니다.
+
+마지막 TWRP→Ubuntu 전환 중 사용자가 한 차례 실패 및 재부팅을 관찰했습니다.
+이후 실제 Ubuntu 진입에서 hub ready를 확인했습니다. EFS는 승인 필드6 bytes
+변경만 확인해 새 읽기 전용 백업으로 외부 파티션·LTE 출처 검증을 복구했습니다.
+후속 일반 재부팅에서 센서·LTE·충전 서비스 동시 active, 실제 조도106 lux,
+rmnet0 강제 바인드 HTTPS204와 RX +7 패킷까지 확인했습니다.
+
+
 ## 2026-11-24 — 센서 복구와 패키지 재부팅
 
 | 시험 | 실기 결과 | 범위 |
