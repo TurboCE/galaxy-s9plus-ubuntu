@@ -1,5 +1,14 @@
 # SM-G965N hardware validation
 
+## 2026-11-24 — 설치된 TWRP 대조와 복귀
+
+| 항목 | 실기 결과 | 범위 |
+|---|---|---|
+| TWRP 초기화 | SSP probe 성공 뒤 LDO37 비활성화 로그, nSTANDBY low, AP_SLEEP·CS·MCU_RESP high, lhd 0 | PMIC/커널 상태 확인. 물리 전압·SPI 파형 미계측 |
+| Ubuntu 내부 복구 후보 | LDO37 ec→2c 전환 및 3초 후 2c 확인, lhd 첫 enable 후 ACK 0과 ROM SYNC 실패 | 후보 제거 및 기존 경로 복원 |
+| TWRP→Ubuntu 및 순수 Ubuntu 재부팅 | 각각 (\mathrm{IIO}) 허브 채널 7개 및 조도 97 lux·가속도·기압 실측 | 실패 자체의 자동 복구는 미검증 |
+| LTE 재확인 | EFS 승인 메타데이터 6바이트 차이의 백업 출처 갱신 후 재부팅, rmnet0 HTTPS 204 및 RX +7 | 앱 연결 및 LTE DNS·장기 안정성은 별도 |
+
 ## 2026-11-24 — SSP 응답선 및 충전 알림 실측
 
 | 항목 | 실기 결과 | 범위 |

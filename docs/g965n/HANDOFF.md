@@ -1,5 +1,17 @@
 # SM-G965N 작업 재개
 
+## 2026-11-24 — TWRP 실측에서 확인한 다음 분리 시험
+
+실제 TWRP는 LDO37 off·nSTANDBY low·AP_SLEEP high·CS high·MCU_REQ
+low·MCU_RESP high였습니다. Ubuntu의 모듈 시험은 rail off 동안 AP_SLEEP과
+CS를 low로 두고 같은 커널 안에서 rail을 다시 켠 뒤 lhd를 시작했습니다.
+두 시퀀스의 차이는 GPIO 유지 상태, rail off가 SoC 재부팅을 넘는지,
+그리고 rail을 다시 켜는 시점입니다. 다음 소프트웨어 시험에서는 실패
+상태에서 순수 Ubuntu 재부팅을 가로질러 rail off/nSTANDBY low를 유지할
+수 있는지 확인하고, vendor loader 전에 첫 LDO37 mode와 실제 SPI ACK를
+기록하세요. MCU_RESP는 종료·복구 성공 조건으로 쓰지 마세요. 현재 시험
+모듈은 제거했고, 정상 센서와 LTE는 재부팅 후 확인했습니다.
+
 ## 2026-11-24 — SPI 응답선 비교 후 재개 지점
 
 실패 부팅에서는 LDO37 켜짐 설정(0xec)과 MCU_RESP 1에도 첫 ACK가 0.

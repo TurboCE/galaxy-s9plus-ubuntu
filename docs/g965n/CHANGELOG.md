@@ -1,5 +1,37 @@
 # G965N experiments and fixes
 
+## 2026-11-24 — 설치된 TWRP와 Lineage의 SSP 초기화 비교
+
+- 설치된 RECOVERY를 읽기 전용으로 분석했습니다. 내장 커널 4.9.59에는 SSP,
+  BBD, S3C64XX SPI, S2MPS18과 BCM4773 GPS 경로가 포함되고, 램디스크에는
+  lhd 파일·서비스 선언이 없었습니다. rev26의 BCM4773은 SPI mode 3,
+  최대 25 MHz, LDO37 1.8V를 지정합니다. DTS의 LDO37에는 always-on과
+  boot-on이 없습니다. 과거 다른 star 계열의 always-on 기록을 이 이미지에
+  일반화할 수 없습니다.
+- 공개 TWRP 계열과 Lineage rev26 소스에서 SSP의 AP_SLEEP high와 mode 3
+  설정, GPS의 gpg0-2 초기 low 경로를 확인했습니다.
+  [TWRP 기기 트리](https://github.com/TeamWin/android_device_samsung_star2lte/tree/android-9.0),
+  [TWRP 계열 GPS 드라이버](https://github.com/corsicanu/android_kernel_samsung_universal9810/blob/09a6b70e03b0ce9a233cfb09be7ca71f5f53476a/drivers/gps/sec_gps_bcm47531.c),
+  [Lineage SSP 드라이버](https://github.com/LineageOS/android_kernel_samsung_exynos9810/blob/6a9461f9460ca51d1217e5069a5d5556fcc79e63/drivers/sensorhub/brcm/ssp_dev.c).
+- 실패한 Ubuntu 부팅에서 LDO37 모드를 ec→2c로 바꿔 3초 뒤까지 2c임을
+  읽었습니다. SCK/MOSI/CS/AP_SLEEP/MCU_REQ/nSTANDBY를 low로 유지했고,
+  전원을 다시 켠 뒤 첫 nSTANDBY 상승을 lhd에 맡겼습니다. MCU_RESP 1,
+  첫 16바이트 ACK 0, ROM SYNC 실패가 그대로였습니다. 시험 모듈과 override
+  제거 후 기존 경로를 복원했습니다.
+- 실제 TWRP에서 SSP probe 뒤 `vdd_mcu_1p8: disabling`을 기록했고,
+  lhd 프로세스 0, LDO37 사용 0, nSTANDBY 0, AP_SLEEP 1, CS 1,
+  MCU_REQ 0, MCU_RESP 1, SHUB_INT 0을 읽었습니다. MCU_RESP 1이 전원
+  켜짐을 뜻하지 않습니다. PMIC 상태와 GPIO 출력 래치 확인 범위입니다.
+- TWRP에서 Ubuntu 복귀 뒤 첫 standby 전 MCU_RESP 0, hub ready,
+  IIO 허브 채널 7개, 조도 97 lux·가속도·기압 표본을 확인했습니다.
+  후속 일반 부팅은 standby 전 MCU_RESP 1이었지만 동일하게 hub ready와
+  센서 7개 및 실측값이 돌아왔습니다. 따라서 이 핀 단독으로 복구 여부를
+  분기하면 정상 부팅도 오판합니다. 불량 상태에서 자동 복구는 미달입니다.
+- TWRP 복귀 뒤 EFS가 승인된 메타데이터 6바이트만 변경됐습니다. 보호된
+  읽기 전용 백업과 기존 유지보수 도구로 출처를 갱신했습니다. 후속 일반
+  부팅에서 센서와 LTE 서비스가 함께 활성화되고, rmnet0에 바인드한 인증서
+  검증 HTTPS 204와 RX +7을 확인했습니다.
+
 ## 2026-11-24 — SSP 응답선 대조 및 충전 알림음 실기 확인
 
 - #50의 정상 부팅 기록에는 hub ready, 허브 IIO 7개, 실제 조도·가속도 등
