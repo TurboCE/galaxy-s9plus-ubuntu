@@ -1,5 +1,18 @@
 # G965N experiments and fixes
 
+## 2026-11-24 — 전원 재연결 자동 부팅 실제 확인
+
+외부 전원 online0·배터리89%·모델/현재 BOOT/보호 백업 검증 후 정상 종료.
+사용자는 화면이 꺼진 채 약10초 유지 후 버튼 없이 케이블만 연결했다고 확인.
+Wi-Fi SSH 복귀·새 boot ID·동일 Ubuntu#50·기존 BOOT/보호 백업 검증 통과.
+현재 설치 BOOT 구조상 uniLoader 경유 부팅으로 판단합니다. 개별 instruction
+trace는 없으며, 충전 아이콘만 보였던 과거 실패의 원인은 여전히 미확정입니다.
+코드·설정 변경 없이 이 조건에서 자동 부팅 성공1회; 모든 충전기/배터리 상태,
+완전 배터리 전원 차단·차량 ACC 반복 동작을 보장하는 결과는 아닙니다.
+SSH/display-manager/observer/guardian/냉각/power-key active 확인. 재부팅으로
+runtime MUIC1200mA/WDT trial은 사라지고 원래 입력500mA/기본 guardian 경로입니다.
+새 부팅 후 보호 fault=false, 약37.6°C를 읽었으며 입력·충전 정책은 변경하지 않음.
+
 ## 2026-11-24 — 야간 재부팅 여부 읽기 검증
 
 14:07 KST Wi-Fi 확인: 현재 uptime 약22.05시간, 시작11/23 16:04 KST.

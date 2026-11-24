@@ -1,8 +1,31 @@
 # Vehicle agent power-on review
 
-Updated2026-11-21. Current experimental handset: SM-G965N, native48.
+Updated2026-11-24. Latest actual handset test: SM-G965N, native50.
 
-## Confirmed boundary
+## Latest actual power-attach test — 2026-11-24
+
+Normal shutdown was requested only after external input read offline and the
+model/current BOOT/protected-backup checks passed (battery89%). The owner
+confirmed the display remained off for about10s, then connected only charger
+power without touching Power. Boot text appeared; Wi-Fi SSH returned with a new
+boot ID and the same native#50. Exact installed-image/protected-backup checks
+passed again. Display manager, SSH, charging observer/guardian, cooling and power
+key services were active. No code/settings/BOOT/firmware edits were made.
+
+With the verified installed BOOT wrapper, reaching this Linux kernel establishes
+that the boot chain containing uniLoader ran; no individual instruction/entry
+trace was captured. In this tested condition **USB power-attach boot already
+works**. The older charging-icon-only report remains unexplained. One successful
+battery-backed shutdown/reattach is not all-charger, depleted-battery, physical
+battery-removal or vehicle ACC-cycle qualification. No new automatic-boot patch
+was necessary for this trial.
+
+Runtime-only MUIC higher-input and hardware-WDT trials vanished on reboot as
+expected. The original500mA input/default guardian path remained, not the whole
+pre-reboot trial configuration. No charging/protection setting was restored or
+changed during this read-only-code/settings investigation.
+
+## Historical boundary — 2026-11-21, native48
 
 The owner reports that connecting USB power to the powered-off handset does
 not boot Ubuntu. Power-on-after-USB is **not supported/qualified** by this
@@ -41,7 +64,7 @@ cannot execute before this boot chain starts Ubuntu. Likewise, an Android
 The absence of charging arguments in the current mainline cmdline cannot
 diagnose an off-mode attempt because the shim uses its embedded DT.
 
-## Next actual test
+## Further physical qualification
 
 Physical observation is required before a change can be selected:
 
@@ -57,8 +80,8 @@ Physical observation is required before a change can be selected:
    otherwise recover with the physical Power key. Repeat with the intended
    vehicle adapter after a PC-USB baseline, since supply behavior may differ.
 
-No automated shutdown or cold-attach test has been run by this review. No
-builder flashes devices. Preserve RECOVERY/EFS/CPEFS/RADIO and do not update or
+The earlier review had not run a cold-attach test; the successful#50 test is
+recorded above. No builder flashes devices. Preserve RECOVERY/EFS/CPEFS/RADIO and do not update or
 relock Samsung bootloaders. If the stock early path never enters the shim, an
 Ubuntu startup setting alone cannot solve it; investigate the supported early
 path before considering a separate power-key controller.
